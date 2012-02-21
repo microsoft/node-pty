@@ -1,0 +1,13 @@
+{
+  "name": "pty.js",
+  "description": "Pseudo terminals for node.",
+  "author": "Christopher Jeffrey",
+  "version": "0.0.1",
+  "main": "./index.js",
+  "scripts": { "install": "make" },
+  "repository": "git://github.com/chjj/pty.js.git",
+  "homepage": "https://github.com/chjj/pty.js",
+  "bugs": { "url": "https://github.com/chjj/pty.js/issues" },
+  "keywords": [ "pty", "tty", "terminal" ],
+  "tags": [ "pty", "tty", "terminal" ]
+}
