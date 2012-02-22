@@ -35,6 +35,14 @@
 #include <utmp.h> /* login_tty */
 #include <termios.h> /* tcgetattr, tty_ioctl */
 
+// environ for execvpe
+#ifdef __APPLE__
+  #include <crt_externs.h>
+  #define environ (*_NSGetEnviron())
+#else
+extern char **environ;
+#endif
+
 using namespace std;
 using namespace node;
 using namespace v8;
