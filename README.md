@@ -36,7 +36,6 @@ term.write('ls /\r');
 
 - Add tsetattr(3), tcgetattr(3).
 - Add a way of determining the current foreground job.
-- Add cwd option.
 
 ## License
 
