@@ -13,9 +13,15 @@ This is useful for:
 ## Example Usage
 
 ``` js
-var Terminal = require('pty');
+var Terminal = require('pty.js');
 
-var term = new Terminal('bash', 'xterm-color', 80, 30);
+var term = new Terminal('bash', ['-i'], {
+  name: 'xterm-color',
+  cols: 80,
+  rows: 30,
+  cwd: process.env.HOME,
+  env: { HELLO: 'WORLD' }
+});
 
 term.on('data', function(data) {
   console.log(data);
@@ -25,6 +31,12 @@ term.write('ls\r');
 term.resize(100, 40);
 term.write('ls /\r');
 ```
+
+## Todo
+
+- Add tsetattr(3), tcgetattr(3).
+- Add a way of determining the current foreground job.
+- Add cwd option.
 
 ## License
 

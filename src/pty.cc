@@ -41,42 +41,86 @@ using namespace v8;
 
 static Handle<Value> PtyFork(const Arguments&);
 static Handle<Value> PtyResize(const Arguments&);
+static int pty_execvpe(const char *file, char **argv, char **envp);
 static int pty_nonblock(int fd);
 extern "C" void init(Handle<Object>);
 
 static Handle<Value> PtyFork(const Arguments& args) {
   HandleScope scope;
 
-  char *argv[] = { "sh", NULL };
-
-  if (args.Length() > 0) {
-    if (!args[0]->IsString()) {
-      return ThrowException(Exception::Error(
-        String::New("First argument must be a string.")));
-    }
-    String::Utf8Value file(args[0]->ToString());
-    argv[0] = strdup(*file);
+  if (args.Length() < 6) {
+    return ThrowException(Exception::Error(
+      String::New("Not enough arguments.")));
   }
 
+  if (!args[0]->IsString()) {
+    return ThrowException(Exception::Error(
+      String::New("file must be a string.")));
+  }
+
+  if (!args[1]->IsArray()) {
+    return ThrowException(Exception::Error(
+      String::New("args must be an array.")));
+  }
+
+  if (!args[2]->IsArray()) {
+    return ThrowException(Exception::Error(
+      String::New("env must be an array.")));
+  }
+
+  if (!args[3]->IsString()) {
+    return ThrowException(Exception::Error(
+      String::New("cwd must be a string.")));
+  }
+
+  if (!args[4]->IsNumber() || !args[5]->IsNumber()) {
+    return ThrowException(Exception::Error(
+      String::New("cols and rows must be numbers.")));
+  }
+
+  // node/src/node_child_process.cc
+
+  // file
+  String::Utf8Value file(args[0]->ToString());
+
+  // args
+  int i = 0;
+  Local<Array> argv_ = Local<Array>::Cast(args[1]);
+  int argc = argv_->Length();
+  int argl = argc + 1 + 1;
+  char **argv = new char*[argl];
+  argv[0] = strdup(*file);
+  argv[argl-1] = NULL;
+  for (; i < argc; i++) {
+    String::Utf8Value arg(argv_->Get(Integer::New(i))->ToString());
+    argv[i+1] = strdup(*arg);
+  }
+
+  // env
+  i = 0;
+  Local<Array> env_ = Local<Array>::Cast(args[2]);
+  int envc = env_->Length();
+  char **env = new char*[envc+1];
+  env[envc] = NULL;
+  for (; i < envc; i++) {
+    String::Utf8Value pair(env_->Get(Integer::New(i))->ToString());
+    env[i] = strdup(*pair);
+  }
+
+  // cwd
+  String::Utf8Value cwd_(args[3]->ToString());
+  char *cwd = strdup(*cwd_);
+
+  // size
   struct winsize winp = {};
-  winp.ws_col = 80;
-  winp.ws_row = 30;
+  Local<Integer> cols = args[4]->ToInteger();
+  Local<Integer> rows = args[5]->ToInteger();
+  winp.ws_col = cols->Value();
+  winp.ws_row = rows->Value();
 
-  if (args.Length() == 4) {
-    if (args[2]->IsNumber() && args[3]->IsNumber()) {
-      Local<Integer> cols = args[2]->ToInteger();
-      Local<Integer> rows = args[3]->ToInteger();
-
-      winp.ws_col = cols->Value();
-      winp.ws_row = rows->Value();
-    } else {
-      return ThrowException(Exception::Error(
-        String::New("cols and rows need to be numbers.")));
-    }
-  }
-
+  // fork the pty
   int master;
-  char name[80]; // this should be more than enough
+  char name[40];
   pid_t pid = forkpty(&master, name, NULL, &winp);
 
   switch (pid) {
@@ -84,20 +128,23 @@ static Handle<Value> PtyFork(const Arguments& args) {
       return ThrowException(Exception::Error(
         String::New("forkpty failed.")));
     case 0:
-      if (args.Length() > 1 && args[1]->IsString()) {
-        String::Utf8Value term(args[1]->ToString());
-        setenv("TERM", strdup(*term), 1);
-      } else {
-        setenv("TERM", "vt100", 1);
-      }
+      if (strlen(cwd)) chdir(cwd);
 
-      chdir(getenv("HOME"));
-
-      execvp(argv[0], argv);
+      pty_execvpe(argv[0], argv, env);
 
       perror("execvp failed");
       _exit(1);
     default:
+      // cleanup
+      for (i = 0; i < argl; i++) free(argv[i]);
+      delete[] argv;
+
+      for (i = 0; i < envc; i++) free(env[i]);
+      delete[] env;
+
+      free(cwd);
+
+      // nonblocking
       if (pty_nonblock(master) == -1) {
         return ThrowException(Exception::Error(
           String::New("Could not set master fd to nonblocking.")));
@@ -106,7 +153,7 @@ static Handle<Value> PtyFork(const Arguments& args) {
       Local<Object> obj = Object::New();
       obj->Set(String::New("fd"), Number::New(master));
       obj->Set(String::New("pid"), Number::New(pid));
-      obj->Set(String::New("name"), String::New(name));
+      obj->Set(String::New("pty"), String::New(name));
 
       return scope.Close(obj);
   }
@@ -154,12 +201,26 @@ static Handle<Value> PtyResize(const Arguments& args) {
 }
 
 /**
+ * execvpe
+ */
+
+// execvpe(3) is not portable.
+// http://www.gnu.org/software/gnulib/manual/html_node/execvpe.html
+
+static int pty_execvpe(const char *file, char **argv, char **envp) {
+  char **old = environ;
+  environ = envp;
+  int ret = execvp(file, argv);
+  environ = old;
+  return ret;
+}
+
+/**
  * FD to nonblocking
  */
 
 static int pty_nonblock(int fd) {
   int flags = fcntl(fd, F_GETFL, 0);
-  if (flags & O_NONBLOCK) return 0;
   if (flags == -1) return -1;
   return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
