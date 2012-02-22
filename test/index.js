@@ -22,3 +22,6 @@ setTimeout(function() {
     process.exit(0);
   }, 200);
 }, 200);
+
+// assert static constructor works
+assert.equal(Terminal('sh', [], { name: 'test' }).name, 'test');

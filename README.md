@@ -13,9 +13,9 @@ This is useful for:
 ## Example Usage
 
 ``` js
-var Terminal = require('pty.js');
+var spawn = require('pty.js');
 
-var term = new Terminal('bash', ['-i'], {
+var term = spawn('bash', ['-i'], {
   name: 'xterm-color',
   cols: 80,
   rows: 30,
