@@ -263,7 +263,7 @@ PtyGetProc(const Arguments& args) {
   char *name = pty_getproc(fd, tty);
 
   if (name == NULL) {
-    return scope.Close(String::New(tty));
+    return Undefined();
   }
 
   return scope.Close(String::New(name));
