@@ -1,12 +1,16 @@
 /**
- * pty.cc
- * This file is responsible for starting processes
- * with pseudo-terminal file descriptors.
+ * pty.js
+ * Copyright (c) 2012, Christopher Jeffrey (MIT License)
  *
- * man pty
- * man tty_ioctl
- * man tcsetattr
- * man forkpty
+ * pty.cc:
+ *   This file is responsible for starting processes
+ *   with pseudo-terminal file descriptors.
+ *
+ * See:
+ *   man pty
+ *   man tty_ioctl
+ *   man tcsetattr
+ *   man forkpty
  */
 
 #include <v8.h>
@@ -23,22 +27,22 @@
 /* forkpty */
 /* http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html */
 #if defined(__GLIBC__) || defined(__CYGWIN__)
-  #include <pty.h>
+#include <pty.h>
 #elif defined(__APPLE__) || defined(__OpenBSD__) || defined(__NetBSD__)
-  #include <util.h>
+#include <util.h>
 #elif defined(__FreeBSD__)
-  #include <libutil.h>
+#include <libutil.h>
 #else
-  #include <pty.h>
+#include <pty.h>
 #endif
 
 #include <utmp.h> /* login_tty */
 #include <termios.h> /* tcgetattr, tty_ioctl */
 
 /* environ for execvpe */
-#ifdef __APPLE__
-  #include <crt_externs.h>
-  #define environ (*_NSGetEnviron())
+#if defined(__APPLE__)
+#include <crt_externs.h>
+#define environ (*_NSGetEnviron())
 #else
 extern char **environ;
 #endif
@@ -56,15 +60,33 @@ using namespace std;
 using namespace node;
 using namespace v8;
 
-static Handle<Value> PtyFork(const Arguments&);
-static Handle<Value> PtyResize(const Arguments&);
-static Handle<Value> PtyGetProc(const Arguments&);
-static int pty_execvpe(const char *file, char **argv, char **envp);
-static int pty_nonblock(int fd);
-static char *pty_getproc(int, char *);
-extern "C" void init(Handle<Object>);
+static Handle<Value>
+PtyFork(const Arguments&);
 
-static Handle<Value> PtyFork(const Arguments& args) {
+static Handle<Value>
+PtyResize(const Arguments&);
+
+static Handle<Value>
+PtyGetProc(const Arguments&);
+
+static int
+pty_execvpe(const char *, char **, char **);
+
+static int
+pty_nonblock(int);
+
+static char *
+pty_getproc(int, char *);
+
+extern "C" void
+init(Handle<Object>);
+
+/**
+ * PtyFork
+ */
+
+static Handle<Value>
+PtyFork(const Arguments& args) {
   HandleScope scope;
 
   if (args.Length() < 6) {
@@ -181,10 +203,11 @@ static Handle<Value> PtyFork(const Arguments& args) {
 }
 
 /**
- * Expose Resize Functionality
+ * Resize Functionality
  */
 
-static Handle<Value> PtyResize(const Arguments& args) {
+static Handle<Value>
+PtyResize(const Arguments& args) {
   HandleScope scope;
 
   if (args.Length() > 0 && !args[0]->IsNumber()) {
@@ -220,10 +243,11 @@ static Handle<Value> PtyResize(const Arguments& args) {
 }
 
 /**
- * Get Foreground Process Name
+ * Foreground Process Name
  */
 
-static Handle<Value> PtyGetProc(const Arguments& args) {
+static Handle<Value>
+PtyGetProc(const Arguments& args) {
   HandleScope scope;
 
   if (args.Length() != 2) {
@@ -251,7 +275,8 @@ static Handle<Value> PtyGetProc(const Arguments& args) {
 
 // execvpe(3) is not portable.
 // http://www.gnu.org/software/gnulib/manual/html_node/execvpe.html
-static int pty_execvpe(const char *file, char **argv, char **envp) {
+static int
+pty_execvpe(const char *file, char **argv, char **envp) {
   char **old = environ;
   environ = envp;
   int ret = execvp(file, argv);
@@ -260,10 +285,11 @@ static int pty_execvpe(const char *file, char **argv, char **envp) {
 }
 
 /**
- * FD to nonblocking
+ * Nonblocking FD
  */
 
-static int pty_nonblock(int fd) {
+static int
+pty_nonblock(int fd) {
   int flags = fcntl(fd, F_GETFL, 0);
   if (flags == -1) return -1;
   return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
@@ -271,6 +297,7 @@ static int pty_nonblock(int fd) {
 
 /**
  * pty_getproc
+ * Taken from tmux.
  */
 
 // Taken from: tmux (http://tmux.sourceforge.net/)
@@ -352,7 +379,7 @@ pty_getproc(int fd, char *tty) {
     return NULL;
   }
 
-  return (strdup(kp.kp_proc.p_comm));
+  return strdup(kp.kp_proc.p_comm);
 }
 
 #else
@@ -368,7 +395,8 @@ pty_getproc(int fd, char *tty) {
  * Init
  */
 
-extern "C" void init(Handle<Object> target) {
+extern "C" void
+init(Handle<Object> target) {
   HandleScope scope;
   NODE_SET_METHOD(target, "fork", PtyFork);
   NODE_SET_METHOD(target, "resize", PtyResize);
