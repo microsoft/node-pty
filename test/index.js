@@ -3,9 +3,9 @@
  */
 
 var assert = require('assert');
-var Terminal = require('pty.js');
+var pty = require('pty.js');
 
-var term = new Terminal('sh', [], { name: 'vt100' });
+var term = pty.fork('sh', [], { name: 'vt100' });
 
 var buff = '';
 
@@ -25,4 +25,4 @@ setTimeout(function() {
 }, 200);
 
 // assert static constructor works
-assert.equal(Terminal('sh', [], { name: 'test' }).name, 'test');
+assert.equal(pty.fork('sh', [], { name: 'test' }).name, 'test');

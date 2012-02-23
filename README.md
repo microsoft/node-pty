@@ -13,9 +13,9 @@ This is useful for:
 ## Example Usage
 
 ``` js
-var spawn = require('pty.js');
+var pty = require('pty.js');
 
-var term = spawn('bash', ['-i'], {
+var term = pty.spawn('bash', ['-i'], {
   name: 'xterm-color',
   cols: 80,
   rows: 30,
