@@ -35,12 +35,21 @@
 #include <utmp.h> /* login_tty */
 #include <termios.h> /* tcgetattr, tty_ioctl */
 
-// environ for execvpe
+/* environ for execvpe */
 #ifdef __APPLE__
   #include <crt_externs.h>
   #define environ (*_NSGetEnviron())
 #else
 extern char **environ;
+#endif
+
+/* for pty_getproc */
+#if defined(__GLIBC__)
+#include <stdio.h>
+#include <stdint.h>
+#elif defined(__APPLE__)
+#include <sys/sysctl.h>
+#include <libproc.h>
 #endif
 
 using namespace std;
@@ -49,8 +58,10 @@ using namespace v8;
 
 static Handle<Value> PtyFork(const Arguments&);
 static Handle<Value> PtyResize(const Arguments&);
+static Handle<Value> PtyGetProc(const Arguments&);
 static int pty_execvpe(const char *file, char **argv, char **envp);
 static int pty_nonblock(int fd);
+static char *pty_getproc(int, char *);
 extern "C" void init(Handle<Object>);
 
 static Handle<Value> PtyFork(const Arguments& args) {
@@ -209,12 +220,37 @@ static Handle<Value> PtyResize(const Arguments& args) {
 }
 
 /**
+ * Get Foreground Process Name
+ */
+
+static Handle<Value> PtyGetProc(const Arguments& args) {
+  HandleScope scope;
+
+  if (args.Length() != 2) {
+    return ThrowException(Exception::Error(
+      String::New("Bad arguments.")));
+  }
+
+  int fd = args[0]->ToInteger()->Value();
+
+  String::Utf8Value tty_(args[1]->ToString());
+  char *tty = strdup(*tty_);
+
+  char *name = pty_getproc(fd, tty);
+
+  if (name == NULL) {
+    return scope.Close(String::New(tty));
+  }
+
+  return scope.Close(String::New(name));
+}
+
+/**
  * execvpe
  */
 
 // execvpe(3) is not portable.
 // http://www.gnu.org/software/gnulib/manual/html_node/execvpe.html
-
 static int pty_execvpe(const char *file, char **argv, char **envp) {
   char **old = environ;
   environ = envp;
@@ -234,6 +270,101 @@ static int pty_nonblock(int fd) {
 }
 
 /**
+ * pty_getproc
+ */
+
+// Taken from: tmux (http://tmux.sourceforge.net/)
+// Copyright (c) 2009 Joshua Elsasser <josh@elsasser.org>
+//
+// Permission to use, copy, modify, and distribute this software for any
+// purpose with or without fee is hereby granted, provided that the above
+// copyright notice and this permission notice appear in all copies.
+//
+// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+// WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+// ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+// WHATSOEVER RESULTING FROM LOSS OF MIND, USE, DATA OR PROFITS, WHETHER
+// IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+// OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+#if defined(__GLIBC__)
+
+static char *
+pty_getproc(int fd, char *tty) {
+  FILE *f;
+  char *path, *buf;
+  size_t len;
+  int ch;
+  pid_t pgrp;
+  int r;
+
+  if ((pgrp = tcgetpgrp(fd)) == -1) {
+    return NULL;
+  }
+
+  r = asprintf(&path, "/proc/%lld/cmdline", (long long)pgrp);
+  if (r == -1 || path == NULL) return NULL;
+
+  if ((f = fopen(path, "r")) == NULL) {
+    free(path);
+    return NULL;
+  }
+
+  free(path);
+
+  len = 0;
+  buf = NULL;
+  while ((ch = fgetc(f)) != EOF) {
+    if (ch == '\0') break;
+    //if (SIZE_MAX < len + 2) return NULL;
+    buf = (char *)realloc(buf, len + 2);
+    if (buf == NULL) return NULL;
+    buf[len++] = ch;
+  }
+
+  if (buf != NULL) {
+    buf[len] = '\0';
+  }
+
+  fclose(f);
+  return buf;
+}
+
+#elif defined(__APPLE__)
+
+static char *
+pty_getproc(int fd, char *tty) {
+  int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, 0 };
+  size_t size;
+  struct kinfo_proc kp;
+
+  if ((mib[3] = tcgetpgrp(fd)) == -1) {
+    return NULL;
+  }
+
+  size = sizeof kp;
+  if (sysctl(mib, 4, &kp, &size, NULL, 0) == -1) {
+    return NULL;
+  }
+
+  if (*kp.kp_proc.p_comm == '\0') {
+    return NULL;
+  }
+
+  return (strdup(kp.kp_proc.p_comm));
+}
+
+#else
+
+static char *
+pty_getproc(int fd, char *tty) {
+  return NULL;
+}
+
+#endif
+
+/**
  * Init
  */
 
@@ -241,4 +372,5 @@ extern "C" void init(Handle<Object> target) {
   HandleScope scope;
   NODE_SET_METHOD(target, "fork", PtyFork);
   NODE_SET_METHOD(target, "resize", PtyResize);
+  NODE_SET_METHOD(target, "process", PtyGetProc);
 }

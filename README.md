@@ -7,8 +7,8 @@ and writes.
 This is useful for:
 
 - Writing a terminal emulator.
-- Getting certain programs to *think* you're a terminal. This way
-  they're willing to send you escape codes.
+- Getting certain programs to *think* you're a terminal. This is useful if
+  you need a program to send you control sequences.
 
 ## Example Usage
 
@@ -30,12 +30,15 @@ term.on('data', function(data) {
 term.write('ls\r');
 term.resize(100, 40);
 term.write('ls /\r');
+
+console.log(term.getProcessName());
 ```
 
 ## Todo
 
-- Add tsetattr(3), tcgetattr(3).
-- Add a way of determining the current foreground job.
+- Add tcsetattr(3), tcgetattr(3).
+- Add a way of determining the current foreground job for platforms other
+  than Linux and OSX/Darwin.
 
 ## License
 
