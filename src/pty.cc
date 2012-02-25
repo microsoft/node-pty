@@ -300,6 +300,7 @@ pty_nonblock(int fd) {
  */
 
 // Taken from: tmux (http://tmux.sourceforge.net/)
+// Copyright (c) 2009 Nicholas Marriott <nicm@users.sourceforge.net>
 // Copyright (c) 2009 Joshua Elsasser <josh@elsasser.org>
 //
 // Permission to use, copy, modify, and distribute this software for any
