@@ -164,6 +164,14 @@ PtyFork(const Arguments& args) {
   char name[40];
   pid_t pid = forkpty(&master, name, NULL, &winp);
 
+  if (pid) {
+    for (i = 0; i < argl; i++) free(argv[i]);
+    delete[] argv;
+    for (i = 0; i < envc; i++) free(env[i]);
+    delete[] env;
+    free(cwd);
+  }
+
   switch (pid) {
     case -1:
       return ThrowException(Exception::Error(
@@ -176,15 +184,6 @@ PtyFork(const Arguments& args) {
       perror("execvp failed");
       _exit(1);
     default:
-      // cleanup
-      for (i = 0; i < argl; i++) free(argv[i]);
-      delete[] argv;
-
-      for (i = 0; i < envc; i++) free(env[i]);
-      delete[] env;
-
-      free(cwd);
-
       // nonblocking
       if (pty_nonblock(master) == -1) {
         return ThrowException(Exception::Error(
@@ -210,7 +209,7 @@ static Handle<Value>
 PtyResize(const Arguments& args) {
   HandleScope scope;
 
-  if (args.Length() > 0 && !args[0]->IsNumber()) {
+  if (args.Length() < 1 || !args[0]->IsNumber()) {
     return ThrowException(Exception::Error(
       String::New("First argument must be a number.")));
   }
