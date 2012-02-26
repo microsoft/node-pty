@@ -31,7 +31,7 @@ term.write('ls\r');
 term.resize(100, 40);
 term.write('ls /\r');
 
-console.log(term.getProcessName());
+console.log(term.process);
 ```
 
 ## Todo

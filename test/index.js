@@ -19,7 +19,7 @@ setTimeout(function() {
 
   setTimeout(function() {
     assert.equal(buff.substring(0, 19), 'echo "$TERM"\r\nvt100');
-    assert.equal(term.getProcessName(), 'cat');
+    assert.equal(term.process, 'cat');
     console.log('Completed successfully.');
     process.exit(0);
   }, 200);
