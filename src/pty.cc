@@ -306,7 +306,9 @@ static Handle<Value>
 PtyGetProc(const Arguments& args) {
   HandleScope scope;
 
-  if (args.Length() != 2) {
+  if (args.Length() < 2
+      || !args[0]->IsNumber()
+      || !args[1]->IsString()) {
     return ThrowException(Exception::Error(
       String::New("Bad arguments.")));
   }
@@ -403,7 +405,6 @@ pty_getproc(int fd, char *tty) {
   buf = NULL;
   while ((ch = fgetc(f)) != EOF) {
     if (ch == '\0') break;
-    //if (SIZE_MAX < len + 2) return NULL;
     buf = (char *)realloc(buf, len + 2);
     if (buf == NULL) return NULL;
     buf[len++] = ch;
