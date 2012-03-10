@@ -11,7 +11,6 @@
  *   man tty_ioctl
  *   man tcsetattr
  *   man forkpty
- *   man openpty
  */
 
 #include <v8.h>
@@ -81,45 +80,6 @@ pty_getproc(int, char *);
 
 extern "C" void
 init(Handle<Object>);
-
-static Handle<Value>
-PtyOpen(const Arguments& args) {
-  HandleScope scope;
-  if (!args[0]->IsNumber() || !args[1]->IsNumber()) {
-    return ThrowException(Exception::Error(
-      String::New("cols and rows must be numbers.")));
-  }
-
-  // size
-  struct winsize winp = {};
-  Local<Integer> cols = args[0]->ToInteger();
-  Local<Integer> rows = args[1]->ToInteger();
-  winp.ws_col = cols->Value();
-  winp.ws_row = rows->Value();
-
-  // open the pty
-  int master;
-  int slave;
-  char name[40];
-  pid_t pid = openpty(&master, &slave, name, NULL, &winp);
-  //login_tty(slave);
-
-  if (pty_nonblock(master) == -1) {
-    return ThrowException(Exception::Error(
-      String::New("Could not set master fd to nonblocking.")));
-  }
-  if (pty_nonblock(slave) == -1) {
-    return ThrowException(Exception::Error(
-      String::New("Could not set slave fd to nonblocking.")));
-  }
-
-  Local<Object> obj = Object::New();
-  obj->Set(String::New("fdm"), Number::New(master));
-  obj->Set(String::New("fds"), Number::New(slave));
-  obj->Set(String::New("ptyname"), String::New(name));
-
-  return scope.Close(obj);
-}
 
 /**
  * PtyFork
@@ -440,7 +400,6 @@ pty_getproc(int fd, char *tty) {
 extern "C" void
 init(Handle<Object> target) {
   HandleScope scope;
-  NODE_SET_METHOD(target, "open", PtyOpen);
   NODE_SET_METHOD(target, "fork", PtyFork);
   NODE_SET_METHOD(target, "resize", PtyResize);
   NODE_SET_METHOD(target, "process", PtyGetProc);
