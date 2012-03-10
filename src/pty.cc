@@ -64,6 +64,9 @@ static Handle<Value>
 PtyFork(const Arguments&);
 
 static Handle<Value>
+PtyOpen(const Arguments&);
+
+static Handle<Value>
 PtyResize(const Arguments&);
 
 static Handle<Value>
@@ -200,6 +203,60 @@ PtyFork(const Arguments& args) {
 
   return Undefined();
 }
+
+/**
+ * PtyOpen
+ */
+
+static Handle<Value>
+PtyOpen(const Arguments& args) {
+  HandleScope scope;
+
+  if (args.Length() < 2) {
+    return ThrowException(Exception::Error(
+      String::New("Not enough arguments.")));
+  }
+
+  if (!args[0]->IsNumber() || !args[1]->IsNumber()) {
+    return ThrowException(Exception::Error(
+      String::New("cols and rows must be numbers.")));
+  }
+
+  // size
+  struct winsize winp = {};
+  Local<Integer> cols = args[0]->ToInteger();
+  Local<Integer> rows = args[1]->ToInteger();
+  winp.ws_col = cols->Value();
+  winp.ws_row = rows->Value();
+
+  // pty
+  int master, slave;
+  char name[40];
+  int ret = openpty(&master, &slave, name, NULL, &winp);
+
+  if (ret == -1) {
+    return ThrowException(Exception::Error(
+      String::New("openpty failed.")));
+  }
+
+  if (pty_nonblock(master) == -1) {
+    return ThrowException(Exception::Error(
+      String::New("Could not set master fd to nonblocking.")));
+  }
+
+  if (pty_nonblock(slave) == -1) {
+    return ThrowException(Exception::Error(
+      String::New("Could not set master fd to nonblocking.")));
+  }
+
+  Local<Object> obj = Object::New();
+  obj->Set(String::New("master"), Number::New(master));
+  obj->Set(String::New("slave"), Number::New(slave));
+  obj->Set(String::New("pty"), String::New(name));
+
+  return scope.Close(obj);
+}
+
 
 /**
  * Resize Functionality
@@ -401,6 +458,7 @@ extern "C" void
 init(Handle<Object> target) {
   HandleScope scope;
   NODE_SET_METHOD(target, "fork", PtyFork);
+  NODE_SET_METHOD(target, "open", PtyOpen);
   NODE_SET_METHOD(target, "resize", PtyResize);
   NODE_SET_METHOD(target, "process", PtyGetProc);
 }
