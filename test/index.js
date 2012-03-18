@@ -3,7 +3,7 @@
  */
 
 var assert = require('assert');
-var pty = require('pty.js');
+var pty = require('../');
 
 var term = pty.fork('sh', [], { name: 'vt100' });
 
