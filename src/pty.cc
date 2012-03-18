@@ -156,7 +156,7 @@ PtyFork(const Arguments& args) {
   char *cwd = strdup(*cwd_);
 
   // size
-  struct winsize winp = {};
+  struct winsize winp;
   Local<Integer> cols = args[4]->ToInteger();
   Local<Integer> rows = args[5]->ToInteger();
   winp.ws_col = cols->Value();
@@ -223,7 +223,7 @@ PtyOpen(const Arguments& args) {
   }
 
   // size
-  struct winsize winp = {};
+  struct winsize winp;
   Local<Integer> cols = args[0]->ToInteger();
   Local<Integer> rows = args[1]->ToInteger();
   winp.ws_col = cols->Value();
@@ -271,7 +271,7 @@ PtyResize(const Arguments& args) {
       String::New("First argument must be a number.")));
   }
 
-  struct winsize winp = {};
+  struct winsize winp;
   winp.ws_col = 80;
   winp.ws_row = 30;
 
