@@ -9,12 +9,12 @@ gyp:
 	node-gyp build
 
 clean:
-	@type node-gyp > /dev/null 2>&1 && make clean-waf || make clean-gyp
+	@type node-gyp > /dev/null 2>&1 && make clean-gyp || make clean-waf
 
 clean-waf:
 	@rm -rf ./build .lock-wscript
 
 clean-gyp:
-	@type node-gyp > /dev/null && node-gyp clean 2>/dev/null
+	@node-gyp clean 2>/dev/null
 
 .PHONY: all waf gyp clean clean-waf clean-gyp
