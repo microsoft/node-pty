@@ -9,7 +9,7 @@
  * See:
  *   man pty
  *   man tty_ioctl
- *   man tcsetattr
+ *   man termios
  *   man forkpty
  */
 
@@ -40,6 +40,7 @@
 #include <termios.h> /* tcgetattr, tty_ioctl */
 
 /* environ for execvpe */
+/* node/src/node_child_process.cc */
 #if defined(__APPLE__) && !defined(TARGET_OS_IPHONE)
 #include <crt_externs.h>
 #define environ (*_NSGetEnviron())
@@ -161,6 +162,8 @@ PtyFork(const Arguments& args) {
   Local<Integer> rows = args[5]->ToInteger();
   winp.ws_col = cols->Value();
   winp.ws_row = rows->Value();
+  winp.ws_xpixel = 0;
+  winp.ws_ypixel = 0;
 
   // fork the pty
   int master;
@@ -212,14 +215,11 @@ static Handle<Value>
 PtyOpen(const Arguments& args) {
   HandleScope scope;
 
-  if (args.Length() < 2) {
+  if (args.Length() < 2
+      || !args[0]->IsNumber()
+      || !args[1]->IsNumber()) {
     return ThrowException(Exception::Error(
-      String::New("Not enough arguments.")));
-  }
-
-  if (!args[0]->IsNumber() || !args[1]->IsNumber()) {
-    return ThrowException(Exception::Error(
-      String::New("cols and rows must be numbers.")));
+      String::New("Bad arguments.")));
   }
 
   // size
@@ -228,6 +228,8 @@ PtyOpen(const Arguments& args) {
   Local<Integer> rows = args[1]->ToInteger();
   winp.ws_col = cols->Value();
   winp.ws_row = rows->Value();
+  winp.ws_xpixel = 0;
+  winp.ws_ypixel = 0;
 
   // pty
   int master, slave;
@@ -275,12 +277,14 @@ PtyResize(const Arguments& args) {
   }
 
   int fd = args[0]->ToInteger()->Value();
-  Local<Integer> cols = args[1]->ToInteger();
-  Local<Integer> rows = args[2]->ToInteger();
 
   struct winsize winp;
+  Local<Integer> cols = args[1]->ToInteger();
+  Local<Integer> rows = args[2]->ToInteger();
   winp.ws_col = cols->Value();
   winp.ws_row = rows->Value();
+  winp.ws_xpixel = 0;
+  winp.ws_ypixel = 0;
 
   if (ioctl(fd, TIOCSWINSZ, &winp) == -1) {
     return ThrowException(Exception::Error(

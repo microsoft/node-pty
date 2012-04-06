@@ -15,12 +15,12 @@ This is useful for:
 ``` js
 var pty = require('pty.js');
 
-var term = pty.spawn('bash', ['-i'], {
+var term = pty.spawn('bash', [], {
   name: 'xterm-color',
   cols: 80,
   rows: 30,
   cwd: process.env.HOME,
-  env: { HELLO: 'WORLD' }
+  env: process.env
 });
 
 term.on('data', function(data) {
