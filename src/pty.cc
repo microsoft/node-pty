@@ -40,7 +40,7 @@
 #include <termios.h> /* tcgetattr, tty_ioctl */
 
 /* environ for execvpe */
-#if defined(__APPLE__)
+#if defined(__APPLE__) && !defined(TARGET_OS_IPHONE)
 #include <crt_externs.h>
 #define environ (*_NSGetEnviron())
 #else
@@ -246,7 +246,7 @@ PtyOpen(const Arguments& args) {
 
   if (pty_nonblock(slave) == -1) {
     return ThrowException(Exception::Error(
-      String::New("Could not set master fd to nonblocking.")));
+      String::New("Could not set slave fd to nonblocking.")));
   }
 
   Local<Object> obj = Object::New();
@@ -266,29 +266,21 @@ static Handle<Value>
 PtyResize(const Arguments& args) {
   HandleScope scope;
 
-  if (args.Length() < 1 || !args[0]->IsNumber()) {
+  if (args.Length() < 3
+      || !args[0]->IsNumber()
+      || !args[1]->IsNumber()
+      || !args[2]->IsNumber()) {
     return ThrowException(Exception::Error(
-      String::New("First argument must be a number.")));
+      String::New("Bad arguments.")));
   }
-
-  struct winsize winp;
-  winp.ws_col = 80;
-  winp.ws_row = 30;
 
   int fd = args[0]->ToInteger()->Value();
+  Local<Integer> cols = args[1]->ToInteger();
+  Local<Integer> rows = args[2]->ToInteger();
 
-  if (args.Length() == 3) {
-    if (args[1]->IsNumber() && args[2]->IsNumber()) {
-      Local<Integer> cols = args[1]->ToInteger();
-      Local<Integer> rows = args[2]->ToInteger();
-
-      winp.ws_col = cols->Value();
-      winp.ws_row = rows->Value();
-    } else {
-      return ThrowException(Exception::Error(
-        String::New("cols and rows need to be numbers.")));
-    }
-  }
+  struct winsize winp;
+  winp.ws_col = cols->Value();
+  winp.ws_row = rows->Value();
 
   if (ioctl(fd, TIOCSWINSZ, &winp) == -1) {
     return ThrowException(Exception::Error(
