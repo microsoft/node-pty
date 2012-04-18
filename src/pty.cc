@@ -32,6 +32,8 @@
 #include <util.h>
 #elif defined(__FreeBSD__)
 #include <libutil.h>
+#elif defined(__sun)
+#include <stropts.h> /* for I_PUSH */
 #else
 #include <pty.h>
 #endif
@@ -81,6 +83,16 @@ pty_nonblock(int);
 
 static char *
 pty_getproc(int, char *);
+
+static int
+pty_openpty(int *, int *, char *,
+            const struct termios *,
+            const struct winsize *);
+
+static pid_t
+pty_forkpty(int *, char *,
+            const struct termios *,
+            const struct winsize *);
 
 extern "C" void
 init(Handle<Object>);
@@ -168,7 +180,7 @@ PtyFork(const Arguments& args) {
   // fork the pty
   int master;
   char name[40];
-  pid_t pid = forkpty(&master, name, NULL, &winp);
+  pid_t pid = pty_forkpty(&master, name, NULL, &winp);
 
   if (pid) {
     for (i = 0; i < argl; i++) free(argv[i]);
@@ -234,7 +246,7 @@ PtyOpen(const Arguments& args) {
   // pty
   int master, slave;
   char name[40];
-  int ret = openpty(&master, &slave, name, NULL, &winp);
+  int ret = pty_openpty(&master, &slave, name, NULL, &winp);
 
   if (ret == -1) {
     return ThrowException(Exception::Error(
@@ -446,6 +458,93 @@ pty_getproc(int fd, char *tty) {
 }
 
 #endif
+
+/**
+ * openpty(3) / forkpty(3)
+ */
+
+static int
+pty_openpty(int *amaster, int *aslave, char *name,
+            const struct termios *termp,
+            const struct winsize *winp) {
+#if defined(__sun)
+  int master = open("/dev/ptmx", O_RDWR | O_NOCTTY);
+  if (master == -1) return -1;
+  if (amaster) *amaster = master;
+
+  if (grantpt(master) == -1) goto err;
+  if (unlockpt(master) == -1) goto err;
+
+  char *slave_name = ptsname(master);
+  if (slave_name == NULL) goto err;
+  if (name) strcpy(name, slave_name);
+
+  int slave = open(slave_name, O_RDWR | O_NOCTTY);
+  if (slave == -1) goto err;
+  if (aslave) *aslave = slave;
+
+  if (termp) tcsetattr(slave, TCSAFLUSH, termp);
+  if (winp) ioctl(slave, TIOCSWINSZ, winp);
+
+  ioctl(slave, I_PUSH, "ptem");
+  ioctl(slave, I_PUSH, "ldterm");
+  ioctl(slave, I_PUSH, "ttcompat");
+
+  return 0;
+
+err:
+  close(master);
+  return -1;
+#else
+  return openpty(amaster, aslave, name, termp, winp);
+#endif
+}
+
+static pid_t
+pty_forkpty(int *amaster, char *name,
+            const struct termios *termp,
+            const struct winsize *winp) {
+#if defined(__sun)
+  int master, slave;
+
+  int ret = pty_openpty(&master, &slave, name, termp, winp);
+  if (ret == -1) return -1;
+  if (amaster) *amaster = master;
+
+  pid_t pid = fork();
+
+  switch (pid) {
+    case -1:
+      close(master);
+      close(slave);
+      return -1;
+    case 0:
+      close(master);
+
+      setsid();
+
+#if defined(TIOCSCTTY)
+      // glibc does this
+      if (ioctl(slave, TIOCSCTTY, NULL) == -1) _exit(1);
+#endif
+
+      dup2(slave, 0);
+      dup2(slave, 1);
+      dup2(slave, 2);
+
+      if (slave > 2) close(slave);
+
+      return 0;
+    default:
+      close(slave);
+      return pid;
+  }
+
+  return -1;
+#else
+  return forkpty(amaster, name, termp, winp);
+#endif
+}
 
 /**
  * Init
