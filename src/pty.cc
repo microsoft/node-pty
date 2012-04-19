@@ -51,7 +51,7 @@ extern char **environ;
 #endif
 
 /* for pty_getproc */
-#if defined(__GLIBC__)
+#if defined(__linux__)
 #include <stdio.h>
 #include <stdint.h>
 #elif defined(__APPLE__)
@@ -384,7 +384,7 @@ pty_nonblock(int fd) {
 // IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 // OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#if defined(__GLIBC__)
+#if defined(__linux__)
 
 static char *
 pty_getproc(int fd, char *tty) {
