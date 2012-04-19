@@ -283,7 +283,7 @@ PtyResize(const Arguments& args) {
       String::New("Bad arguments.")));
   }
 
-  int fd = args[0]->ToInteger()->Value();
+  int fd = args[0]->IntegerValue();
 
   struct winsize winp;
   winp.ws_col = args[1]->IntegerValue();
@@ -314,7 +314,7 @@ PtyGetProc(const Arguments& args) {
       String::New("Bad arguments.")));
   }
 
-  int fd = args[0]->ToInteger()->Value();
+  int fd = args[0]->IntegerValue();
 
   String::Utf8Value tty_(args[1]->ToString());
   char *tty = strdup(*tty_);
