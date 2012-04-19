@@ -169,10 +169,8 @@ PtyFork(const Arguments& args) {
 
   // size
   struct winsize winp;
-  Local<Integer> cols = args[4]->ToInteger();
-  Local<Integer> rows = args[5]->ToInteger();
-  winp.ws_col = cols->Value();
-  winp.ws_row = rows->Value();
+  winp.ws_col = args[4]->IntegerValue();
+  winp.ws_row = args[5]->IntegerValue();
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
@@ -235,10 +233,8 @@ PtyOpen(const Arguments& args) {
 
   // size
   struct winsize winp;
-  Local<Integer> cols = args[0]->ToInteger();
-  Local<Integer> rows = args[1]->ToInteger();
-  winp.ws_col = cols->Value();
-  winp.ws_row = rows->Value();
+  winp.ws_col = args[0]->IntegerValue();
+  winp.ws_row = args[1]->IntegerValue();
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
@@ -290,10 +286,8 @@ PtyResize(const Arguments& args) {
   int fd = args[0]->ToInteger()->Value();
 
   struct winsize winp;
-  Local<Integer> cols = args[1]->ToInteger();
-  Local<Integer> rows = args[2]->ToInteger();
-  winp.ws_col = cols->Value();
-  winp.ws_row = rows->Value();
+  winp.ws_col = args[1]->IntegerValue();
+  winp.ws_row = args[2]->IntegerValue();
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
