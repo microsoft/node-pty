@@ -98,40 +98,22 @@ init(Handle<Object>);
 
 /**
  * PtyFork
+ * pty.fork(file, args, env, cwd, cols, rows)
  */
 
 static Handle<Value>
 PtyFork(const Arguments& args) {
   HandleScope scope;
 
-  if (args.Length() < 6) {
+  if (args.Length() != 6
+      || !args[0]->IsString()
+      || !args[1]->IsArray()
+      || !args[2]->IsArray()
+      || !args[3]->IsString()
+      || !args[4]->IsNumber()
+      || !args[5]->IsNumber()) {
     return ThrowException(Exception::Error(
-      String::New("Not enough arguments.")));
-  }
-
-  if (!args[0]->IsString()) {
-    return ThrowException(Exception::Error(
-      String::New("file must be a string.")));
-  }
-
-  if (!args[1]->IsArray()) {
-    return ThrowException(Exception::Error(
-      String::New("args must be an array.")));
-  }
-
-  if (!args[2]->IsArray()) {
-    return ThrowException(Exception::Error(
-      String::New("env must be an array.")));
-  }
-
-  if (!args[3]->IsString()) {
-    return ThrowException(Exception::Error(
-      String::New("cwd must be a string.")));
-  }
-
-  if (!args[4]->IsNumber() || !args[5]->IsNumber()) {
-    return ThrowException(Exception::Error(
-      String::New("cols and rows must be numbers.")));
+      String::New("Usage: pty.fork(file, args, env, cwd, cols, rows)")));
   }
 
   // node/src/node_child_process.cc
@@ -190,16 +172,15 @@ PtyFork(const Arguments& args) {
   switch (pid) {
     case -1:
       return ThrowException(Exception::Error(
-        String::New("forkpty failed.")));
+        String::New("forkpty(3) failed.")));
     case 0:
       if (strlen(cwd)) chdir(cwd);
 
       pty_execvpe(argv[0], argv, env);
 
-      perror("execvp failed");
+      perror("execvp(3) failed.");
       _exit(1);
     default:
-      // nonblocking
       if (pty_nonblock(master) == -1) {
         return ThrowException(Exception::Error(
           String::New("Could not set master fd to nonblocking.")));
@@ -218,17 +199,18 @@ PtyFork(const Arguments& args) {
 
 /**
  * PtyOpen
+ * pty.open(cols, rows)
  */
 
 static Handle<Value>
 PtyOpen(const Arguments& args) {
   HandleScope scope;
 
-  if (args.Length() < 2
+  if (args.Length() != 2
       || !args[0]->IsNumber()
       || !args[1]->IsNumber()) {
     return ThrowException(Exception::Error(
-      String::New("Bad arguments.")));
+      String::New("Usage: pty.open(cols, rows)")));
   }
 
   // size
@@ -245,7 +227,7 @@ PtyOpen(const Arguments& args) {
 
   if (ret == -1) {
     return ThrowException(Exception::Error(
-      String::New("openpty failed.")));
+      String::New("openpty(3) failed.")));
   }
 
   if (pty_nonblock(master) == -1) {
@@ -269,18 +251,19 @@ PtyOpen(const Arguments& args) {
 
 /**
  * Resize Functionality
+ * pty.resize(fd, cols, rows)
  */
 
 static Handle<Value>
 PtyResize(const Arguments& args) {
   HandleScope scope;
 
-  if (args.Length() < 3
+  if (args.Length() != 3
       || !args[0]->IsNumber()
       || !args[1]->IsNumber()
       || !args[2]->IsNumber()) {
     return ThrowException(Exception::Error(
-      String::New("Bad arguments.")));
+      String::New("Usage: pty.resize(fd, cols, rows)")));
   }
 
   int fd = args[0]->IntegerValue();
@@ -293,25 +276,27 @@ PtyResize(const Arguments& args) {
 
   if (ioctl(fd, TIOCSWINSZ, &winp) == -1) {
     return ThrowException(Exception::Error(
-      String::New("ioctl failed.")));
+      String::New("ioctl(2) failed.")));
   }
 
   return Undefined();
 }
 
 /**
+ * PtyGetProc
  * Foreground Process Name
+ * pty.process(fd, tty)
  */
 
 static Handle<Value>
 PtyGetProc(const Arguments& args) {
   HandleScope scope;
 
-  if (args.Length() < 2
+  if (args.Length() != 2
       || !args[0]->IsNumber()
       || !args[1]->IsString()) {
     return ThrowException(Exception::Error(
-      String::New("Bad arguments.")));
+      String::New("Usage: pty.process(fd, tty)")));
   }
 
   int fd = args[0]->IntegerValue();
