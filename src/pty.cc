@@ -38,7 +38,6 @@
 #include <pty.h>
 #endif
 
-#include <utmp.h> /* login_tty */
 #include <termios.h> /* tcgetattr, tty_ioctl */
 
 /* environ for execvpe */
