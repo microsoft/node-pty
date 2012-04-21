@@ -448,10 +448,11 @@ static char *
 pty_getproc(int fd, char *tty) {
   struct psinfo p;
   struct stat st;
-  char *path;
+  char path[60];
   ssize_t bytes;
   int f;
   pid_t pgrp;
+  int r;
 
   if ((f = open(tty, O_RDONLY)) == -1) {
     return NULL;
@@ -464,13 +465,10 @@ pty_getproc(int fd, char *tty) {
 
   close(f);
 
-  path = (char *)malloc(200);
-  if (path == NULL) return NULL;
-  int r = sprintf(path, "/proc/%u/psinfo", (u_int)pgrp);
+  r = snprintf(path, sizeof(path), "/proc/%u/psinfo", (unsigned int)pgrp);
   if (r == -1) return NULL;
 
   f = open(path, O_RDONLY);
-  free(path);
   if (f == -1) return NULL;
 
   bytes = read(f, &p, sizeof(p));
@@ -513,7 +511,7 @@ pty_getproc(int fd, char *tty) {
   struct stat sb;
   size_t len;
   struct kinfo_proc *buf, *newbuf, *bestp;
-  u_int i;
+  unsigned int i;
   char *name;
 
   buf = NULL;
