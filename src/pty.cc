@@ -464,8 +464,10 @@ pty_getproc(int fd, char *tty) {
 
   close(f);
 
-  int r = asprintf(&path, "/proc/%u/psinfo", (u_int)pgrp);
-  if (r == -1 || path == NULL) return NULL;
+  path = (char *)malloc(200);
+  if (path == NULL) return NULL;
+  int r = sprintf(path, "/proc/%u/psinfo", (u_int)pgrp);
+  if (r == -1) return NULL;
 
   f = open(path, O_RDONLY);
   free(path);
@@ -486,6 +488,7 @@ pty_getproc(int fd, char *tty) {
 
 #define is_runnable(p) \
   ((p)->ki_stat == SRUN || (p)->ki_stat == SIDL)
+
 #define is_stopped(p) \
   ((p)->ki_stat == SSTOP || (p)->ki_stat == SZOMB)
 
