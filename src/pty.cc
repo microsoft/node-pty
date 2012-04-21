@@ -489,27 +489,20 @@ pty_getproc(int fd, char *tty) {
 #define is_stopped(p) \
   ((p)->ki_stat == SSTOP || (p)->ki_stat == SZOMB)
 
-static struct kinfo_proc *
-pty__cmp_procs(struct kinfo_proc *p1, struct kinfo_proc *p2) {
-  if (is_runnable(p1) && !is_runnable(p2)) return p1;
-  if (!is_runnable(p1) && is_runnable(p2)) return p2;
-
-  if (is_stopped(p1) && !is_stopped(p2)) return p1;
-  if (!is_stopped(p1) && is_stopped(p2)) return p2;
-
-  if (p1->ki_estcpu > p2->ki_estcpu) return p1;
-  if (p1->ki_estcpu < p2->ki_estcpu) return p2;
-
-  if (p1->ki_slptime < p2->ki_slptime) return p1;
-  if (p1->ki_slptime > p2->ki_slptime) return p2;
-
-  if (strcmp(p1->ki_comm, p2->ki_comm) < 0) return p1;
-  if (strcmp(p1->ki_comm, p2->ki_comm) > 0) return p2;
-
-  if (p1->ki_pid > p2->ki_pid) return p1;
-
-  return p2;
-}
+#define cmp_procs(p1, p2) \
+  ( ((p2) == NULL) ? (p1) \
+  : (is_runnable((p1)) && !is_runnable((p2))) ? (p1) \
+  : (!is_runnable((p1)) && is_runnable((p2))) ? (p2) \
+  : (is_stopped((p1)) && !is_stopped((p2))) ? (p1) \
+  : (!is_stopped((p1)) && is_stopped((p2))) ? (p2) \
+  : ((p1)->ki_estcpu > (p2)->ki_estcpu) ? (p1) \
+  : ((p1)->ki_estcpu < (p2)->ki_estcpu) ? (p2) \
+  : ((p1)->ki_slptime < (p2)->ki_slptime) ? (p1) \
+  : ((p1)->ki_slptime > (p2)->ki_slptime) ? (p2) \
+  : (strcmp((p1)->ki_comm, (p2)->ki_comm) < 0) ? (p1) \
+  : (strcmp((p1)->ki_comm, (p2)->ki_comm) > 0) ? (p2) \
+  : ((p1)->ki_pid > (p2)->ki_pid) ? (p1) \
+  : (p2))
 
 static char *
 pty_getproc(int fd, char *tty) {
@@ -542,9 +535,7 @@ retry:
   bestp = NULL;
   for (i = 0; i < len / sizeof(struct kinfo_proc); i++) {
     if (buf[i].ki_tdev != sb.st_rdev) continue;
-    bestp = bestp != NULL
-      ? pty__cmp_procs(&buf[i], bestp)
-      : &buf[i];
+    bestp = cmp_procs(&buf[i], bestp);
   }
 
   name = NULL;
