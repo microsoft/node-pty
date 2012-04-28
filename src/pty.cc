@@ -57,7 +57,6 @@ extern char **environ;
 #include <sys/sysctl.h>
 #include <libproc.h>
 #elif defined(__sun)
-#include <event.h>
 #include <procfs.h>
 #include <stdio.h>
 #elif defined(__FreeBSD__)
@@ -67,7 +66,6 @@ extern char **environ;
 #include <sys/user.h>
 #include <err.h>
 #include <errno.h>
-#include <event.h>
 #include <stdint.h>
 #endif
 
