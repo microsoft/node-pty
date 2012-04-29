@@ -56,17 +56,6 @@ extern char **environ;
 #elif defined(__APPLE__)
 #include <sys/sysctl.h>
 #include <libproc.h>
-#elif defined(__sun)
-#include <procfs.h>
-#include <stdio.h>
-#elif defined(__FreeBSD__)
-#include <sys/param.h>
-#include <sys/proc.h>
-#include <sys/sysctl.h>
-#include <sys/user.h>
-#include <err.h>
-#include <errno.h>
-#include <stdint.h>
 #endif
 
 using namespace std;
@@ -438,114 +427,6 @@ pty_getproc(int fd, char *tty) {
   }
 
   return strdup(kp.kp_proc.p_comm);
-}
-
-#elif defined(__sun)
-
-static char *
-pty_getproc(int fd, char *tty) {
-  struct psinfo p;
-  struct stat st;
-  char path[60];
-  ssize_t bytes;
-  int f;
-  pid_t pgrp;
-  int r;
-
-  if ((f = open(tty, O_RDONLY)) == -1) {
-    return NULL;
-  }
-
-  if (fstat(f, &st) != 0 || ioctl(f, TIOCGPGRP, &pgrp) != 0) {
-    close(f);
-    return NULL;
-  }
-
-  close(f);
-
-  r = snprintf(path, sizeof(path), "/proc/%u/psinfo", (unsigned int)pgrp);
-  if (r == -1) return NULL;
-
-  f = open(path, O_RDONLY);
-  if (f == -1) return NULL;
-
-  bytes = read(f, &p, sizeof(p));
-  close(f);
-  if (bytes != sizeof(p)) return NULL;
-
-  if (p.pr_ttydev != st.st_rdev) return NULL;
-
-  return strdup(p.pr_fname);
-}
-
-#elif defined(__FreeBSD__)
-
-#define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
-
-#define is_runnable(p) \
-  ((p)->ki_stat == SRUN || (p)->ki_stat == SIDL)
-
-#define is_stopped(p) \
-  ((p)->ki_stat == SSTOP || (p)->ki_stat == SZOMB)
-
-#define cmp_procs(p1, p2) \
-  ( ((p2) == NULL) ? (p1) \
-  : (is_runnable((p1)) && !is_runnable((p2))) ? (p1) \
-  : (!is_runnable((p1)) && is_runnable((p2))) ? (p2) \
-  : (is_stopped((p1)) && !is_stopped((p2))) ? (p1) \
-  : (!is_stopped((p1)) && is_stopped((p2))) ? (p2) \
-  : ((p1)->ki_estcpu > (p2)->ki_estcpu) ? (p1) \
-  : ((p1)->ki_estcpu < (p2)->ki_estcpu) ? (p2) \
-  : ((p1)->ki_slptime < (p2)->ki_slptime) ? (p1) \
-  : ((p1)->ki_slptime > (p2)->ki_slptime) ? (p2) \
-  : (strcmp((p1)->ki_comm, (p2)->ki_comm) < 0) ? (p1) \
-  : (strcmp((p1)->ki_comm, (p2)->ki_comm) > 0) ? (p2) \
-  : ((p1)->ki_pid > (p2)->ki_pid) ? (p1) \
-  : (p2))
-
-static char *
-pty_getproc(int fd, char *tty) {
-  int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PGRP, 0 };
-  struct stat sb;
-  size_t len;
-  struct kinfo_proc *buf, *newbuf, *bestp;
-  unsigned int i;
-  char *name;
-
-  buf = NULL;
-
-  if (stat(tty, &sb) == -1) return NULL;
-  if ((mib[3] = tcgetpgrp(fd)) == -1) return NULL;
-
-retry:
-  if (sysctl(mib, nitems(mib), NULL, &len, NULL, 0) == -1) {
-    return NULL;
-  }
-
-  len = (len * 5) / 4;
-  if ((newbuf = realloc(buf, len)) == NULL) goto error;
-  buf = newbuf;
-
-  if (sysctl(mib, nitems(mib), buf, &len, NULL, 0) == -1) {
-    if (errno == ENOMEM) goto retry;
-    goto error;
-  }
-
-  bestp = NULL;
-  for (i = 0; i < len / sizeof(struct kinfo_proc); i++) {
-    if (buf[i].ki_tdev != sb.st_rdev) continue;
-    bestp = cmp_procs(&buf[i], bestp);
-  }
-
-  name = NULL;
-  if (bestp != NULL) name = strdup(bestp->ki_comm);
-
-  free(buf);
-  return name;
-
-error:
-  free(buf);
-  return NULL;
 }
 
 #else
