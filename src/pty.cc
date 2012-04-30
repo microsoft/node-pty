@@ -475,7 +475,7 @@ err:
   close(master);
   return -1;
 #else
-  return openpty(amaster, aslave, name, termp, winp);
+  return openpty(amaster, aslave, name, (termios *)termp, (winsize *)winp);
 #endif
 }
 
@@ -521,7 +521,7 @@ pty_forkpty(int *amaster, char *name,
 
   return -1;
 #else
-  return forkpty(amaster, name, termp, winp);
+  return forkpty(amaster, name, (termios *)termp, (winsize *)winp);
 #endif
 }
 
