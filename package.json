@@ -8,5 +8,8 @@
   "homepage": "https://github.com/chjj/pty.js",
   "bugs": { "url": "https://github.com/chjj/pty.js/issues" },
   "keywords": [ "pty", "tty", "terminal" ],
+  "scripts": {
+    "test": "node test"
+  },
   "tags": [ "pty", "tty", "terminal" ]
 }

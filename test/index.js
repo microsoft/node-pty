@@ -5,25 +5,48 @@
 var assert = require('assert');
 var pty = require('../');
 
-var term = pty.fork('sh', [], { name: 'vt100' });
+var term = pty.fork(process.execPath, [ 'child-test.js' ], { cwd: __dirname });
 
-var buff = '';
+// any output is considered failure. this is only a workaround
+// until the actual error code is passed through
+var count = 0;
+term.on('data', function (data) {
+  count++;
+});
 
-// avoid the first bytes output
-setTimeout(function() {
-  term.write('echo "$TERM"\r');
-  term.write('cat\r');
-  term.on('data', function(data) {
-    buff += data;
-  });
+// pipe output to our stderr
+term.pipe(process.stderr);
 
-  setTimeout(function() {
-    assert.equal(buff.substring(0, 19), 'echo "$TERM"\r\nvt100');
-    assert.equal(term.process, 'cat');
-    console.log('Completed successfully.');
-    process.exit(0);
-  }, 200);
-}, 200);
+// make sure 'file' gets set properly
+assert.equal(term.file, process.execPath);
 
-// assert static constructor works
-assert.equal(pty.fork('sh', [], { name: 'test' }).name, 'test');
+// wait 1 second for node to spawn, and do its initial checks
+setTimeout(function () {
+
+  // test resize()
+  term.resize(100, 100);
+
+  // test writing unicode data
+  term.write('☃');
+
+  term.end();
+
+}, 1000);
+
+var gotTermExit = false;
+term.on('exit', function (code) {
+  gotTermExit = true;
+  // TODO: ensure exit code is 0
+  if (count) {
+    process.exit(1);
+  }
+});
+
+process.on('exit', function (code) {
+  assert.equal(gotTermExit, true);
+  if (code) {
+    console.error('Tests FAILED');
+  } else {
+    console.error('Tests PASSED');
+  }
+});
