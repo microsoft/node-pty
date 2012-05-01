@@ -45,8 +45,8 @@ term.on('exit', function (code) {
 process.on('exit', function (code) {
   assert.equal(gotTermExit, true);
   if (code) {
-    console.error('\nTests FAILED');
+    console.error('Tests FAILED');
   } else {
-    console.error('\nTests PASSED');
+    console.error('Tests PASSED');
   }
 });
