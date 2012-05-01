@@ -462,12 +462,12 @@ pty_openpty(int *amaster, int *aslave, char *name,
   if (slave == -1) goto err;
   if (aslave) *aslave = slave;
 
-  if (termp) tcsetattr(slave, TCSAFLUSH, termp);
-  if (winp) ioctl(slave, TIOCSWINSZ, winp);
-
   ioctl(slave, I_PUSH, "ptem");
   ioctl(slave, I_PUSH, "ldterm");
   ioctl(slave, I_PUSH, "ttcompat");
+
+  if (termp) tcsetattr(slave, TCSAFLUSH, termp);
+  if (winp) ioctl(slave, TIOCSWINSZ, winp);
 
   return 0;
 
