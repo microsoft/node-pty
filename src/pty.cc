@@ -248,7 +248,6 @@ PtyOpen(const Arguments& args) {
   return scope.Close(obj);
 }
 
-
 /**
  * Resize Functionality
  * pty.resize(fd, cols, rows)
