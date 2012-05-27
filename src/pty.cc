@@ -157,7 +157,7 @@ PtyFork(const Arguments& args) {
   winp.ws_ypixel = 0;
 
   // fork the pty
-  int master;
+  int master = -1;
   char name[40];
   pid_t pid = pty_forkpty(&master, name, NULL, &winp);
 
