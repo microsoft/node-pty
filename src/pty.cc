@@ -447,6 +447,8 @@ pty_openpty(int *amaster, int *aslave, char *name,
             const struct termios *termp,
             const struct winsize *winp) {
 #if defined(__sun)
+  char *slave_name;
+  int slave;
   int master = open("/dev/ptmx", O_RDWR | O_NOCTTY);
   if (master == -1) return -1;
   if (amaster) *amaster = master;
@@ -454,11 +456,11 @@ pty_openpty(int *amaster, int *aslave, char *name,
   if (grantpt(master) == -1) goto err;
   if (unlockpt(master) == -1) goto err;
 
-  char *slave_name = ptsname(master);
+  slave_name = ptsname(master);
   if (slave_name == NULL) goto err;
   if (name) strcpy(name, slave_name);
 
-  int slave = open(slave_name, O_RDWR | O_NOCTTY);
+  slave = open(slave_name, O_RDWR | O_NOCTTY);
   if (slave == -1) goto err;
   if (aslave) *aslave = slave;
 
