@@ -306,8 +306,6 @@ WINPTY_API winpty_t *winpty_open(int cols, int rows)
         return NULL;
     }
 
-	fprintf(stdout,"Successfully connected to named pipes\n");
-
     // Close handles to the background desktop and restore the original window
     // station.  This must wait until we know the agent is running -- if we
     // close these handles too soon, then the desktop and windowstation will be

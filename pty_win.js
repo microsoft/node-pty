@@ -4,6 +4,6 @@ var pty = require('./build/Release/pty.node'),
 var term = pty.fork('test123', [], [], "C:\\", 80, 30);
 console.log("Forked new terminal", term);
 
-net.socket(term.dataPipe, function() {
+net.connect(term.dataPipe, function() {
 	console.log("connected to terminal data pipe");
 });
