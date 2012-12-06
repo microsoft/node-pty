@@ -538,3 +538,5 @@ init(Handle<Object> target) {
   NODE_SET_METHOD(target, "resize", PtyResize);
   NODE_SET_METHOD(target, "process", PtyGetProc);
 }
+
+NODE_MODULE(pty, init)
