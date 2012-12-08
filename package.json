@@ -6,10 +6,23 @@
   "main": "./index.js",
   "repository": "git://github.com/chjj/pty.js.git",
   "homepage": "https://github.com/chjj/pty.js",
-  "bugs": { "url": "https://github.com/chjj/pty.js/issues" },
-  "keywords": [ "pty", "tty", "terminal" ],
-  "scripts": {
-    "test": "node test"
+  "bugs": {
+    "url": "https://github.com/chjj/pty.js/issues"
   },
-  "tags": [ "pty", "tty", "terminal" ]
+  "keywords": [
+    "pty",
+    "tty",
+    "terminal"
+  ],
+  "scripts": {
+    "test": "NODE_ENV=test mocha -R spec"
+  },
+  "tags": [
+    "pty",
+    "tty",
+    "terminal"
+  ],
+  "devDependencies": {
+    "mocha": "~1.7.1"
+  }
 }

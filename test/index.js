@@ -1,52 +1,51 @@
-/**
- * pty.js test
- */
-
 var assert = require('assert');
 var pty = require('../');
+var mocha = require('mocha');
 
-var term = pty.fork(process.execPath, [ 'child-test.js' ], { cwd: __dirname });
-
-// any output is considered failure. this is only a workaround
-// until the actual error code is passed through
-var count = 0;
-term.on('data', function (data) {
-  count++;
-});
-
-// pipe output to our stderr
-term.pipe(process.stderr);
-
-// make sure 'file' gets set properly
-assert.equal(term.file, process.execPath);
-
-// wait 1 second for node to spawn, and do its initial checks
-setTimeout(function () {
-
-  // test resize()
-  term.resize(100, 100);
-
-  // test writing unicode data
-  term.write('☃');
-
-  term.end();
-
-}, 1000);
-
-var gotTermExit = false;
-term.on('exit', function (code) {
-  gotTermExit = true;
-  // TODO: ensure exit code is 0
-  if (count) {
-    process.exit(1);
+var tests = [
+  {
+    name: 'should be correctly setup',
+    command: [ 'children/void.js' ],
+    options: { cwd: __dirname },
+    test: function () {
+      assert.equal(this.file, process.execPath);
+    }
+  }, {
+    name: 'should support stdin',
+    command: [ 'children/stdin.js' ],
+    options: { cwd: __dirname },
+    test: function () {
+      this.write('☃');
+    }
+  }, {
+    name: 'should support resize',
+    command: [ 'children/resize.js' ],
+    options: { cwd: __dirname },
+    test: function () {
+      this.resize(100, 100);
+    }
   }
-});
+];
 
-process.on('exit', function (code) {
-  assert.equal(gotTermExit, true);
-  if (code) {
-    console.error('Tests FAILED');
-  } else {
-    console.error('Tests PASSED');
-  }
+describe('Pty', function() {
+  tests.forEach(function (testCase) {
+    it(testCase.name, function (done) {
+      var term = pty.fork(process.execPath, testCase.command, testCase.options);
+      term.pipe(process.stderr);
+
+      // any output is considered failure. this is only a workaround
+      // until the actual error code is passed through
+      var count = 0;
+      term.on('data', function (data) {
+        count++;
+      });
+      term.on('exit', function () {
+        assert.equal(count, 0);
+        done();
+      });
+
+      // Wait for pty to be ready
+      setTimeout(testCase.test.bind(term), 1000);
+    });
+  });
 });
