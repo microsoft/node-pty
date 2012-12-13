@@ -98,30 +98,6 @@ static Handle<Value> PtyOpen(const Arguments& args) {
 	return scope.Close(obj);
 }
 
-/*
-* PtyAwait
-* pty.await(ms, callback)
-*/
-
-
-Handle<Value> PtySleep(const Arguments& args) {
-  HandleScope scope;
-
-  if (args.Length() != 1
-		|| !args[0]->IsNumber()) // controlPipe
-	{
-	  return ThrowException(Exception::Error(
-				String::New("Usage: pty.await(ms, callback)")));
-  }
-
-  int ms = (int) args[0]->Int32Value();
-
-  Sleep(ms);
-
-  return scope.Close(Undefined());
-
-}
-
 /**
 * Init
 */
@@ -129,7 +105,6 @@ Handle<Value> PtySleep(const Arguments& args) {
 extern "C" void init(Handle<Object> target) {
 	HandleScope scope;
 	NODE_SET_METHOD(target, "open", PtyOpen);
-	NODE_SET_METHOD(target, "sleep", PtySleep);
 };
 
 NODE_MODULE(pty, init);
