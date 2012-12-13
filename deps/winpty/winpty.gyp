@@ -63,20 +63,6 @@
 				'shared/DebugClient.h',
 				'shared/DebugClient.cc'
 			]
-		},
-		{
-			'target_name' : 'debug-server',
-			'type' : 'executable',
-			'defines' : [
-				'UNICODE',
-				'_UNICODE',
-			],
-			'include_dirs' : [
-				'shared'
-			],
-			'sources' : [
-				'shared/DebugServer.c',				
-			]
 		}
 	]
 }

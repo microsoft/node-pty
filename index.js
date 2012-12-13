@@ -1,1 +1,1 @@
-module.exports = require('./lib/pty.js');
+module.exports = require('./lib/pty_win.js');

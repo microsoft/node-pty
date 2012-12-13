@@ -20,8 +20,7 @@
 		],
 		'dependencies' : [
 			'deps/winpty/winpty.gyp:agent',
-			'deps/winpty/winpty.gyp:libwinpty',
-			'deps/winpty/winpty.gyp:debug-server',
+			'deps/winpty/winpty.gyp:libwinpty'
 		],
 		'sources' : [
 			'deps/winpty/include/winpty.h',

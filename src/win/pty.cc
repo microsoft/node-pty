@@ -22,21 +22,9 @@ using namespace node;
 
 extern "C" void init(Handle<Object>);
 
-/**
-* Conversion
-*/
-template <typename dataType>
-void GetBuffer(dataType &ref, Local<Object> buff){
-	if (Buffer::HasInstance(buff)) {
-		ref = reinterpret_cast<dataType>(Buffer::Data(buff));
-	}
-}
-
-/**
-* Globals
-*/
 static winpty_t *agentPty;
 static volatile LONG ptyCounter;
+
 
 /*
 *  WinPTY
@@ -55,160 +43,82 @@ winpty_s::winpty_s() : controlPipe(NULL), dataPipe(NULL)
 {
 }
 
-static bool connectNamedPipe(HANDLE handle, bool overlapped)
-{
-    OVERLAPPED over, *pover = NULL;
-    if (overlapped) {
-        pover = &over;
-        memset(&over, 0, sizeof(over));
-        over.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-        assert(over.hEvent != NULL);
-    }
-    bool success = ConnectNamedPipe(handle, pover);
-    if (overlapped && !success && GetLastError() == ERROR_IO_PENDING) {
-        DWORD actual;
-        success = GetOverlappedResult(handle, pover, &actual, TRUE);
-    }
-    if (!success && GetLastError() == ERROR_PIPE_CONNECTED)
-        success = TRUE;
-    if (overlapped)
-        CloseHandle(over.hEvent);
-    return success;
-}
-
 /**
-* PtyFork
-* pty.fork(file, args, env, cwd, cols, rows)
+* Helpers
 */
-
-static Handle<Value> PtyFork(const Arguments& args) {
-	HandleScope scope;
-
-	if (args.Length() != 6
-		|| !args[0]->IsString()
-		|| !args[1]->IsArray()
-		|| !args[2]->IsArray()
-		|| !args[3]->IsString()
-		|| !args[4]->IsNumber()
-		|| !args[5]->IsNumber()) {
-			return ThrowException(Exception::Error(
-				String::New("Usage: pty.fork(file, args, env, cwd, cols, rows)")));
-	}
-
-	// Cols, rows
-	int rows = (int) args[4]->Int32Value();
-	int cols = (int) args[5]->Int32Value();
-
-	// Start the agent process
-	agentPty = winpty_open(rows, cols);
-	
-	// Error occured during startup of agent process
-	if(agentPty == NULL) {
-		return ThrowException(Exception::Error(String::New("Unable to start agent process")));
-	}
-	
-	// Filename
-	String::Utf8Value file(args[0]->ToString());
-
-	// Arguments
-	int i = 0;
-	Local<Array> argv_ = Local<Array>::Cast(args[1]);
-	int argc = argv_->Length();
-	int argl = argc + 1 + 1;
-	char **argv = new char*[argl];
-	argv[0] = strdup(*file);
-	argv[argl-1] = NULL;
-	for (; i < argc; i++) {
-		String::Utf8Value arg(argv_->Get(Integer::New(i))->ToString());
-		argv[i+1] = strdup(*arg);
-	}
-
-	// Environment
-	i = 0;
-	Local<Array> env_ = Local<Array>::Cast(args[2]);
-	int envc = env_->Length();
-	char **env = new char*[envc+1];
-	env[envc] = NULL;
-	for (; i < envc; i++) {
-		String::Utf8Value pair(env_->Get(Integer::New(i))->ToString());
-		env[i] = strdup(*pair);
-	}
-
-	// Check if starting a new pty was successfull
-	int ret = winpty_start_process(agentPty, L"", L"cmd.exe", L"C:\\", L"");
-
-	// Agent process was started succesfully, but unable to fork pty
-	if(ret != 0) {
-		return ThrowException(Exception::Error(String::New("Unable to fork pty")));
-	}
-
-	// Return values
-	Local<Object> obj = Object::New();
-
-	// Node.js does not support handling file descriptors on windows, so 
-	// we just increment the number of ptys that has been forked
-	obj->Set(String::New("fd"), Number::New(InterlockedIncrement(&ptyCounter)));
-
-	// Expose see pipes
-	string controlPipeName(agentPty->controlPipeName.begin(), agentPty->controlPipeName.end());
-	string dataPipeName(agentPty->dataPipeName.begin(), agentPty->dataPipeName.end());
-	obj->Set(String::New("controlPipe"), String::New(controlPipeName.c_str()));
-	obj->Set(String::New("dataPipe"), String::New(dataPipeName.c_str()));
-
-	// Process id of forked terminal
-	obj->Set(String::New("pid"), Number::New(winpty_get_process_id(agentPty)));
-
-	// Process id of agent (killing this process will kill all forked terminals)
-	obj->Set(String::New("agent_pid"), Number::New(agentPty->pid));
-
-	// Good luck with that, sir.
-	obj->Set(String::New("pty"), Undefined());
-
-	return scope.Close(obj);
+const char* ToCString(const v8::String::Utf8Value& value) {
+  return *value ? *value : "<string conversion failed>";
 }
 
-/**
+/*
 * PtyOpen
-* pty.open(cols, rows)
+* pty.open(controlPipe, dataPipe, cols, rows)
 */
 
 static Handle<Value> PtyOpen(const Arguments& args) {
 	HandleScope scope;
 
-	return ThrowException(Exception::Error(
-		String::New("Open() is not supported on Windows. Use Fork() instead.")));
-}
-
-/**
-* Resize Functionality
-* pty.resize(fd, cols, rows)
-*/
-
-static Handle<Value> PtyResize(const Arguments& args) {
-	HandleScope scope;
-
-	if (args.Length() != 3
-		|| !args[0]->IsNumber()
-		|| !args[1]->IsNumber()
-		|| !args[2]->IsNumber()) {
+	if (args.Length() != 4
+		|| !args[0]->IsString() // controlPipe
+		|| !args[1]->IsString() // dataPipe
+		|| !args[2]->IsNumber() // cols
+		|| !args[3]->IsNumber()) // rows
+	{
 			return ThrowException(Exception::Error(
-				String::New("Usage: pty.resize(fd, cols, rows)")));
+				String::New("Usage: pty.open(controlPipe, dataPipe, cols, rows)")));
 	}
 
-	return Undefined();
+	// Cols, rows
+	int cols = (int) args[2]->Int32Value();
+	int rows = (int) args[3]->Int32Value();
+	
+	// Controlpipe
+	String::Utf8Value controlPipe(args[0]->ToString());
+	String::Utf8Value dataPipe(args[1]->ToString());
+
+	agentPty = winpty_open(ToCString(controlPipe), ToCString(dataPipe), rows, cols);
+	
+	// Error occured during startup of agent process
+	if(agentPty == NULL) {
+		return ThrowException(Exception::Error(String::New("Unable to start agent process")));
+	}
+
+	// Pty object values
+	Local<Object> obj = Object::New();
+	
+	// Agent pid
+	obj->Set(String::New("pid"), Number::New(agentPty->pid));
+
+	// File descriptor (Not available on windows).
+	obj->Set(String::New("fd"), Number::New(-1));
+	
+	// Some peepz use this as an id, lets give em one.
+	obj->Set(String::New("pty"), Number::New(InterlockedIncrement(&ptyCounter)));
+
+	return scope.Close(obj);
 }
 
-/**
-* PtyGetProc
-* Foreground Process Name
-* pty.process(fd, tty)
+/*
+* PtyAwait
+* pty.await(ms, callback)
 */
 
-static Handle<Value> PtyGetProc(const Arguments& args) {
-	HandleScope scope;
 
-	return ThrowException(Exception::Error(
-		String::New("GetProc() is not supported on Windows.")));
+Handle<Value> PtySleep(const Arguments& args) {
+  HandleScope scope;
+
+  if (args.Length() != 1
+		|| !args[0]->IsNumber()) // controlPipe
+	{
+	  return ThrowException(Exception::Error(
+				String::New("Usage: pty.await(ms, callback)")));
+  }
+
+  int ms = (int) args[0]->Int32Value();
+
+  Sleep(ms);
+
+  return scope.Close(Undefined());
 
 }
 
@@ -218,10 +128,8 @@ static Handle<Value> PtyGetProc(const Arguments& args) {
 
 extern "C" void init(Handle<Object> target) {
 	HandleScope scope;
-	NODE_SET_METHOD(target, "fork", PtyFork);
 	NODE_SET_METHOD(target, "open", PtyOpen);
-	NODE_SET_METHOD(target, "resize", PtyResize);
-	NODE_SET_METHOD(target, "process", PtyGetProc);
+	NODE_SET_METHOD(target, "sleep", PtySleep);
 };
 
 NODE_MODULE(pty, init);

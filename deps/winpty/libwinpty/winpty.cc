@@ -24,6 +24,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <io.h>
 #include <string>
 #include <vector>
 #include <sstream>
@@ -115,6 +116,19 @@ static bool connectNamedPipe(HANDLE handle, bool overlapped)
     if (overlapped)
         CloseHandle(over.hEvent);
     return success;
+}
+
+static HANDLE getPipeHandle(LPCTSTR name) {
+	HANDLE handle = CreateFile(
+		name, /* lpFileName */
+		GENERIC_READ | GENERIC_WRITE, /* dwDesiredAccess */
+		0, /* dwShareMode */
+		NULL, /* lpSecurityAttributes */
+		OPEN_EXISTING,  /* dwCreationDisposition */
+		0, /* dwFlagsAndAttributes*/
+		NULL
+	); 
+	return handle;
 }
 
 static void writePacket(winpty_t *pc, const WriteBuffer &packet)
@@ -256,30 +270,16 @@ static void startAgentProcess(const BackgroundDesktop &desktop,
     CloseHandle(pi.hThread);
 }
 
-WINPTY_API winpty_t *winpty_open(int cols, int rows)
+WINPTY_API winpty_t *winpty_open(const char *controlPipe, const char *dataPipe, int cols, int rows)
 {
     winpty_t *pc = new winpty_t;
 
 	// Set current agent pid.
 	pc->pid = GetCurrentProcessId();
 
-    // Start pipes.
-    std::wstringstream pipeName;
-    pipeName << L"\\\\.\\pipe\\winpty-" << pc->pid
-             << L"-" << InterlockedIncrement(&consoleCounter);
-    pc->controlPipeName = pipeName.str() + L"-control";
-	pc->dataPipeName = pipeName.str() + L"-data";
-
-	pc->controlPipe = createNamedPipe(pc->controlPipeName, false);;
-	if (pc->controlPipe == INVALID_HANDLE_VALUE) {
-        delete pc;
-        return NULL;
-    }
-    pc->dataPipe = createNamedPipe(pc->dataPipeName, true);
-    if (pc->dataPipe == INVALID_HANDLE_VALUE) {
-        delete pc;
-        return NULL;
-    }
+    // Set pipe names.
+    pc->controlPipeName = std::wstring(controlPipe, controlPipe + strlen(controlPipe));
+	pc->dataPipeName = std::wstring(dataPipe, dataPipe + strlen(dataPipe));
 
     // Setup a background desktop for the agent.
     BackgroundDesktop desktop = setupBackgroundDesktop();
@@ -287,44 +287,14 @@ WINPTY_API winpty_t *winpty_open(int cols, int rows)
     // Start the agent.
 	startAgentProcess(desktop, pc->controlPipeName, pc->dataPipeName, cols, rows);
 
-    // TODO: Frequently, I see the CreateProcess call return successfully,
-    // but the agent immediately dies.  The following pipe connect calls then
-    // hang.  These calls should probably timeout.  Maybe this code could also
-    // poll the agent process handle?
-
-    // Connect the pipes.
-    bool success;
-    success = connectNamedPipe(pc->controlPipe, false);
-    if (!success) {
-        delete pc;
-        return NULL;
-    }
-
-    success = connectNamedPipe(pc->dataPipe, true);
-    if (!success) {
-        delete pc;
-        return NULL;
-    }
+	// Okay, this is kinda flaky. TODO: Somebody fix me. See reason why below.
+	Sleep(500);
 
     // Close handles to the background desktop and restore the original window
     // station.  This must wait until we know the agent is running -- if we
     // close these handles too soon, then the desktop and windowstation will be
     // destroyed before the agent can connect with them.
     restoreOriginalDesktop(desktop);
-
-    // The default security descriptor for a named pipe allows anyone to connect
-    // to the pipe to read, but not to write.  Only the "creator owner" and
-    // various system accounts can write to the pipe.  By sending and receiving
-    // a dummy message on the control pipe, we should confirm that something
-    // trusted (i.e. the agent we just started) successfully connected and wrote
-    // to one of our pipes.
-    WriteBuffer packet;
-    packet.putInt(AgentMsg::Ping);
-    writePacket(pc, packet);
-    if (readInt32(pc) != 0) {
-        delete pc;
-        return NULL;
-    }
 
     // TODO: On Windows Vista and forward, we could call
     // GetNamedPipeClientProcessId and verify that the PID is correct.  We could

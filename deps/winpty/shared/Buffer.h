@@ -66,6 +66,7 @@ public:
     ReadBuffer(const std::string &packet);
     int getInt();
     std::wstring getWString();
+	std::wstring getString();
     bool eof();
 };
 
