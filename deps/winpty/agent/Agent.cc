@@ -32,6 +32,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <windows.h>
+#include <assert.h>
 #include <vector>
 #include <string>
 #include <utility>
@@ -47,6 +48,42 @@ static BOOL WINAPI consoleCtrlHandler(DWORD dwCtrlType)
         return TRUE;
     }
     return FALSE;
+}
+
+struct BackgroundDesktop {
+    HWINSTA originalStation;
+    HWINSTA station;
+    HDESK desktop;
+    std::wstring desktopName;
+};
+
+static std::wstring getObjectName(HANDLE object)
+{
+    BOOL success;
+    DWORD lengthNeeded = 0;
+    GetUserObjectInformation(object, UOI_NAME,
+                             NULL, 0,
+                             &lengthNeeded);
+    assert(lengthNeeded % sizeof(wchar_t) == 0);
+    wchar_t *tmp = new wchar_t[lengthNeeded / 2];
+    success = GetUserObjectInformation(object, UOI_NAME,
+                                       tmp, lengthNeeded,
+                                       NULL);
+    assert(success);
+    std::wstring ret = tmp;
+    delete [] tmp;
+    return ret;
+}
+
+static std::wstring getDesktopFullName()
+{
+    // MSDN says that the handle returned by GetThreadDesktop does not need
+    // to be passed to CloseDesktop.
+    HWINSTA station = GetProcessWindowStation();
+    HDESK desktop = GetThreadDesktop(GetCurrentThreadId());
+    assert(station != NULL);
+    assert(desktop != NULL);
+    return getObjectName(station) + L"\\" + getObjectName(desktop);
 }
 
 Agent::Agent(LPCWSTR controlPipeName,
@@ -161,7 +198,7 @@ void Agent::pollControlSocket()
         std::string packetData = m_controlSocket->read(totalSize);
         ASSERT((int)packetData.size() == totalSize);
         ReadBuffer buffer(packetData);
-        buffer.getInt(); // Discard the size.
+        int total = buffer.getInt(); // Discard the size.
         handlePacket(buffer);
     }
 }
@@ -202,8 +239,9 @@ int Agent::handleStartProcessPacket(ReadBuffer &packet)
     std::wstring cmdline = packet.getWString();
     std::wstring cwd = packet.getWString();
     std::wstring env = packet.getWString();
-    std::wstring desktop = packet.getWString();
-    ASSERT(packet.eof());
+    std::wstring desktop = packet.getWString(); 
+
+    ASSERT(packet.eof()); 
 
     LPCWSTR programArg = program.empty() ? NULL : program.c_str();
     std::vector<wchar_t> cmdlineCopy;
@@ -222,7 +260,7 @@ int Agent::handleStartProcessPacket(ReadBuffer &packet)
     memset(&sui, 0, sizeof(sui));
     memset(&pi, 0, sizeof(pi));
     sui.cb = sizeof(STARTUPINFO);
-    sui.lpDesktop = desktop.empty() ? NULL : (LPWSTR)desktop.c_str();
+	sui.lpDesktop = desktop.empty() ? (LPWSTR)getDesktopFullName().c_str() : (LPWSTR)desktop.c_str();
 
     success = CreateProcess(programArg, cmdlineArg, NULL, NULL,
                             /*bInheritHandles=*/FALSE,

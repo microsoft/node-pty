@@ -69,7 +69,7 @@ static const char *getTracingConfig()
 
 bool isTracingEnabled()
 {
-    return getTracingConfig()[0] != '\0';
+    return true; //getTracingConfig()[0] != '\0';
 }
 
 void trace(const char *format, ...)
