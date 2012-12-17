@@ -184,6 +184,9 @@ void Agent::handlePacket(ReadBuffer &packet)
         ASSERT(packet.eof());
         result = m_childExitCode;
         break;
+	case AgentMsg::Kill:
+		exit(0);
+		break;
     default:
         trace("Unrecognized message, id:%d", type);
     }

@@ -27,7 +27,8 @@ struct AgentMsg
         Ping,
         StartProcess,
         SetSize,
-        GetExitCode
+        GetExitCode,
+		Kill
     };
 };
 
