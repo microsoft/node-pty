@@ -66,7 +66,7 @@ void EventLoop::run()
         // If there's nothing to do, wait.
         DWORD timeout = INFINITE;
         if (m_pollInterval > 0)
-            timeout = max(0, (int)(lastTime + m_pollInterval - GetTickCount()));
+            timeout = std::max(0, (int)(lastTime + m_pollInterval - GetTickCount()));
         if (waitHandles.size() == 0) {
             ASSERT(timeout != INFINITE);
             if (timeout > 0)

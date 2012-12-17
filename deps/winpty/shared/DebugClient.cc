@@ -23,6 +23,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#if _MSC_VER
+	#define snprintf _snprintf
+#endif
+
 char *tracingConfig;
 
 static void sendToDebugServer(const char *message)
@@ -65,7 +69,7 @@ static const char *getTracingConfig()
 
 bool isTracingEnabled()
 {
-    return true; //getTracingConfig()[0] != '\0';
+    return getTracingConfig()[0] != '\0';
 }
 
 void trace(const char *format, ...)
@@ -90,7 +94,8 @@ void trace(const char *format, ...)
     baseName = (baseName != NULL) ? baseName + 1 : moduleName;
 
     char fullMessage[1024];
-    _snprintf(fullMessage, sizeof(fullMessage),
+	
+    snprintf(fullMessage, sizeof(fullMessage),
              "[%05d.%03d %s,p%04d,t%04d]: %s",
              currentTime / 1000, currentTime % 1000,
              baseName, (int)GetCurrentProcessId(), (int)GetCurrentThreadId(),

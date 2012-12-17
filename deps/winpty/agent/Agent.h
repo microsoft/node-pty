@@ -69,7 +69,6 @@ private:
     void syncMarkerText(CHAR_INFO *output);
     int findSyncMarker();
     void createSyncMarker(int row);
-	void Kill();
 
 private:
     Win32Console *m_console;
@@ -79,7 +78,6 @@ private:
     Terminal *m_terminal;
     ConsoleInput *m_consoleInput;
     HANDLE m_childProcess;
-	int m_childProcessId;
     int m_childExitCode;
 
     int m_syncRow;
@@ -91,8 +89,6 @@ private:
     CHAR_INFO (*m_bufferData)[MAX_CONSOLE_WIDTH];
     int m_dirtyWindowTop;
     int m_dirtyLineCount;
-	bool m_isShuttingDown;
-
 };
 
 #endif // AGENT_H

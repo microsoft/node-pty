@@ -25,24 +25,6 @@ extern "C" void init(Handle<Object>);
 static winpty_t *agentPty;
 static volatile LONG ptyCounter;
 
-
-/*
-*  WinPTY
-*/
-
-struct winpty_s {
-	winpty_s();
-	HANDLE controlPipe;
-	HANDLE dataPipe;
-	wstring controlPipeName; 
-	wstring dataPipeName; 
-	int pid;
-};
-
-winpty_s::winpty_s() : controlPipe(NULL), dataPipe(NULL)
-{
-}
-
 /**
 * Helpers
 */
@@ -76,7 +58,8 @@ static Handle<Value> PtyOpen(const Arguments& args) {
 	String::Utf8Value controlPipe(args[0]->ToString());
 	String::Utf8Value dataPipe(args[1]->ToString());
 
-	agentPty = winpty_open(ToCString(controlPipe), ToCString(dataPipe), rows, cols);
+	// If successfull the PID of the agent process will be returned.
+	int * agentPty = winpty_open_ptyjs(ToCString(controlPipe), ToCString(dataPipe), rows, cols);
 	
 	// Error occured during startup of agent process
 	if(agentPty == NULL) {
@@ -87,15 +70,17 @@ static Handle<Value> PtyOpen(const Arguments& args) {
 	Local<Object> obj = Object::New();
 	
 	// Agent pid
-	obj->Set(String::New("pid"), Number::New(agentPty->pid));
+	obj->Set(String::New("pid"), Number::New((int)agentPty));
 
 	// File descriptor (Not available on windows).
 	obj->Set(String::New("fd"), Number::New(-1));
 	
 	// Some peepz use this as an id, lets give em one.
 	obj->Set(String::New("pty"), Number::New(InterlockedIncrement(&ptyCounter)));
+	
 
 	return scope.Close(obj);
+	
 }
 
 /**

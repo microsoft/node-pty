@@ -1,7 +1,7 @@
 {
 	'targets' : [
 		{
-			'target_name' : 'agent',
+			'target_name' : 'winpty-agent',
 			'type' : 'executable',
 			'include_dirs' : [
 				'include',
@@ -12,6 +12,7 @@
 				'UNICODE',
 				'_UNICODE',
 				'_WIN32_WINNT=0x0501',
+				'NOMINMAX'
 			],
 			'sources' : [
 				'agent/Agent.h',

@@ -32,41 +32,9 @@
 #include <string.h>
 #include <stdint.h>
 #include <windows.h>
-#include <assert.h>
 #include <vector>
 #include <string>
 #include <utility>
-
-
-static std::wstring getObjectName(HANDLE object)
-{
-    BOOL success;
-    DWORD lengthNeeded = 0;
-    GetUserObjectInformation(object, UOI_NAME,
-                             NULL, 0,
-                             &lengthNeeded);
-    assert(lengthNeeded % sizeof(wchar_t) == 0);
-    wchar_t *tmp = new wchar_t[lengthNeeded / 2];
-    success = GetUserObjectInformation(object, UOI_NAME,
-                                       tmp, lengthNeeded,
-                                       NULL);
-    assert(success);
-    std::wstring ret = tmp;
-    delete [] tmp;
-    return ret;
-}
-
-
-static std::wstring getDesktopFullName()
-{
-    // MSDN says that the handle returned by GetThreadDesktop does not need
-    // to be passed to CloseDesktop.
-    HWINSTA station = GetProcessWindowStation();
-    HDESK desktop = GetThreadDesktop(GetCurrentThreadId());
-    assert(station != NULL);
-    assert(desktop != NULL);
-    return getObjectName(station) + L"\\" + getObjectName(desktop);
-}
 
 const int SC_CONSOLE_MARK = 0xFFF2;
 const int SC_CONSOLE_SELECT_ALL = 0xFFF5;
@@ -119,25 +87,16 @@ Agent::Agent(LPCWSTR controlPipeName,
     setPollInterval(25);
 }
 
-void Agent::Kill() 
-{
-	m_isShuttingDown = true;
-	trace("Agent exiting...");
-	m_console->postCloseMessage();
-	if (m_childProcess != NULL)
-		CloseHandle(m_childProcess);
-	delete [] m_bufferData;
-	delete m_console;
-	delete m_terminal;
-	delete m_consoleInput;
-	exit(0);
-}
-
 Agent::~Agent()
 {
-	if(!m_isShuttingDown) {
-		Kill();
-	}
+    trace("Agent exiting...");
+    m_console->postCloseMessage();
+    if (m_childProcess != NULL)
+        CloseHandle(m_childProcess);
+    delete [] m_bufferData;
+    delete m_console;
+    delete m_terminal;
+    delete m_consoleInput;
 }
 
 // Write a "Device Status Report" command to the terminal.  The terminal will
@@ -225,13 +184,6 @@ void Agent::handlePacket(ReadBuffer &packet)
         ASSERT(packet.eof());
         result = m_childExitCode;
         break;
-	case AgentMsg::GetProcessId:
-		result = m_childProcessId;
-		break;
-	case AgentMsg::Kill:
-		Kill();
-		result = 0;
-		break;
     default:
         trace("Unrecognized message, id:%d", type);
     }
@@ -243,13 +195,13 @@ int Agent::handleStartProcessPacket(ReadBuffer &packet)
     BOOL success;
     ASSERT(m_childProcess == NULL);
 
-    std::wstring program = L"";//packet.getWString();
-    std::wstring cmdline = L"cmd.exe";//packet.getWString();
-    std::wstring cwd = L"";//packet.getWString();
-    std::wstring env = L"";//packet.getWString();
-    std::wstring desktop = getDesktopFullName(); //packet.getWString();
+    std::wstring program = packet.getWString();
+    std::wstring cmdline = packet.getWString();
+    std::wstring cwd = packet.getWString();
+    std::wstring env = packet.getWString();
+    std::wstring desktop = packet.getWString();
+    ASSERT(packet.eof());
 
-    //ASSERT(packet.eof()); 
     LPCWSTR programArg = program.empty() ? NULL : program.c_str();
     std::vector<wchar_t> cmdlineCopy;
     LPWSTR cmdlineArg = NULL;
@@ -259,7 +211,6 @@ int Agent::handleStartProcessPacket(ReadBuffer &packet)
         cmdlineCopy[cmdline.size()] = L'\0';
         cmdlineArg = &cmdlineCopy[0];
     }
-
     LPCWSTR cwdArg = cwd.empty() ? NULL : cwd.c_str();
     LPCWSTR envArg = env.empty() ? NULL : env.data();
 
@@ -275,7 +226,6 @@ int Agent::handleStartProcessPacket(ReadBuffer &packet)
                             /*dwCreationFlags=*/CREATE_UNICODE_ENVIRONMENT |
                             /*CREATE_NEW_PROCESS_GROUP*/0,
                             (LPVOID)envArg, cwdArg, &sui, &pi);
-
     int ret = success ? 0 : GetLastError();
 
     trace("CreateProcess: %s %d",
@@ -285,7 +235,6 @@ int Agent::handleStartProcessPacket(ReadBuffer &packet)
     if (success) {
         CloseHandle(pi.hThread);
         m_childProcess = pi.hProcess;
-		m_childProcessId = pi.dwProcessId;
     }
 
     return ret;
@@ -353,7 +302,7 @@ void Agent::onPollTimeout()
 void Agent::markEntireWindowDirty()
 {
     SmallRect windowRect = m_console->windowRect();
-    m_dirtyLineCount = max(m_dirtyLineCount,
+    m_dirtyLineCount = std::max(m_dirtyLineCount,
                                 windowRect.top() + windowRect.height());
 }
 
@@ -391,8 +340,6 @@ void Agent::scanForDirtyLines()
 void Agent::resizeWindow(int cols, int rows)
 {
     freezeConsole();
-
-	trace("Resize window: %d, %d", cols, rows);
 
     Coord bufferSize = m_console->bufferSize();
     SmallRect windowRect = m_console->windowRect();
@@ -462,16 +409,16 @@ void Agent::scrapeOutput()
         }
     }
     m_dirtyWindowTop = windowRect.top();
-    m_dirtyLineCount = max(m_dirtyLineCount, cursor.Y + 1);
-    m_dirtyLineCount = max(m_dirtyLineCount, (int)windowRect.top());
+    m_dirtyLineCount = std::max(m_dirtyLineCount, cursor.Y + 1);
+    m_dirtyLineCount = std::max(m_dirtyLineCount, (int)windowRect.top());
     scanForDirtyLines();
 
     // Note that it's possible for all the lines on the current window to
     // be non-dirty.
 
-    int firstLine = min(m_scrapedLineCount,
+    int firstLine = std::min(m_scrapedLineCount,
                              windowRect.top() + m_scrolledCount);
-    int stopLine = min(m_dirtyLineCount,
+    int stopLine = std::min(m_dirtyLineCount,
                             windowRect.top() + windowRect.height()) +
             m_scrolledCount;
 
@@ -496,7 +443,7 @@ void Agent::scrapeOutput()
                 bufLine[col].Attributes = curLine[w - 1].Attributes;
                 bufLine[col].Char.AsciiChar = ' ';
             }
-            m_maxBufferedLine = max(m_maxBufferedLine, line);
+            m_maxBufferedLine = std::max(m_maxBufferedLine, line);
             sawModifiedLine = true;
         }
     }

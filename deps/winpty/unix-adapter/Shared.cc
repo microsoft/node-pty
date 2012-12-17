@@ -18,17 +18,4 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#ifndef AGENTMSG_H
-#define AGENTMSG_H
-
-struct AgentMsg
-{
-    enum Type {
-        Ping,
-        StartProcess,
-        SetSize,
-        GetExitCode
-    };
-};
-
-#endif // AGENTMSG_H
+#include "../shared/DebugClient.cc"

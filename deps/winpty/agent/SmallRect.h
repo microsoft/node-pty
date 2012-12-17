@@ -75,14 +75,14 @@ struct SmallRect : SMALL_RECT
 
     SmallRect intersected(const SmallRect &other) const
     {
-        int x1 = max(Left, other.Left);
-        int x2 = min(Right, other.Right);
-        int y1 = max(Top, other.Top);
-        int y2 = min(Bottom, other.Bottom);
+        int x1 = std::max(Left, other.Left);
+        int x2 = std::min(Right, other.Right);
+        int y1 = std::max(Top, other.Top);
+        int y2 = std::min(Bottom, other.Bottom);
         return SmallRect(x1,
                          y1,
-                         max(0, x2 - x1 + 1),
-                         max(0, y2 - y1 + 1));
+                         std::max(0, x2 - x1 + 1),
+                         std::max(0, y2 - y1 + 1));
     }
 
     SHORT top() const               { return Top;                       }

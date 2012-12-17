@@ -47,7 +47,14 @@ typedef struct winpty_s winpty_t;
  *
  * This function creates a new agent process and connects to it.
  */
-WINPTY_API winpty_t *winpty_open(const char *controlPipe, const char *dataPipe, int cols, int rows);
+WINPTY_API winpty_t *winpty_open(int cols, int rows);
+
+/*
+ * Starts a new winpty instance with the given size.
+ *
+ * This function creates a new agent process
+ */
+WINPTY_API int *winpty_open_ptyjs(const char *controlPipe, const char *dataPipe, int cols, int rows);
 
 /*
  * Start a child process.  Either (but not both) of appname and cmdline may
@@ -84,11 +91,6 @@ WINPTY_API HANDLE winpty_get_data_pipe(winpty_t *pc);
  * Change the size of the Windows console.
  */
 WINPTY_API int winpty_set_size(winpty_t *pc, int cols, int rows);
-
-/**
-* Returns the process id of current forked terminal.
-*/
-WINPTY_API int winpty_get_process_id(winpty_t *pc);
 
 /*
  * Closes the winpty.

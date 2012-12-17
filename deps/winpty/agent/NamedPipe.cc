@@ -150,7 +150,7 @@ bool NamedPipe::OutputWorker::shouldIssueIo(int *size, bool *isRead)
 {
     *isRead = false;
     if (!m_namedPipe->m_outQueue.empty()) {
-        int writeSize = min((int)m_namedPipe->m_outQueue.size(), (int)kIoSize);
+        int writeSize = std::min((int)m_namedPipe->m_outQueue.size(), (int)kIoSize);
         memcpy(m_buffer, m_namedPipe->m_outQueue.data(), writeSize);
         m_namedPipe->m_outQueue.erase(0, writeSize);
         *size = writeSize;
@@ -219,14 +219,14 @@ int NamedPipe::bytesAvailable()
 
 int NamedPipe::peek(void *data, int size)
 {
-    int ret = min(size, (int)m_inQueue.size());
+    int ret = std::min(size, (int)m_inQueue.size());
     memcpy(data, m_inQueue.data(), ret);
     return ret;
 }
 
 std::string NamedPipe::read(int size)
 {
-    int retSize = min(size, (int)m_inQueue.size());
+    int retSize = std::min(size, (int)m_inQueue.size());
     std::string ret = m_inQueue.substr(0, retSize);
     m_inQueue.erase(0, retSize);
     return ret;

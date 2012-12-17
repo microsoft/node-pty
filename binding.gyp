@@ -19,7 +19,7 @@
 			'deps/winpty/include',
 		],
 		'dependencies' : [
-			'deps/winpty/winpty.gyp:agent',
+			'deps/winpty/winpty.gyp:winpty-agent',
 			'deps/winpty/winpty.gyp:libwinpty'
 		],
 		'sources' : [
