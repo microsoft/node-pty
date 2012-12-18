@@ -44,7 +44,8 @@ serverPipe = win32pipe.CreateNamedPipe(
 while True:
     win32pipe.ConnectNamedPipe(serverPipe, None)
     (ret, data) = win32file.ReadFile(serverPipe, MSG_SIZE)
-    print(data.decode())
+    sys.stdout.write(data);
+    print("\n");
     sys.stdout.flush()
 
     # The client uses CallNamedPipe to send its message.  CallNamedPipe waits
