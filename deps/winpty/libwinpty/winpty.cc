@@ -211,7 +211,7 @@ static std::wstring getDesktopFullName()
 	return getObjectName(station) + L"\\" + getObjectName(desktop);
 }
 
-static void startAgentProcess(const BackgroundDesktop &desktop,
+static int startAgentProcess(const BackgroundDesktop &desktop,
 							  std::wstring &controlPipeName,
 							  std::wstring &dataPipeName, 
 							  int cols, int rows)
@@ -252,6 +252,9 @@ static void startAgentProcess(const BackgroundDesktop &desktop,
 
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
+
+	return pi.dwProcessId;
+
 }
 
 WINPTY_API winpty_t *winpty_open_ptyjs(const char *controlPipe, const char *dataPipe, int cols, int rows)
@@ -274,10 +277,7 @@ WINPTY_API winpty_t *winpty_open_ptyjs(const char *controlPipe, const char *data
 	BackgroundDesktop desktop = setupBackgroundDesktop();
 
 	// Start the agent.
-	startAgentProcess(desktop, controlPipeName, dataPipeName, cols, rows);
-
-	// Set pid of agent
-	pc->pid = GetCurrentProcessId();
+	pc->pid = startAgentProcess(desktop, controlPipeName, dataPipeName, cols, rows);
 
 	// Okay, this is kinda flaky. TODO: Somebody fix me. See reason why below.
 	bool success;
