@@ -177,7 +177,6 @@ static Handle<Value> PtyOpen(const Arguments& args) {
 * PtyStartProcess
 * pty.startProcess(pid, file, env, cwd);
 */
-#define BUFSIZE 4096
 
 static Handle<Value> PtyStartProcess(const Arguments& args) {
 	HandleScope scope;
