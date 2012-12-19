@@ -193,36 +193,33 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
 
 	// Native values
 	int pid = (int) args[0]->Int32Value();
-	std::string _file = *String::Utf8Value(args[1]->ToString());
-	std::string _env = *String::Utf8Value(args[2]->ToString());
-	std::string _cwd = *String::Utf8Value(args[3]->ToString());
+
+	// convert to wchar_t
+	std::wstring file(ToWChar(*String::Utf8Value(args[1]->ToString())));
+	std::wstring env(ToWChar(*String::Utf8Value(args[2]->ToString())));
+
+	// Okay this is really fucked up. What the hell is going and
+	// why does not ToWChar work? Windows reports error code 267
+	// if ToWChar is used. Could somebody please elaborate on this? :)
+	std::string _cwd((*String::Utf8Value(args[3]->ToString())));
+	std::wstring cwd(_cwd.begin(), _cwd.end());
 
 	// Cwd must be double slash encoded otherwise
 	// we fail to start the terminal process and get
 	// windows error code 267.
-	for (int i = 0; i < _cwd.length(); ++i)
-	if (_cwd[i] == '\\')
-	{
-		_cwd.insert(i, 1, '\\');
-		++i; // Skip inserted char
+	for (int i = 0; i < cwd.length(); ++i) {
+		if (cwd[i] == '\\') {
+			cwd.insert(i, 1, '\\');
+			++i; // Skip inserted char
+		}
 	}
-
-	// convert to wchar_t
-	wchar_t *file = ToWChar(_file.c_str());
-	wchar_t *cwd = ToWChar(_cwd.c_str());
-	wchar_t *env = ToWChar(_env.c_str());
 
 	// Get pipe handle
 	winpty_t *pc = getControlPipeHandle(pid);
 
 	// Start new terminal
 	if(pc != NULL) {
-		int res = winpty_start_process(pc, NULL, file, L"", env);		
-		// Check that the terminal was successfully started.
-		if(res != 0) {
-			return ThrowException(Exception::Error(
-				String::New("Unable to start terminal process.")));
-		}
+		winpty_start_process(pc, NULL, file.c_str(), cwd.c_str(), env.c_str());		
 	} else {
 		return ThrowException(Exception::Error(
 			String::New("Invalid pid.")));
