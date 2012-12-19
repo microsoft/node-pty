@@ -16,3 +16,4 @@ Makefile.gyp
 *.opensdf
 *.filters
 *.user
+*.project
