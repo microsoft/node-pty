@@ -17,3 +17,4 @@ Makefile.gyp
 *.filters
 *.user
 *.project
+test.js
