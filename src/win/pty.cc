@@ -9,7 +9,6 @@
 
 #include <v8.h>
 #include <node.h>
-#include <uv.h>
 #include <node_buffer.h>
 #include <string.h>
 #include <stdlib.h>
