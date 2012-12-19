@@ -103,15 +103,38 @@ static bool removePipeHandle(int pid) {
 /*
 * PtyOpen
 * pty.open(controlPipe, dataPipe, cols, rows)
-*  
-* Steps for debugging agent.exe:
 * 
-* 1) Open a windows terminal
-* 2) set WINPTYDBG=1
-* 3) python deps/misc/DebugServer.py
-* 4) Start a new terminal in node.js and trace output will appear
-*    in the python script.
+* If you need to debug winpty-agent.exe do the following:
+* ======================================================
 * 
+* 1) Install python 2.7
+* 2) Install http://sourceforge.net/projects/pywin32/
+* 3) Start deps/winpty/misc/DebugServer.py (Before you start node)
+* 
+* Then you'll see output from winpty-agent.exe.
+* 
+* Important part:
+* ===============
+* CreateProcess: success 8896 0 (Windows error code)
+* 
+* Create test.js:
+* ===============
+*
+* var pty = require('./');
+*
+* var term = pty.fork('cmd', [], {
+*   name: 'Windows Shell',
+*	cols: 80,
+*	rows: 30,
+*	cwd: process.env.HOME,
+*	env: process.env,
+*	debug: true
+* });
+*
+* process.stdin.pipe(term);
+* process.stdin.resume();
+* term.pipe(process.stdout);
+*
 */
 
 static Handle<Value> PtyOpen(const Arguments& args) {
