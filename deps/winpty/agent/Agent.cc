@@ -260,7 +260,7 @@ int Agent::handleStartProcessPacket(ReadBuffer &packet)
     memset(&sui, 0, sizeof(sui));
     memset(&pi, 0, sizeof(pi));
     sui.cb = sizeof(STARTUPINFO);
-	sui.lpDesktop = desktop.empty() ? (LPWSTR)getDesktopFullName().c_str() : (LPWSTR)desktop.c_str();
+	sui.lpDesktop = desktop.empty() ? NULL : (LPWSTR)desktop.c_str();
 
     success = CreateProcess(programArg, cmdlineArg, NULL, NULL,
                             /*bInheritHandles=*/FALSE,
@@ -269,9 +269,9 @@ int Agent::handleStartProcessPacket(ReadBuffer &packet)
                             (LPVOID)envArg, cwdArg, &sui, &pi);
     int ret = success ? 0 : GetLastError();
 
-    trace("CreateProcess: %s %d",
+    trace("CreateProcess: %s %d %d",
           (success ? "success" : "fail"),
-          (int)pi.dwProcessId);
+          (int)pi.dwProcessId, ret);
 
     if (success) {
         CloseHandle(pi.hThread);
