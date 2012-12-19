@@ -23,14 +23,8 @@
 			'deps/winpty/winpty.gyp:libwinpty'
 		],
 		'sources' : [
-			'deps/winpty/include/winpty.h',
 			'src/win/pty.cc'
-		],
-		'link_settings' : {
-			'libraries' : [
-				'-Llibwinpty.lib'			
-			]
-		}
+		]
 	  }]
     ]
   }]
