@@ -15,37 +15,24 @@ This is useful for:
 ``` js
 var pty = require('pty.js');
 
-var term = pty.fork('sh', [], {
-  name: 'xterm',
+var term = pty.spawn('bash', [], {
+  name: 'xterm-color',
   cols: 80,
   rows: 30,
   cwd: process.env.HOME,
   env: process.env
 });
 
-term.ready(function() {
-
-    term.on('data', function(data) {
-	  console.log(data);
-	});
-
-	term.write('ls\r');
-	term.resize(100, 40);
-	term.write('ls /\r');
-
-	console.log(term.process);
+term.on('data', function(data) {
+  console.log(data);
 });
 
+term.write('ls\r');
+term.resize(100, 40);
+term.write('ls /\r');
+
+console.log(term.process);
 ```
-
-## Windows Support
-
-On Windows pty.js works by starting the winpty-agent.exe process with a new, 
-hidden console window, which bridges between the console API and terminal input/output escape codes. 
-It polls the hidden console's screen buffer for changes and generates a corresponding stream of output.
-
-Please note that the only way to achieve pty support on windows is by scraping a terminal
-window every 25 milliseconds. This is the same approach as [console2](http://sourceforge.net/projects/console/) uses.
 
 ## Todo
 
