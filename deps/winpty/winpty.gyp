@@ -57,13 +57,14 @@
 				'WINPTY',
 			],
 			'sources' : [
-				'include/winpty.h',
 				'libwinpty/winpty.cc',
-				'shared/AgentMsg.h',
-				'shared/Buffer.h',
-				'shared/DebugClient.h',
 				'shared/DebugClient.cc'
-			]
+			],
+			'link_settings' : {
+				'libraries' : [
+					'-Llibwinpty.lib'
+				]
+			}
 		}
 	]
 }
