@@ -206,12 +206,15 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
 	winpty_t *pc =  getControlPipeHandle(pid);
 
 	// WTH! It does not work without this line. I have
-	// no clue on whats going on here, but somebody fix.
+	// no clue on whats going on here.
 	printf("", _cwd);
 
 	// Start new terminal
 	if(pc != NULL) {
 		winpty_start_process(pc, NULL, file, cwd, env);		
+	} else {
+		return ThrowException(Exception::Error(
+			String::New("Unable to start agent process.")));
 	}
 
 	return scope.Close(Undefined());
