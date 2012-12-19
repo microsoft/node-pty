@@ -150,7 +150,7 @@ static Handle<Value> PtyOpen(const Arguments& args) {
 
 	// Error occured during startup of agent process
 	if(agentPty == NULL) {
-		return ThrowException(Exception::Error(String::New("Unable to start agent process")));
+		return ThrowException(Exception::Error(String::New("Unable to start agent process.")));
 	}
 
 	// Save a copy of this pty so that we can find the control socket handle
@@ -191,11 +191,21 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
 			String::New("Usage: pty.open(pid, file, env, cwd)")));
 	}
 
-	// native values
+	// Native values
 	int pid = (int) args[0]->Int32Value();
 	std::string _file = *String::Utf8Value(args[1]->ToString());
 	std::string _env = *String::Utf8Value(args[2]->ToString());
 	std::string _cwd = *String::Utf8Value(args[3]->ToString());
+
+	// Cwd must be double slash encoded otherwise
+	// we fail to start the terminal process and get
+	// windows error code 267.
+	for (int i = 0; i < _cwd.length(); ++i)
+	if (_cwd[i] == '\\')
+	{
+		_cwd.insert(i, 1, '\\');
+		++i; // Skip inserted char
+	}
 
 	// convert to wchar_t
 	wchar_t *file = ToWChar(_file.c_str());
@@ -203,18 +213,19 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
 	wchar_t *env = ToWChar(_env.c_str());
 
 	// Get pipe handle
-	winpty_t *pc =  getControlPipeHandle(pid);
-
-	// WTH! It does not work without this line. I have
-	// no clue on whats going on here.
-	printf("", _cwd);
+	winpty_t *pc = getControlPipeHandle(pid);
 
 	// Start new terminal
 	if(pc != NULL) {
-		winpty_start_process(pc, NULL, file, cwd, env);		
+		int res = winpty_start_process(pc, NULL, file, L"", env);		
+		// Check that the terminal was successfully started.
+		if(res != 0) {
+			return ThrowException(Exception::Error(
+				String::New("Unable to start terminal process.")));
+		}
 	} else {
 		return ThrowException(Exception::Error(
-			String::New("Unable to start agent process.")));
+			String::New("Invalid pid.")));
 	}
 
 	return scope.Close(Undefined());
@@ -244,7 +255,7 @@ static Handle<Value> PtyResize(const Arguments& args) {
 
 	if(pc == NULL) {
 		return ThrowException(Exception::Error(
-			String::New("Invalid pid")));
+			String::New("Invalid pid.")));
 	}
 
 	winpty_set_size(pc, cols, rows);
@@ -272,7 +283,7 @@ static Handle<Value> PtyKill(const Arguments& args) {
 
 	if(pc == NULL) {
 		return ThrowException(Exception::Error(
-			String::New("Invalid pid")));
+			String::New("Invalid pid.")));
 	}
 
 	winpty_close(pc);
