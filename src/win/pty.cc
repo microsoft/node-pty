@@ -46,6 +46,26 @@ winpty_s::winpty_s() : controlPipe(NULL), dataPipe(NULL)
 /**
 * Helpers
 */
+
+wchar_t* ToWChar(const char* utf8){
+	if (utf8 == NULL || *utf8 == L'\0') {
+		return new wchar_t[0];
+	} else {
+		const int utf8len = static_cast<int>(strlen(utf8));
+		const int utf16len = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8, utf8len, NULL, 0);
+		if (utf16len == 0) {
+			return new wchar_t[0];
+		} else {
+			wchar_t* utf16 = new wchar_t[utf16len];
+			if (!::MultiByteToWideChar(CP_UTF8, 0, utf8, utf8len, utf16, utf16len)) {
+				return new wchar_t[0];
+			} else {
+				return utf16;
+			}
+		}
+	}
+}
+
 const char* ToCString(const v8::String::Utf8Value& value) {
 	return *value ? *value : "<string conversion failed>";
 }
@@ -53,9 +73,9 @@ const char* ToCString(const v8::String::Utf8Value& value) {
 template <typename T>
 void remove(std::vector<T>& vec, size_t pos)
 {
-    std::vector<T>::iterator it = vec.begin();
-    std::advance(it, pos);
-    vec.erase(it);
+	std::vector<T>::iterator it = vec.begin();
+	std::advance(it, pos);
+	vec.erase(it);
 }
 
 // Find a given pipe handle by using agent pid
@@ -84,24 +104,42 @@ static bool removePipeHandle(int pid) {
 /*
 * PtyOpen
 * pty.open(controlPipe, dataPipe, cols, rows)
+*  
+* Steps for debugging agent.exe:
+* 
+* 1) Open a windows terminal
+* 2) set WINPTYDBG=1
+* 3) python deps/misc/DebugServer.py
+* 4) Start a new terminal in node.js and trace output will appear
+*    in the python script.
+* 
 */
 
 static Handle<Value> PtyOpen(const Arguments& args) {
 	HandleScope scope;
 
-	if (args.Length() != 4
+	if (args.Length() != 5
 		|| !args[0]->IsString() // controlPipe
 		|| !args[1]->IsString() // dataPipe
 		|| !args[2]->IsNumber() // cols
-		|| !args[3]->IsNumber()) // rows
+		|| !args[3]->IsNumber() // rows
+		|| !args[4]->IsBoolean()) // debug
 	{
 		return ThrowException(Exception::Error(
-			String::New("Usage: pty.open(controlPipe, dataPipe, cols, rows)")));
+			String::New("Usage: pty.open(controlPipe, dataPipe, cols, rows, debug)")));
 	}
 
 	// Cols, rows
+	bool debug = (bool) args[4]->BooleanValue;
 	int cols = (int) args[2]->Int32Value();
 	int rows = (int) args[3]->Int32Value();
+
+	// If debug is enabled, set environment variable
+	if(debug) {
+		SetEnvironmentVariableW(L"WINPTYDBG", L"1");
+	} else {
+		FreeEnvironmentStringsW(L"WINPTYDBG");
+	}
 
 	// Controlpipe
 	String::Utf8Value controlPipe(args[0]->ToString());
@@ -137,36 +175,44 @@ static Handle<Value> PtyOpen(const Arguments& args) {
 
 /*
 * PtyStartProcess
-* pty.startProcess(pid, file, args, env, cwd);
+* pty.startProcess(pid, file, env, cwd);
 */
+#define BUFSIZE 4096
 
 static Handle<Value> PtyStartProcess(const Arguments& args) {
 	HandleScope scope;
 
-	if (args.Length() != 5
+	if (args.Length() != 4
 		|| !args[0]->IsNumber() // pid
-		|| !args[1]->IsString() // file
-		|| !args[2]->IsArray() // args
-		|| !args[3]->IsArray() // env
-		|| !args[4]->IsString()) // cwd
+		|| !args[1]->IsString() // file + args
+		|| !args[2]->IsString() // env
+		|| !args[3]->IsString()) // cwd
 	{
 		return ThrowException(Exception::Error(
-			String::New("Usage: pty.open(pid, file, args, env, cwd)")));
+			String::New("Usage: pty.open(pid, file, env, cwd)")));
 	}
-
-	// v8 values
-	String::Utf8Value file(args[0]->ToString());
-	std::string _file = std::string(*file);    
 
 	// native values
 	int pid = (int) args[0]->Int32Value();
+	std::string _file = *String::Utf8Value(args[1]->ToString());
+	std::string _env = *String::Utf8Value(args[2]->ToString());
+	std::string _cwd = *String::Utf8Value(args[3]->ToString());
+
+	// convert to wchar_t
+	wchar_t *file = ToWChar(_file.c_str());
+	wchar_t *cwd = ToWChar(_cwd.c_str());
+	wchar_t *env = ToWChar(_env.c_str());
 
 	// Get pipe handle
 	winpty_t *pc =  getControlPipeHandle(pid);
 
-    // Start new terminal
+	// WTH! It does not work without this line. I have
+	// no clue on whats going on here, but somebody fix.
+	printf("", _cwd);
+
+	// Start new terminal
 	if(pc != NULL) {
-		winpty_start_process(pc, NULL, L"cmd.exe", L"", NULL);		
+		winpty_start_process(pc, NULL, file, cwd, env);		
 	}
 
 	return scope.Close(Undefined());
@@ -229,7 +275,7 @@ static Handle<Value> PtyKill(const Arguments& args) {
 
 	winpty_close(pc);
 
-	//removePipeHandle(pid);
+	removePipeHandle(pid);
 
 	return scope.Close(Undefined());
 
