@@ -463,6 +463,7 @@ WINPTY_API int winpty_set_size(winpty_t *pc, int cols, int rows)
 
 WINPTY_API void winpty_close(winpty_t *pc)
 {
+	SetEnvironmentVariableW(L"WINPTYDBG", NULL);
 	CloseHandle(pc->controlPipe);
 	CloseHandle(pc->dataPipe);
 	delete pc;

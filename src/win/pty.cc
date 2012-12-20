@@ -100,6 +100,16 @@ static bool removePipeHandle(int pid) {
 	return false;
 }
 
+static std::wstring addDoubleSlashes(std::wstring str) {
+	for (int i = 0; i < str.length(); ++i) {
+		if (str[i] == '\\') {
+			str.insert(i, 1, '\\');
+			++i; // Skip inserted char
+		}
+	}
+	return str;
+}
+
 /*
 * PtyOpen
 * pty.open(controlPipe, dataPipe, cols, rows)
@@ -159,8 +169,6 @@ static Handle<Value> PtyOpen(const Arguments& args) {
 	// If debug is enabled, set environment variable
 	if(debug) {
 		SetEnvironmentVariableW(L"WINPTYDBG", L"1");
-	} else {
-		FreeEnvironmentStringsW(L"WINPTYDBG");
 	}
 
 	// Controlpipe
@@ -226,15 +234,11 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
 	std::string _cwd((*String::Utf8Value(args[3]->ToString())));
 	std::wstring cwd(_cwd.begin(), _cwd.end());
 
-	// Cwd must be double slash encoded otherwise
+	// file/cwd must be double slash encoded otherwise
 	// we fail to start the terminal process and get
 	// windows error code 267.
-	for (int i = 0; i < cwd.length(); ++i) {
-		if (cwd[i] == '\\') {
-			cwd.insert(i, 1, '\\');
-			++i; // Skip inserted char
-		}
-	}
+	file = addDoubleSlashes(file);
+	cwd = addDoubleSlashes(cwd);
 
 	// Get pipe handle
 	winpty_t *pc = getControlPipeHandle(pid);
