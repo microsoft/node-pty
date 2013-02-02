@@ -9,4 +9,4 @@ assert.ok(tty.isatty(1));
 
 var size = process.stdout.getWindowSize();
 assert.equal(size[0], 80);
-assert.equal(size[1], 30);
+assert.equal(size[1], 24);
