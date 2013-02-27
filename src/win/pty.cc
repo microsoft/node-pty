@@ -243,10 +243,6 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
 
 	// Get pipe handle
 	winpty_t *pc = getControlPipeHandle(pid);
-
-	
-
-	fprintf(stdout, "Handle: %d", pid);
 	
 	// Start new terminal
 	if(pc != NULL) {
