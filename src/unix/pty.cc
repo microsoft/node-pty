@@ -58,7 +58,6 @@ extern char **environ;
 #include <libproc.h>
 #endif
 
-using namespace std;
 using namespace node;
 using namespace v8;
 
