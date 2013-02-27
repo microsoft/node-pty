@@ -24,7 +24,7 @@
         ],
         'dependencies' : [
             'deps/winpty/winpty.gyp:winpty-agent',
-            'deps/winpty/winpty.gyp:libwinpty'
+            'deps/winpty/winpty.gyp:winpty'
         ],
         'sources' : [
             'src/win/pty.cc'
