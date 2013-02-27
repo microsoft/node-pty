@@ -27,7 +27,6 @@ using namespace node;
 */
 extern "C" void init(Handle<Object>);
 
-static winpty_t *agentPty;
 static std::vector<winpty_t *> ptyHandles;
 static volatile LONG ptyCounter;
 
@@ -41,6 +40,7 @@ struct winpty_s {
 winpty_s::winpty_s() : controlPipe(NULL), dataPipe(NULL)
 {
 }
+
 
 /**
 * Helpers
@@ -69,6 +69,15 @@ const char* ToCString(const v8::String::Utf8Value& value) {
 	return *value ? *value : "<string conversion failed>";
 }
 
+const wchar_t* to_wchar(const String::Utf8Value& str)
+{
+	const char *bytes = ToCString(str);
+	unsigned int iSizeOfStr = MultiByteToWideChar(CP_ACP, 0, bytes, -1, NULL, 0);  
+	wchar_t* wszTgt = new wchar_t[iSizeOfStr];  	   
+    MultiByteToWideChar(CP_ACP, 0, bytes, -1, wszTgt, iSizeOfStr);  
+	return wszTgt;
+}
+
 template <typename T>
 void remove(std::vector<T>& vec, size_t pos)
 {
@@ -77,24 +86,21 @@ void remove(std::vector<T>& vec, size_t pos)
 	vec.erase(it);
 }
 
-// Find a given pipe handle by using agent pid
-static winpty_t *getControlPipeHandle(int pid) {
+static winpty_t *getControlPipeHandle(int handle) {
 	for(unsigned int i = 0; i < ptyHandles.size(); i++) {
 		winpty_t *ptyHandle = ptyHandles[i];
-		if(ptyHandle->pid == pid) {
+		if((int)ptyHandle->controlPipe == handle) {
 			return ptyHandle;
 		}
 	}
 	return NULL;
 }
 
-// Remove a given pipe handle
-static bool removePipeHandle(int pid) {
+static bool removePipeHandle(int handle) {
 	for(unsigned int i = 0; i < ptyHandles.size(); i++) {
 		winpty_t *ptyHandle = ptyHandles[i];
-		if(ptyHandle->pid == pid) {
+		if((int)ptyHandle->controlPipe == handle) {
 			remove(ptyHandles, i);
-			return true;
 		}
 	}
 	return false;
@@ -112,7 +118,7 @@ static std::wstring addDoubleSlashes(std::wstring str) {
 
 /*
 * PtyOpen
-* pty.open(controlPipe, dataPipe, cols, rows)
+* pty.open(dataPipe, cols, rows)
 * 
 * If you need to debug winpty-agent.exe do the following:
 * ======================================================
@@ -150,48 +156,43 @@ static std::wstring addDoubleSlashes(std::wstring str) {
 static Handle<Value> PtyOpen(const Arguments& args) {
 	HandleScope scope;
 
-	if (args.Length() != 5
-		|| !args[0]->IsString() // controlPipe
-		|| !args[1]->IsString() // dataPipe
-		|| !args[2]->IsNumber() // cols
-		|| !args[3]->IsNumber() // rows
-		|| !args[4]->IsBoolean()) // debug
+	if (args.Length() != 4
+		|| !args[0]->IsString() // dataPipe
+		|| !args[1]->IsNumber() // cols
+		|| !args[2]->IsNumber() // rows
+		|| !args[3]->IsBoolean()) // debug
 	{
 		return ThrowException(Exception::Error(
-			String::New("Usage: pty.open(controlPipe, dataPipe, cols, rows, debug)")));
+			String::New("Usage: pty.open(dataPipe, cols, rows, debug)")));
 	}
 
 	// Cols, rows
-	bool debug = (bool) args[4]->BooleanValue;
-	int cols = (int) args[2]->Int32Value();
-	int rows = (int) args[3]->Int32Value();
+	int cols = (int) args[1]->Int32Value();
+	int rows = (int) args[2]->Int32Value();
+	bool debug = (bool) args[3]->BooleanValue;
 
 	// If debug is enabled, set environment variable
 	if(debug) {
 		SetEnvironmentVariableW(L"WINPTYDBG", L"1");
 	}
 
-	// Controlpipe
-	String::Utf8Value controlPipe(args[0]->ToString());
-	String::Utf8Value dataPipe(args[1]->ToString());
-
 	// If successfull the PID of the agent process will be returned.
-	agentPty = winpty_open_ptyjs(ToCString(controlPipe), ToCString(dataPipe), rows, cols);
+	winpty_t *pc = winpty_open_use_own_datapipe(to_wchar(String::Utf8Value(args[0]->ToString())), rows, cols);
 
 	// Error occured during startup of agent process
-	if(agentPty == NULL) {
+	if(pc == NULL) {
 		return ThrowException(Exception::Error(String::New("Unable to start agent process.")));
 	}
 
 	// Save a copy of this pty so that we can find the control socket handle
 	// later on.
-	ptyHandles.insert(ptyHandles.end(), agentPty);
+	ptyHandles.insert(ptyHandles.end(), pc);
 
 	// Pty object values
 	Local<Object> obj = Object::New();
 
 	// Agent pid
-	obj->Set(String::New("pid"), Number::New(agentPty->pid));
+	obj->Set(String::New("pid"), Number::New((int)pc->controlPipe));
 
 	// Use handle of control pipe as our file descriptor
 	obj->Set(String::New("fd"), Number::New(-1));
@@ -243,6 +244,10 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
 	// Get pipe handle
 	winpty_t *pc = getControlPipeHandle(pid);
 
+	
+
+	fprintf(stdout, "Handle: %d", pid);
+	
 	// Start new terminal
 	if(pc != NULL) {
 		winpty_start_process(pc, NULL, file.c_str(), cwd.c_str(), env.c_str());		
@@ -270,11 +275,11 @@ static Handle<Value> PtyResize(const Arguments& args) {
 			String::New("Usage: pty.resize(pid, cols, rows)")));
 	}
 
-	int pid = (int) args[0]->Int32Value();
+	int handle = (int) args[0]->Int32Value();
 	int cols = (int) args[1]->Int32Value();
 	int rows = (int) args[2]->Int32Value();
 
-	winpty_t *pc = getControlPipeHandle(pid);
+	winpty_t *pc = getControlPipeHandle(handle);
 
 	if(pc == NULL) {
 		return ThrowException(Exception::Error(
@@ -300,18 +305,18 @@ static Handle<Value> PtyKill(const Arguments& args) {
 			String::New("Usage: pty.kill(pid)")));
 	}
 
-	int pid = (int) args[0]->Int32Value();
+	int handle = (int) args[0]->Int32Value();
 
-	winpty_t *pc = getControlPipeHandle(pid);
+	winpty_t *pc = getControlPipeHandle(handle);
 
 	if(pc == NULL) {
 		return ThrowException(Exception::Error(
 			String::New("Invalid pid.")));
 	}
 
-	winpty_close(pc);
+	winpty_exit(pc);
 
-	removePipeHandle(pid);
+	removePipeHandle(handle);
 
 	return scope.Close(Undefined());
 
