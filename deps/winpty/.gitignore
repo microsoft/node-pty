@@ -1,6 +1,0 @@
-*.o
-*.d
-*.exe
-*.dll
-config-mingw.mk
-config-unix.mk
