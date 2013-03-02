@@ -34,44 +34,18 @@ struct winpty_s {
 	winpty_s();
 	HANDLE controlPipe;
 	HANDLE dataPipe;
-	int pid;
 };
 
 winpty_s::winpty_s() : controlPipe(NULL), dataPipe(NULL)
 {
 }
 
-
 /**
 * Helpers
 */
-
-wchar_t* ToWChar(const char* utf8){
-	if (utf8 == NULL || *utf8 == L'\0') {
-		return new wchar_t[0];
-	} else {
-		const int utf8len = static_cast<int>(strlen(utf8));
-		const int utf16len = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8, utf8len, NULL, 0);
-		if (utf16len == 0) {
-			return new wchar_t[0];
-		} else {
-			wchar_t* utf16 = new wchar_t[utf16len];
-			if (!::MultiByteToWideChar(CP_UTF8, 0, utf8, utf8len, utf16, utf16len)) {
-				return new wchar_t[0];
-			} else {
-				return utf16;
-			}
-		}
-	}
-}
-
-const char* ToCString(const v8::String::Utf8Value& value) {
-	return *value ? *value : "<string conversion failed>";
-}
-
-const wchar_t* to_wchar(const String::Utf8Value& str)
+const wchar_t* ToWChar(const String::Utf8Value& str)
 {
-	const char *bytes = ToCString(str);
+	const char *bytes = *str;
 	unsigned int iSizeOfStr = MultiByteToWideChar(CP_ACP, 0, bytes, -1, NULL, 0);  
 	wchar_t* wszTgt = new wchar_t[iSizeOfStr];  	   
     MultiByteToWideChar(CP_ACP, 0, bytes, -1, wszTgt, iSizeOfStr);  
@@ -104,16 +78,6 @@ static bool removePipeHandle(int handle) {
 		}
 	}
 	return false;
-}
-
-static std::wstring addDoubleSlashes(std::wstring str) {
-	for (int i = 0; i < str.length(); ++i) {
-		if (str[i] == '\\') {
-			str.insert(i, 1, '\\');
-			++i; // Skip inserted char
-		}
-	}
-	return str;
 }
 
 /*
@@ -166,7 +130,7 @@ static Handle<Value> PtyOpen(const Arguments& args) {
 			String::New("Usage: pty.open(dataPipe, cols, rows, debug)")));
 	}
 
-	// Cols, rows
+	// Cols, rows, debug
 	int cols = (int) args[1]->Int32Value();
 	int rows = (int) args[2]->Int32Value();
 	bool debug = (bool) args[3]->BooleanValue;
@@ -176,28 +140,27 @@ static Handle<Value> PtyOpen(const Arguments& args) {
 		SetEnvironmentVariableW(L"WINPTYDBG", L"1");
 	}
 
-	// If successfull the PID of the agent process will be returned.
-	winpty_t *pc = winpty_open_use_own_datapipe(to_wchar(String::Utf8Value(args[0]->ToString())), rows, cols);
+	// Open a new pty session.
+	winpty_t *pc = winpty_open_use_own_datapipe(ToWChar(String::Utf8Value(args[0]->ToString())), rows, cols);
 
-	// Error occured during startup of agent process
+	// Error occured during startup of agent process.
 	if(pc == NULL) {
 		return ThrowException(Exception::Error(String::New("Unable to start agent process.")));
 	}
 
-	// Save a copy of this pty so that we can find the control socket handle
-	// later on.
+	// Save pty struct fpr later use.
 	ptyHandles.insert(ptyHandles.end(), pc);
 
-	// Pty object values
+	// Pty object values.
 	Local<Object> obj = Object::New();
 
-	// Agent pid
+	// Control pipe handle.
 	obj->Set(String::New("pid"), Number::New((int)pc->controlPipe));
 
-	// Use handle of control pipe as our file descriptor
+	// File descriptor is not available on Windows.
 	obj->Set(String::New("fd"), Number::New(-1));
 
-	// Some peepz use this as an id, lets give em one.
+	// Id of current pty session.
 	obj->Set(String::New("pty"), Number::New(InterlockedIncrement(&ptyCounter)));
 
 	return scope.Close(obj);
@@ -212,44 +175,32 @@ static Handle<Value> PtyOpen(const Arguments& args) {
 static Handle<Value> PtyStartProcess(const Arguments& args) {
 	HandleScope scope;
 
-	if (args.Length() != 4
+	if (args.Length() != 5
 		|| !args[0]->IsNumber() // pid
-		|| !args[1]->IsString() // file + args
-		|| !args[2]->IsString() // env
-		|| !args[3]->IsString()) // cwd
+		|| !args[1]->IsString() // file
+		|| !args[2]->IsString() // cmdline
+		|| !args[3]->IsString() // env
+		|| !args[4]->IsString()) // cwd
 	{
 		return ThrowException(Exception::Error(
-			String::New("Usage: pty.open(pid, file, env, cwd)")));
+			String::New("Usage: pty.startProcess(pid, file, cmdline, env, cwd)")));
 	}
 
-	// Native values
-	int pid = (int) args[0]->Int32Value();
+	// Native values.
+	const wchar_t *file = ToWChar(String::Utf8Value(args[1]->ToString()));
+	const wchar_t *cmdline = ToWChar(String::Utf8Value(args[2]->ToString()));
+	const wchar_t *env = ToWChar(String::Utf8Value(args[3]->ToString()));
+	const wchar_t *cwd = ToWChar(String::Utf8Value(args[4]->ToString()));
 
-	// convert to wchar_t
-	std::wstring file(ToWChar(*String::Utf8Value(args[1]->ToString())));
-	std::wstring env(ToWChar(*String::Utf8Value(args[2]->ToString())));
-
-	// Okay this is really fucked up. What the hell is going and
-	// why does not ToWChar work? Windows reports error code 267
-	// if ToWChar is used. Could somebody please elaborate on this? :)
-	std::string _cwd((*String::Utf8Value(args[3]->ToString())));
-	std::wstring cwd(_cwd.begin(), _cwd.end());
-
-	// file/cwd must be double slash encoded otherwise
-	// we fail to start the terminal process and get
-	// windows error code 267.
-	file = addDoubleSlashes(file);
-	cwd = addDoubleSlashes(cwd);
-
-	// Get pipe handle
-	winpty_t *pc = getControlPipeHandle(pid);
+	// Get winpty_t by control pipe handle
+	winpty_t *pc = getControlPipeHandle((int) args[0]->Int32Value());
 	
 	// Start new terminal
 	if(pc != NULL) {
-		winpty_start_process(pc, NULL, file.c_str(), cwd.c_str(), env.c_str());		
+		winpty_start_process(pc, file, cmdline, cwd, env);	
 	} else {
 		return ThrowException(Exception::Error(
-			String::New("Invalid pid.")));
+			String::New("Invalid control pipe handle.")));
 	}
 
 	return scope.Close(Undefined());
@@ -278,8 +229,7 @@ static Handle<Value> PtyResize(const Arguments& args) {
 	winpty_t *pc = getControlPipeHandle(handle);
 
 	if(pc == NULL) {
-		return ThrowException(Exception::Error(
-			String::New("Invalid pid.")));
+		return ThrowException(Exception::Error(String::New("Invalid pid.")));
 	}
 
 	winpty_set_size(pc, cols, rows);
@@ -311,7 +261,6 @@ static Handle<Value> PtyKill(const Arguments& args) {
 	}
 
 	winpty_exit(pc);
-
 	removePipeHandle(handle);
 
 	return scope.Close(Undefined());
