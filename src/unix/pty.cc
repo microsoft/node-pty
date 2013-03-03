@@ -111,8 +111,8 @@ PtyFork(const Arguments& args) {
       || !args[3]->IsString()
       || !args[4]->IsNumber()
       || !args[5]->IsNumber()
-      || (args.Length() > 6 && !args[6]->IsNumber())
-      || (args.Length() > 6 && !args[7]->IsNumber())) {
+      || (args.Length() >= 8 && !args[6]->IsNumber())
+      || (args.Length() >= 8 && !args[7]->IsNumber())) {
     return ThrowException(Exception::Error(
       String::New("Usage: pty.fork(file, args, env, cwd, cols, rows[, uid, gid])")));
   }
