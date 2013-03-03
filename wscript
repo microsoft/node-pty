@@ -14,4 +14,4 @@ def build(bld):
   obj.cxxflags = ["-Wall"]
   obj.linkflags = ["-lutil"]
   obj.target = "pty"
-  obj.source = "src/pty.cc"
+  obj.source = "src/unix/pty.cc"
