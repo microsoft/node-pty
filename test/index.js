@@ -24,11 +24,20 @@ var tests = [
     test: function () {
       this.resize(100, 100);
     }
+  }, {
+    name: 'should change uid/gid',
+    command: [ 'children/uidgid.js' ],
+    options: { cwd: __dirname, uid: 777, gid: 777 },
+    test: function () {}
   }
 ];
 
 describe('Pty', function() {
   tests.forEach(function (testCase) {
+    if (testCase.options.uid && testCase.options.gid && process.getgid() !== 0) {
+      // Skip tests that contains user impersonation if we are not able to do so.
+      return it.skip(testCase.name);
+    }
     it(testCase.name, function (done) {
       var term = pty.fork(process.execPath, testCase.command, testCase.options);
       term.pipe(process.stderr);

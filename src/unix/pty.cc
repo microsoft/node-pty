@@ -104,7 +104,9 @@ static Handle<Value>
 PtyFork(const Arguments& args) {
   HandleScope scope;
 
-  if (args.Length() != 6
+  if ((args.Length() != 6
+        && (args.Length() != 8 || !args[6]->IsNumber() || !args[7]->IsNumber())
+      )
       || !args[0]->IsString()
       || !args[1]->IsArray()
       || !args[2]->IsArray()
@@ -112,7 +114,7 @@ PtyFork(const Arguments& args) {
       || !args[4]->IsNumber()
       || !args[5]->IsNumber()) {
     return ThrowException(Exception::Error(
-      String::New("Usage: pty.fork(file, args, env, cwd, cols, rows)")));
+      String::New("Usage: pty.fork(file, args, env, cwd, cols, rows[, uid, gid])")));
   }
 
   // node/src/node_child_process.cc
@@ -155,6 +157,13 @@ PtyFork(const Arguments& args) {
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
+  int uid = -1;
+  int gid = -1;
+  if (args.Length() == 8) {
+    uid = args[6]->IntegerValue();
+    gid = args[7]->IntegerValue();
+  }
+
   // fork the pty
   int master = -1;
   char name[40];
@@ -174,6 +183,17 @@ PtyFork(const Arguments& args) {
         String::New("forkpty(3) failed.")));
     case 0:
       if (strlen(cwd)) chdir(cwd);
+
+      if (uid != -1 && gid != -1) {
+        if (setgid(gid) == -1) {
+          perror("setgid(2) failed.");
+          _exit(1);
+        }
+        if (setuid(uid) == -1) {
+          perror("setuid(2) failed.");
+          _exit(1);
+        }
+      }
 
       pty_execvpe(argv[0], argv, env);
 
