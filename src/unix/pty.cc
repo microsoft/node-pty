@@ -42,7 +42,7 @@
 
 /* environ for execvpe */
 /* node/src/node_child_process.cc */
-#if defined(__APPLE__) && !defined(TARGET_OS_IPHONE)
+#if defined(__APPLE__) && !TARGET_OS_IPHONE
 #include <crt_externs.h>
 #define environ (*_NSGetEnviron())
 #else
