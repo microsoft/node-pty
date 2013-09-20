@@ -107,16 +107,16 @@ x64) http://sourceforge.net/projects/pywin32/files/pywin32/Build%20218/pywin32-2
 *
 * var term = pty.fork('cmd', [], {
 *   name: 'Windows Shell',
-*	cols: 80,
-*	rows: 30,
-*	cwd: process.env.HOME,
-*	env: process.env,
-*	debug: true
+*	  cols: 80,
+*	  rows: 30,
+*	  cwd: process.env.HOME,
+*	  env: process.env,
+*	  debug: true
 * });
 *
-* process.stdin.resume();
-* process.stdin.pipe(term);
-* term.pipe(process.stdout);
+* term.on('data', function(data) {
+* 	console.log(data);
+* });
 *
 */
 
