@@ -53,15 +53,15 @@ winpty_s::winpty_s() :
 
 const wchar_t* to_wstring(const String::Utf8Value& str)
 {
-  auto bytes = *str;
-  auto sizeOfStr = MultiByteToWideChar(CP_ACP, 0, bytes, -1, NULL, 0);  
-  auto output = new wchar_t[sizeOfStr];  	   
+  const char *bytes = *str;
+  unsigned int sizeOfStr = MultiByteToWideChar(CP_ACP, 0, bytes, -1, NULL, 0);  
+  wchar_t *output = new wchar_t[sizeOfStr];  	   
   MultiByteToWideChar(CP_ACP, 0, bytes, -1, output, sizeOfStr);  
   return output;
 }
 
 static winpty_t *get_pipe_handle(int handle) {
-  for(auto &ptyHandle : ptyHandles) {
+  for(winpty_t *ptyHandle : ptyHandles) {
     int current = (int)ptyHandle->controlPipe;
     if(current == handle) {
       return ptyHandle;
@@ -71,7 +71,7 @@ static winpty_t *get_pipe_handle(int handle) {
 }
 
 static bool remove_pipe_handle(int handle) {
-  for(auto *ptyHandle : ptyHandles) {
+  for(winpty_t *ptyHandle : ptyHandles) {
     if((int)ptyHandle->controlPipe == handle) {
       delete ptyHandle;
       ptyHandle = nullptr;
@@ -133,10 +133,10 @@ static Handle<Value> PtyOpen(const Arguments& args) {
       String::New("Usage: pty.open(dataPipe, cols, rows, debug)")));
   }
 
-  auto pipeName = to_wstring(String::Utf8Value(args[0]->ToString()));
-  auto cols = args[1]->Int32Value();
-  auto rows = args[2]->Int32Value();
-  auto debug = args[3]->ToBoolean()->IsTrue();
+  const wchar_t *pipeName = to_wstring(String::Utf8Value(args[0]->ToString()));
+  int cols = args[1]->Int32Value();
+  int rows = args[2]->Int32Value();
+  bool debug = args[3]->ToBoolean()->IsTrue();
 
   // Enable/disable debugging
   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
@@ -151,7 +151,7 @@ static Handle<Value> PtyOpen(const Arguments& args) {
   ptyHandles.insert(ptyHandles.end(), pc);
 
   // Pty object values.
-  auto marshal = Object::New();
+  Local<Object> marshal = Object::New();
   marshal->Set(String::New("pid"), Number::New((int)pc->controlPipe));
   marshal->Set(String::New("pty"), Number::New(InterlockedIncrement(&ptyCounter)));
   marshal->Set(String::New("fd"), Number::New(-1));
@@ -182,21 +182,21 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
   }
 
   // Native values.
-  auto pid = args[0]->Int32Value();
-  auto file = to_wstring(String::Utf8Value(args[1]->ToString()));
-  auto cmdline = to_wstring(String::Utf8Value(args[2]->ToString()));
-  auto env = to_wstring(String::Utf8Value(args[3]->ToString()));
-  auto cwd = to_wstring(String::Utf8Value(args[4]->ToString()));
+  int pid = args[0]->Int32Value();
+  const wchar_t *file = to_wstring(String::Utf8Value(args[1]->ToString()));
+  const wchar_t *cmdline = to_wstring(String::Utf8Value(args[2]->ToString()));
+  const wchar_t *env = to_wstring(String::Utf8Value(args[3]->ToString()));
+  const wchar_t *cwd = to_wstring(String::Utf8Value(args[4]->ToString()));
 
   // disabled, see: https://github.com/rprichard/winpty/issues/13
   env = NULL;
 
   // Get winpty_t by control pipe handle
-  auto pc = get_pipe_handle(pid);
+  winpty_t *pc = get_pipe_handle(pid);
 
   // Start new terminal
   assert(pc != nullptr);
-  auto result = winpty_start_process(pc, file, cmdline, cwd, env);
+  int result = winpty_start_process(pc, file, cmdline, cwd, env);
   assert(0 == result);
 
   return scope.Close(Undefined());
@@ -217,9 +217,9 @@ static Handle<Value> PtyResize(const Arguments& args) {
     return ThrowException(Exception::Error(String::New("Usage: pty.resize(pid, cols, rows)")));
   }
 
-  auto handle = args[0]->Int32Value();
-  auto cols = args[1]->Int32Value();
-  auto rows = args[2]->Int32Value();
+  int handle = args[0]->Int32Value();
+  int cols = args[1]->Int32Value();
+  int rows = args[2]->Int32Value();
 
   winpty_t *pc = get_pipe_handle(handle);
 
@@ -242,7 +242,7 @@ static Handle<Value> PtyKill(const Arguments& args) {
     return ThrowException(Exception::Error(String::New("Usage: pty.kill(pid)")));
   }
 
-  auto handle = args[0]->Int32Value();
+  int handle = args[0]->Int32Value();
 
   winpty_t *pc = get_pipe_handle(handle);
 
