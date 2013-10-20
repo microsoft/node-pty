@@ -142,7 +142,7 @@ static Handle<Value> PtyOpen(const Arguments& args) {
   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
 
   // Open a new pty session.
-  winpty_t *pc = winpty_open_use_own_datapipe(pipeName, rows, cols);
+  winpty_t *pc = winpty_open_use_own_datapipe(pipeName, cols, rows);
 
   // Error occured during startup of agent process.
   assert(pc != nullptr);
