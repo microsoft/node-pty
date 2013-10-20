@@ -62,8 +62,8 @@ const wchar_t* to_wstring(const String::Utf8Value& str)
 
 static winpty_t *get_pipe_handle(int handle) {
   for(auto &ptyHandle : ptyHandles) {
-    int cmp = (int)ptyHandle->controlPipe;
-    if(cmp == handle) {
+    int current = (int)ptyHandle->controlPipe;
+    if(current == handle) {
       return ptyHandle;
     }
   }
