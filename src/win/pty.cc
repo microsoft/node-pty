@@ -13,6 +13,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <winpty.h>
+#include <Shlwapi.h> // PathCombine
 #include <string>
 #include <sstream>
 #include <iostream>
@@ -28,6 +29,7 @@ using namespace node;
 extern "C" void init(Handle<Object>);
 
 #define WINPTY_DBG_VARIABLE TEXT("WINPTYDBG")
+#define MAX_ENV 65536
 
 /**
 * winpty
@@ -79,6 +81,52 @@ static bool remove_pipe_handle(int handle) {
     }
   }
   return false;
+}
+
+static bool file_exists(std::wstring filename) {
+  return (INVALID_FILE_ATTRIBUTES == ::GetFileAttributesW(filename.c_str()) && 
+    ::GetLastError() == ERROR_FILE_NOT_FOUND) == false;
+}
+
+// cmd.exe -> C:\Windows\system32\cmd.exe
+static std::wstring get_shell_path(std::wstring filename)  {
+
+  if(file_exists(filename)) {
+    return nullptr;
+  }
+
+  wchar_t buffer_[MAX_ENV];
+  int read = ::GetEnvironmentVariableW(L"Path", buffer_, MAX_ENV);
+  if(!read) {
+    return nullptr;
+  }
+
+  std::wstring delimiter = L";";
+  size_t pos = 0;
+  vector<wstring> paths;
+  std::wstring buffer(buffer_);
+  while ((pos = buffer.find(delimiter)) != std::wstring::npos) {
+    paths.push_back(buffer.substr(0, pos));
+    buffer.erase(0, pos + delimiter.length());
+  }
+
+  const wchar_t *filename_ = filename.c_str();
+
+  for(wstring path : paths) {
+    wchar_t pathCombined[MAX_PATH];   
+    ::PathCombineW(pathCombined, const_cast<wchar_t*>(path.c_str()), filename_);
+
+    if(pathCombined == NULL) {
+      continue;
+    }
+
+    if(file_exists(pathCombined)) {
+      return std::wstring(pathCombined);
+    }
+
+  }
+
+  return nullptr;
 }
 
 /*
@@ -187,7 +235,7 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
   winpty_t *pc = get_pipe_handle(pid);
   assert(pc != nullptr);
 
-  const wchar_t *file = to_wstring(String::Utf8Value(args[1]->ToString()));
+  const wchar_t *filename = to_wstring(String::Utf8Value(args[1]->ToString()));
   const wchar_t *cmdline = to_wstring(String::Utf8Value(args[2]->ToString()));
   const wchar_t *cwd = to_wstring(String::Utf8Value(args[4]->ToString()));
 
@@ -212,10 +260,21 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
     wcscat(env, L"\0");
   }
 
-  // Start new terminal
-  int result = winpty_start_process(pc, file, cmdline, cwd, env);
-  delete env;
+  // use environment 'Path' variable to determine location of 
+  // the relative path that we have recieved (e.g cmd.exe)
+  std::wstring shellpath;
+  if(::PathIsRelativeW(filename)) {
+    shellpath = get_shell_path(filename);
+  } else {
+    shellpath = filename;
+  }
 
+  if(!file_exists(shellpath)) {
+    return ThrowException(Exception::Error(String::New("Unable to load executable, it does not exist.")));
+  }
+
+  delete env;
+  int result = winpty_start_process(pc, shellpath.c_str(), cmdline, cwd, env);
   assert(0 == result);
 
   return scope.Close(Undefined());
