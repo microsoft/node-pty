@@ -174,29 +174,48 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
     || !args[0]->IsNumber() // pid
     || !args[1]->IsString() // file
     || !args[2]->IsString() // cmdline
-    || !args[3]->IsString() // env
+    || !args[3]->IsArray() // env
     || !args[4]->IsString()) // cwd
   {
     return ThrowException(Exception::Error(
       String::New("Usage: pty.startProcess(pid, file, cmdline, env, cwd)")));
   }
 
-  // Native values.
+  // Get winpty_t by control pipe handle
   int pid = args[0]->Int32Value();
+
+  winpty_t *pc = get_pipe_handle(pid);
+  assert(pc != nullptr);
+
   const wchar_t *file = to_wstring(String::Utf8Value(args[1]->ToString()));
   const wchar_t *cmdline = to_wstring(String::Utf8Value(args[2]->ToString()));
-  const wchar_t *env = to_wstring(String::Utf8Value(args[3]->ToString()));
   const wchar_t *cwd = to_wstring(String::Utf8Value(args[4]->ToString()));
 
-  // disabled, see: https://github.com/rprichard/winpty/issues/13
-  env = NULL;
+  // create environment block
+  wchar_t *env = NULL;
+  const Handle<Array> envValues = Handle<Array>::Cast(args[3]);
+  if(!envValues.IsEmpty()) {
 
-  // Get winpty_t by control pipe handle
-  winpty_t *pc = get_pipe_handle(pid);
+    std::wstringstream envBlock;
+
+    for(uint32_t i = 0; i < envValues->Length(); i++) {
+      std::wstring envValue(to_wstring(String::Utf8Value(envValues->Get(i)->ToString())));
+      envBlock << envValue << L' ';
+    }
+
+    std::wstring output = envBlock.str();
+
+    size_t count = output.size();
+    env = new wchar_t[count + 2];
+    wcsncpy(env, output.c_str(), count);
+
+    wcscat(env, L"\0");
+  }
 
   // Start new terminal
-  assert(pc != nullptr);
   int result = winpty_start_process(pc, file, cmdline, cwd, env);
+  delete env;
+
   assert(0 == result);
 
   return scope.Close(Undefined());
