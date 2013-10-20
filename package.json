@@ -22,6 +22,9 @@
     "tty",
     "terminal"
   ],
+  "dependencies": {
+    "extend": "~1.2.1"
+  },
   "devDependencies": {
     "mocha": "~1.7.1"
   }

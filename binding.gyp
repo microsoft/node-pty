@@ -3,7 +3,8 @@
     'target_name': 'pty',
     'conditions': [
       ['OS=="win"', {
-		'msvs_disabled_warnings': [ 4506, 4530 ],
+        # "I disabled those warnings because of winpty" - @peters (GH-40)
+        'msvs_disabled_warnings': [ 4506, 4530 ],
         'include_dirs' : [
           'deps/winpty/include',
         ],
@@ -13,16 +14,15 @@
         ],
         'sources' : [
           'src/win/pty.cc'
-        ],
-		'libraries': [
-		  'shlwapi.lib',
-		],
+        ]
       }, { # OS!="win"
         'sources': [
           'src/unix/pty.cc'
         ],
         'libraries': [
-          '-lutil'
+          '-lutil',
+          '-L/usr/lib',
+          '-L/usr/local/lib'
         ],
       }],
       # http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html
