@@ -1,7 +1,6 @@
 {
   'targets': [{
     'target_name': 'pty',
-	'type': 'loadable_module',
     'conditions': [
       ['OS=="win"', {
 		'msvs_disabled_warnings': [ 4506, 4530 ],
