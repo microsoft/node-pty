@@ -1,6 +1,6 @@
 /**
 * pty.js
-* Copyright (c) 2012, Christopher Jeffrey, Peter Sunde (MIT License)
+* Copyright (c) 2013, Christopher Jeffrey, Peter Sunde (MIT License)
 *
 * pty.cc:
 *   This file is responsible for starting processes
@@ -27,57 +27,58 @@ using namespace node;
 */
 extern "C" void init(Handle<Object>);
 
+#define WINPTY_DBG_VARIABLE TEXT("WINPTYDBG")
+
+/**
+* winpty
+*/
 static std::vector<winpty_t *> ptyHandles;
 static volatile LONG ptyCounter;
 
 struct winpty_s {
-	winpty_s();
-	HANDLE controlPipe;
-	HANDLE dataPipe;
+  winpty_s();
+  HANDLE controlPipe;
+  HANDLE dataPipe;
 };
 
-winpty_s::winpty_s() : controlPipe(NULL), dataPipe(NULL)
+winpty_s::winpty_s() : 
+  controlPipe(nullptr), 
+  dataPipe(nullptr)
 {
 }
 
 /**
 * Helpers
 */
-const wchar_t* ToWChar(const String::Utf8Value& str)
+
+const wchar_t* to_wstring(const String::Utf8Value& str)
 {
-	const char *bytes = *str;
-	unsigned int iSizeOfStr = MultiByteToWideChar(CP_ACP, 0, bytes, -1, NULL, 0);  
-	wchar_t* wszTgt = new wchar_t[iSizeOfStr];  	   
-    MultiByteToWideChar(CP_ACP, 0, bytes, -1, wszTgt, iSizeOfStr);  
-	return wszTgt;
+  const char *bytes = *str;
+  unsigned int sizeOfStr = MultiByteToWideChar(CP_ACP, 0, bytes, -1, NULL, 0);  
+  wchar_t *output = new wchar_t[sizeOfStr];  	   
+  MultiByteToWideChar(CP_ACP, 0, bytes, -1, output, sizeOfStr);  
+  return output;
 }
 
-template <typename T>
-void remove(std::vector<T>& vec, size_t pos)
-{
-	std::vector<T>::iterator it = vec.begin();
-	std::advance(it, pos);
-	vec.erase(it);
+static winpty_t *get_pipe_handle(int handle) {
+  for(winpty_t *ptyHandle : ptyHandles) {
+    int current = (int)ptyHandle->controlPipe;
+    if(current == handle) {
+      return ptyHandle;
+    }
+  }
+  return nullptr;
 }
 
-static winpty_t *getControlPipeHandle(int handle) {
-	for(unsigned int i = 0; i < ptyHandles.size(); i++) {
-		winpty_t *ptyHandle = ptyHandles[i];
-		if((int)ptyHandle->controlPipe == handle) {
-			return ptyHandle;
-		}
-	}
-	return NULL;
-}
-
-static bool removePipeHandle(int handle) {
-	for(unsigned int i = 0; i < ptyHandles.size(); i++) {
-		winpty_t *ptyHandle = ptyHandles[i];
-		if((int)ptyHandle->controlPipe == handle) {
-			remove(ptyHandles, i);
-		}
-	}
-	return false;
+static bool remove_pipe_handle(int handle) {
+  for(winpty_t *ptyHandle : ptyHandles) {
+    if((int)ptyHandle->controlPipe == handle) {
+      delete ptyHandle;
+      ptyHandle = nullptr;
+      return true;
+    }
+  }
+  return false;
 }
 
 /*
@@ -88,7 +89,9 @@ static bool removePipeHandle(int handle) {
 * ======================================================
 * 
 * 1) Install python 2.7
-* 2) Install http://sourceforge.net/projects/pywin32/
+* 2) Install win32pipe
+x86) http://sourceforge.net/projects/pywin32/files/pywin32/Build%20218/pywin32-218.win32-py2.7.exe/download
+x64) http://sourceforge.net/projects/pywin32/files/pywin32/Build%20218/pywin32-218.win-amd64-py2.7.exe/download
 * 3) Start deps/winpty/misc/DebugServer.py (Before you start node)
 * 
 * Then you'll see output from winpty-agent.exe.
@@ -104,66 +107,58 @@ static bool removePipeHandle(int handle) {
 *
 * var term = pty.fork('cmd', [], {
 *   name: 'Windows Shell',
-*	cols: 80,
-*	rows: 30,
-*	cwd: process.env.HOME,
-*	env: process.env,
-*	debug: true
+*	  cols: 80,
+*	  rows: 30,
+*	  cwd: process.env.HOME,
+*	  env: process.env,
+*	  debug: true
 * });
 *
-* process.stdin.pipe(term);
-* process.stdin.resume();
-* term.pipe(process.stdout);
+* term.on('data', function(data) {
+* 	console.log(data);
+* });
 *
 */
 
 static Handle<Value> PtyOpen(const Arguments& args) {
-	HandleScope scope;
+  HandleScope scope;
 
-	if (args.Length() != 4
-		|| !args[0]->IsString() // dataPipe
-		|| !args[1]->IsNumber() // cols
-		|| !args[2]->IsNumber() // rows
-		|| !args[3]->IsBoolean()) // debug
-	{
-		return ThrowException(Exception::Error(
-			String::New("Usage: pty.open(dataPipe, cols, rows, debug)")));
-	}
+  if (args.Length() != 4
+    || !args[0]->IsString() // dataPipe
+    || !args[1]->IsNumber() // cols
+    || !args[2]->IsNumber() // rows
+    || !args[3]->IsBoolean()) // debug
+  {
+    return ThrowException(Exception::Error(
+      String::New("Usage: pty.open(dataPipe, cols, rows, debug)")));
+  }
 
-	// Cols, rows, debug
-	int cols = (int) args[1]->Int32Value();
-	int rows = (int) args[2]->Int32Value();
-	bool debug = (bool) args[3]->BooleanValue;
+  const wchar_t *pipeName = to_wstring(String::Utf8Value(args[0]->ToString()));
+  int cols = args[1]->Int32Value();
+  int rows = args[2]->Int32Value();
+  bool debug = args[3]->ToBoolean()->IsTrue();
 
-	// If debug is enabled, set environment variable
-	if(debug) {
-		SetEnvironmentVariableW(L"WINPTYDBG", L"1");
-	}
+  // Enable/disable debugging
+  SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
 
-	// Open a new pty session.
-	winpty_t *pc = winpty_open_use_own_datapipe(ToWChar(String::Utf8Value(args[0]->ToString())), rows, cols);
+  // Open a new pty session.
+  winpty_t *pc = winpty_open_use_own_datapipe(pipeName, cols, rows);
 
-	// Error occured during startup of agent process.
-	if(pc == NULL) {
-		return ThrowException(Exception::Error(String::New("Unable to start agent process.")));
-	}
+  // Error occured during startup of agent process.
+  assert(pc != nullptr);
 
-	// Save pty struct fpr later use.
-	ptyHandles.insert(ptyHandles.end(), pc);
+  // Save pty struct fpr later use.
+  ptyHandles.insert(ptyHandles.end(), pc);
 
-	// Pty object values.
-	Local<Object> obj = Object::New();
+  // Pty object values.
+  Local<Object> marshal = Object::New();
+  marshal->Set(String::New("pid"), Number::New((int)pc->controlPipe));
+  marshal->Set(String::New("pty"), Number::New(InterlockedIncrement(&ptyCounter)));
+  marshal->Set(String::New("fd"), Number::New(-1));
 
-	// Control pipe handle.
-	obj->Set(String::New("pid"), Number::New((int)pc->controlPipe));
+  delete pipeName;
 
-	// File descriptor is not available on Windows.
-	obj->Set(String::New("fd"), Number::New(-1));
-
-	// Id of current pty session.
-	obj->Set(String::New("pty"), Number::New(InterlockedIncrement(&ptyCounter)));
-
-	return scope.Close(obj);
+  return scope.Close(marshal);
 
 }
 
@@ -173,37 +168,57 @@ static Handle<Value> PtyOpen(const Arguments& args) {
 */
 
 static Handle<Value> PtyStartProcess(const Arguments& args) {
-	HandleScope scope;
+  HandleScope scope;
 
-	if (args.Length() != 5
-		|| !args[0]->IsNumber() // pid
-		|| !args[1]->IsString() // file
-		|| !args[2]->IsString() // cmdline
-		|| !args[3]->IsString() // env
-		|| !args[4]->IsString()) // cwd
-	{
-		return ThrowException(Exception::Error(
-			String::New("Usage: pty.startProcess(pid, file, cmdline, env, cwd)")));
-	}
+  if (args.Length() != 5
+    || !args[0]->IsNumber() // pid
+    || !args[1]->IsString() // file
+    || !args[2]->IsString() // cmdline
+    || !args[3]->IsArray() // env
+    || !args[4]->IsString()) // cwd
+  {
+    return ThrowException(Exception::Error(
+      String::New("Usage: pty.startProcess(pid, file, cmdline, env, cwd)")));
+  }
 
-	// Native values.
-	const wchar_t *file = ToWChar(String::Utf8Value(args[1]->ToString()));
-	const wchar_t *cmdline = ToWChar(String::Utf8Value(args[2]->ToString()));
-	const wchar_t *env = ToWChar(String::Utf8Value(args[3]->ToString()));
-	const wchar_t *cwd = ToWChar(String::Utf8Value(args[4]->ToString()));
+  // Get winpty_t by control pipe handle
+  int pid = args[0]->Int32Value();
 
-	// Get winpty_t by control pipe handle
-	winpty_t *pc = getControlPipeHandle((int) args[0]->Int32Value());
-	
-	// Start new terminal
-	if(pc != NULL) {
-		winpty_start_process(pc, file, cmdline, cwd, env);	
-	} else {
-		return ThrowException(Exception::Error(
-			String::New("Invalid control pipe handle.")));
-	}
+  winpty_t *pc = get_pipe_handle(pid);
+  assert(pc != nullptr);
 
-	return scope.Close(Undefined());
+  const wchar_t *file = to_wstring(String::Utf8Value(args[1]->ToString()));
+  const wchar_t *cmdline = to_wstring(String::Utf8Value(args[2]->ToString()));
+  const wchar_t *cwd = to_wstring(String::Utf8Value(args[4]->ToString()));
+
+  // create environment block
+  wchar_t *env = NULL;
+  const Handle<Array> envValues = Handle<Array>::Cast(args[3]);
+  if(!envValues.IsEmpty()) {
+
+    std::wstringstream envBlock;
+
+    for(uint32_t i = 0; i < envValues->Length(); i++) {
+      std::wstring envValue(to_wstring(String::Utf8Value(envValues->Get(i)->ToString())));
+      envBlock << envValue << L' ';
+    }
+
+    std::wstring output = envBlock.str();
+
+    size_t count = output.size();
+    env = new wchar_t[count + 2];
+    wcsncpy(env, output.c_str(), count);
+
+    wcscat(env, L"\0");
+  }
+
+  // Start new terminal
+  int result = winpty_start_process(pc, file, cmdline, cwd, env);
+  delete env;
+
+  assert(0 == result);
+
+  return scope.Close(Undefined());
 }
 
 /*
@@ -211,30 +226,26 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
 * pty.resize(pid, cols, rows);
 */
 static Handle<Value> PtyResize(const Arguments& args) {
-	HandleScope scope;
+  HandleScope scope;
 
-	if (args.Length() != 3
-		|| !args[0]->IsNumber() // pid
-		|| !args[1]->IsNumber() // cols
-		|| !args[2]->IsNumber()) // rows
-	{
-		return ThrowException(Exception::Error(
-			String::New("Usage: pty.resize(pid, cols, rows)")));
-	}
+  if (args.Length() != 3
+    || !args[0]->IsNumber() // pid
+    || !args[1]->IsNumber() // cols
+    || !args[2]->IsNumber()) // rows
+  {
+    return ThrowException(Exception::Error(String::New("Usage: pty.resize(pid, cols, rows)")));
+  }
 
-	int handle = (int) args[0]->Int32Value();
-	int cols = (int) args[1]->Int32Value();
-	int rows = (int) args[2]->Int32Value();
+  int handle = args[0]->Int32Value();
+  int cols = args[1]->Int32Value();
+  int rows = args[2]->Int32Value();
 
-	winpty_t *pc = getControlPipeHandle(handle);
+  winpty_t *pc = get_pipe_handle(handle);
 
-	if(pc == NULL) {
-		return ThrowException(Exception::Error(String::New("Invalid pid.")));
-	}
+  assert(pc != nullptr);
+  assert(0 == winpty_set_size(pc, cols, rows));
 
-	winpty_set_size(pc, cols, rows);
-
-	return scope.Close(Undefined());
+  return scope.Close(Undefined());
 }
 
 /*
@@ -242,28 +253,23 @@ static Handle<Value> PtyResize(const Arguments& args) {
 * pty.kill(pid);
 */
 static Handle<Value> PtyKill(const Arguments& args) {
-	HandleScope scope;
+  HandleScope scope;
 
-	if (args.Length() != 1
-		|| !args[0]->IsNumber()) // pid
-	{
-		return ThrowException(Exception::Error(
-			String::New("Usage: pty.kill(pid)")));
-	}
+  if (args.Length() != 1
+    || !args[0]->IsNumber()) // pid
+  {
+    return ThrowException(Exception::Error(String::New("Usage: pty.kill(pid)")));
+  }
 
-	int handle = (int) args[0]->Int32Value();
+  int handle = args[0]->Int32Value();
 
-	winpty_t *pc = getControlPipeHandle(handle);
+  winpty_t *pc = get_pipe_handle(handle);
 
-	if(pc == NULL) {
-		return ThrowException(Exception::Error(
-			String::New("Invalid pid.")));
-	}
+  assert(pc != nullptr);
+  winpty_exit(pc);
+  assert(true == remove_pipe_handle(handle));
 
-	winpty_exit(pc);
-	removePipeHandle(handle);
-
-	return scope.Close(Undefined());
+  return scope.Close(Undefined());
 
 }
 
@@ -272,11 +278,11 @@ static Handle<Value> PtyKill(const Arguments& args) {
 */
 
 extern "C" void init(Handle<Object> target) {
-	HandleScope scope;
-	NODE_SET_METHOD(target, "open", PtyOpen);
-	NODE_SET_METHOD(target, "startProcess", PtyStartProcess);
-	NODE_SET_METHOD(target, "resize", PtyResize);
-	NODE_SET_METHOD(target, "kill", PtyKill);
+  HandleScope scope;
+  NODE_SET_METHOD(target, "open", PtyOpen);
+  NODE_SET_METHOD(target, "startProcess", PtyStartProcess);
+  NODE_SET_METHOD(target, "resize", PtyResize);
+  NODE_SET_METHOD(target, "kill", PtyKill);
 };
 
 NODE_MODULE(pty, init);

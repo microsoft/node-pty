@@ -3,6 +3,8 @@
     'target_name': 'pty',
     'conditions': [
       ['OS=="win"', {
+        # "I disabled those warnings because of winpty" - @peters (GH-40)
+        'msvs_disabled_warnings': [ 4506, 4530 ],
         'include_dirs' : [
           'deps/winpty/include',
         ],
