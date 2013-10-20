@@ -186,8 +186,10 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
   auto file = to_wstring(String::Utf8Value(args[1]->ToString()));
   auto cmdline = to_wstring(String::Utf8Value(args[2]->ToString()));
   auto env = to_wstring(String::Utf8Value(args[3]->ToString()));
-  //auto cwd = to_wstring(String::Utf8Value(args[4]->ToString()));
-  wchar_t *cwd = NULL;
+  auto cwd = to_wstring(String::Utf8Value(args[4]->ToString()));
+
+  // disabled, see: https://github.com/rprichard/winpty/issues/13
+  env = NULL;
 
   // Get winpty_t by control pipe handle
   auto pc = get_pipe_handle(pid);
