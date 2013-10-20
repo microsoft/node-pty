@@ -153,7 +153,7 @@ x64) http://sourceforge.net/projects/pywin32/files/pywin32/Build%20218/pywin32-2
 *
 * var pty = require('./');
 *
-* var term = pty.fork('cmd', [], {
+* var term = pty.fork('cmd.exe', [], {
 *   name: 'Windows Shell',
 *	  cols: 80,
 *	  rows: 30,
