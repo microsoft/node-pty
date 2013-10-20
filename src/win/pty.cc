@@ -273,8 +273,8 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
     return ThrowException(Exception::Error(String::New("Unable to load executable, it does not exist.")));
   }
 
-  delete env;
   int result = winpty_start_process(pc, shellpath.c_str(), cmdline, cwd, env);
+  delete env;
   assert(0 == result);
 
   return scope.Close(Undefined());
