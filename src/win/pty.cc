@@ -233,9 +233,11 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
       String::New("Usage: pty.startProcess(pid, file, cmdline, env, cwd)")));
   }
 
+  Handle<Value> exception;
+  std::stringstream why;
+  
   // Get winpty_t by control pipe handle
   int pid = args[0]->Int32Value();
-
   winpty_t *pc = get_pipe_handle(pid);
   assert(pc != nullptr);
 
@@ -273,13 +275,36 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
     shellpath = filename;
   }
 
+  std::string shellpath_(shellpath.begin(), shellpath.end());
+  
   if(shellpath.empty() || !file_exists(shellpath)) {
-    return ThrowException(Exception::Error(String::New("Unable to load executable, it does not exist.")));
+    goto invalid_filename;
   }
 
-  int result = winpty_start_process(pc, shellpath.c_str(), cmdline, cwd, env);
+  goto open;
+
+open:
+   int result = winpty_start_process(pc, shellpath.c_str(), cmdline, cwd, env);
+   if(result != 0) {
+      why << "Unable to start terminal process. Win32 error code: " << result;
+      exception = ThrowException(Exception::Error(String::New(why.str().c_str())));
+   }
+   goto cleanup;
+
+invalid_filename:
+   why << "File not found: " << shellpath_;
+   exception = ThrowException(Exception::Error(String::New(why.str().c_str())));
+   goto cleanup;
+
+cleanup:
+  delete filename;
+  delete cmdline;
+  delete cwd;
   delete env;
-  assert(0 == result);
+
+  if(!exception.IsEmpty()) {
+    return exception;
+  }
 
   return scope.Close(Undefined());
 }
