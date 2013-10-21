@@ -94,14 +94,16 @@ static bool file_exists(std::wstring filename) {
 // cmd.exe -> C:\Windows\system32\cmd.exe
 static std::wstring get_shell_path(std::wstring filename)  {
 
+  std::wstring shellpath;
+
   if(file_exists(filename)) {
-    return nullptr;
+    return shellpath;
   }
 
   wchar_t buffer_[MAX_ENV];
   int read = ::GetEnvironmentVariableW(L"Path", buffer_, MAX_ENV);
   if(!read) {
-    return nullptr;
+    return shellpath;
   }
 
   std::wstring delimiter = L";";
@@ -124,12 +126,13 @@ static std::wstring get_shell_path(std::wstring filename)  {
     }
 
     if(file_exists(searchPath)) {
-      return std::wstring(searchPath);
+      shellpath = searchPath;
+      break;
     }
 
   }
 
-  return nullptr;
+  return shellpath;
 }
 
 /*
@@ -272,7 +275,7 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
     shellpath = filename;
   }
 
-  if(!file_exists(shellpath)) {
+  if(shellpath.empty() || !file_exists(shellpath)) {
     return ThrowException(Exception::Error(String::New("Unable to load executable, it does not exist.")));
   }
 
