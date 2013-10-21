@@ -187,7 +187,7 @@ static Handle<Value> PtyOpen(const Arguments& args) {
       String::New("Usage: pty.open(dataPipe, cols, rows, debug)")));
   }
 
-  const wchar_t *pipeName = to_wstring(String::Utf8Value(args[0]->ToString()));
+  std::wstring pipeName = to_wstring(String::Utf8Value(args[0]->ToString()));
   int cols = args[1]->Int32Value();
   int rows = args[2]->Int32Value();
   bool debug = args[3]->ToBoolean()->IsTrue();
@@ -196,7 +196,7 @@ static Handle<Value> PtyOpen(const Arguments& args) {
   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
 
   // Open a new pty session.
-  winpty_t *pc = winpty_open_use_own_datapipe(pipeName, cols, rows);
+  winpty_t *pc = winpty_open_use_own_datapipe(pipeName.c_str(), cols, rows);
 
   // Error occured during startup of agent process.
   assert(pc != nullptr);
@@ -209,8 +209,6 @@ static Handle<Value> PtyOpen(const Arguments& args) {
   marshal->Set(String::New("pid"), Number::New((int)pc->controlPipe));
   marshal->Set(String::New("pty"), Number::New(InterlockedIncrement(&ptyCounter)));
   marshal->Set(String::New("fd"), Number::New(-1));
-
-  delete pipeName;
 
   return scope.Close(marshal);
 
