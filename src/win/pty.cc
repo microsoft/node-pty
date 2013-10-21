@@ -113,15 +113,15 @@ static std::wstring get_shell_path(std::wstring filename)  {
   const wchar_t *filename_ = filename.c_str();
 
   for(wstring path : paths) {
-    wchar_t pathCombined[MAX_PATH];   
-    ::PathCombineW(pathCombined, const_cast<wchar_t*>(path.c_str()), filename_);
+    wchar_t searchPath[MAX_PATH];   
+    ::PathCombineW(searchPath, const_cast<wchar_t*>(path.c_str()), filename_);
 
-    if(pathCombined == NULL) {
+    if(searchPath == NULL) {
       continue;
     }
 
-    if(file_exists(pathCombined)) {
-      return std::wstring(pathCombined);
+    if(file_exists(searchPath)) {
+      return std::wstring(searchPath);
     }
 
   }
