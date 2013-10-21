@@ -84,8 +84,11 @@ static bool remove_pipe_handle(int handle) {
 }
 
 static bool file_exists(std::wstring filename) {
-  return (INVALID_FILE_ATTRIBUTES == ::GetFileAttributesW(filename.c_str()) && 
-    ::GetLastError() == ERROR_FILE_NOT_FOUND) == false;
+  DWORD attr = ::GetFileAttributesW(filename.c_str());
+  if(attr == INVALID_FILE_ATTRIBUTES || (attr & FILE_ATTRIBUTE_DIRECTORY)) {
+    return false;
+  }
+  return true;
 }
 
 // cmd.exe -> C:\Windows\system32\cmd.exe
