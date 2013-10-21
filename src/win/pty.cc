@@ -74,7 +74,8 @@ static winpty_t *get_pipe_handle(int handle) {
 
 static bool remove_pipe_handle(int handle) {
   for(winpty_t *ptyHandle : ptyHandles) {
-    if((int)ptyHandle->controlPipe == handle) {
+    int current = (int)ptyHandle->controlPipe;
+    if(current == handle) {
       delete ptyHandle;
       ptyHandle = nullptr;
       return true;
