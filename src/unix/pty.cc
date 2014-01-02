@@ -13,8 +13,8 @@
  *   man forkpty
  */
 
-#include <v8.h>
-#include <node.h>
+#include "nan.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -61,17 +61,10 @@ extern char **environ;
 using namespace node;
 using namespace v8;
 
-static Handle<Value>
-PtyFork(const Arguments&);
-
-static Handle<Value>
-PtyOpen(const Arguments&);
-
-static Handle<Value>
-PtyResize(const Arguments&);
-
-static Handle<Value>
-PtyGetProc(const Arguments&);
+NAN_METHOD(PtyFork);
+NAN_METHOD(PtyOpen);
+NAN_METHOD(PtyResize);
+NAN_METHOD(PtyGetProc);
 
 static int
 pty_execvpe(const char *, char **, char **);
@@ -100,9 +93,8 @@ init(Handle<Object>);
  * pty.fork(file, args, env, cwd, cols, rows)
  */
 
-static Handle<Value>
-PtyFork(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(PtyFork) {
+  NanScope();
 
   if (args.Length() < 6
       || !args[0]->IsString()
@@ -113,8 +105,8 @@ PtyFork(const Arguments& args) {
       || !args[5]->IsNumber()
       || (args.Length() >= 8 && !args[6]->IsNumber())
       || (args.Length() >= 8 && !args[7]->IsNumber())) {
-    return ThrowException(Exception::Error(
-      String::New("Usage: pty.fork(file, args, env, cwd, cols, rows[, uid, gid])")));
+    return NanThrowError(
+        "Usage: pty.fork(file, args, env, cwd, cols, rows[, uid, gid])");
   }
 
   // node/src/node_child_process.cc
@@ -180,8 +172,7 @@ PtyFork(const Arguments& args) {
 
   switch (pid) {
     case -1:
-      return ThrowException(Exception::Error(
-        String::New("forkpty(3) failed.")));
+      return NanThrowError("forkpty(3) failed.");
     case 0:
       if (strlen(cwd)) chdir(cwd);
 
@@ -202,8 +193,7 @@ PtyFork(const Arguments& args) {
       _exit(1);
     default:
       if (pty_nonblock(master) == -1) {
-        return ThrowException(Exception::Error(
-          String::New("Could not set master fd to nonblocking.")));
+        return NanThrowError("Could not set master fd to nonblocking.");
       }
 
       Local<Object> obj = Object::New();
@@ -211,10 +201,10 @@ PtyFork(const Arguments& args) {
       obj->Set(String::New("pid"), Number::New(pid));
       obj->Set(String::New("pty"), String::New(name));
 
-      return scope.Close(obj);
+      NanReturnValue(obj);
   }
 
-  return Undefined();
+  NanReturnUndefined();
 }
 
 /**
@@ -222,15 +212,13 @@ PtyFork(const Arguments& args) {
  * pty.open(cols, rows)
  */
 
-static Handle<Value>
-PtyOpen(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(PtyOpen) {
+  NanScope();
 
   if (args.Length() != 2
       || !args[0]->IsNumber()
       || !args[1]->IsNumber()) {
-    return ThrowException(Exception::Error(
-      String::New("Usage: pty.open(cols, rows)")));
+    return NanThrowError("Usage: pty.open(cols, rows)");
   }
 
   // size
@@ -246,18 +234,15 @@ PtyOpen(const Arguments& args) {
   int ret = pty_openpty(&master, &slave, name, NULL, &winp);
 
   if (ret == -1) {
-    return ThrowException(Exception::Error(
-      String::New("openpty(3) failed.")));
+    return NanThrowError("openpty(3) failed.");
   }
 
   if (pty_nonblock(master) == -1) {
-    return ThrowException(Exception::Error(
-      String::New("Could not set master fd to nonblocking.")));
+    return NanThrowError("Could not set master fd to nonblocking.");
   }
 
   if (pty_nonblock(slave) == -1) {
-    return ThrowException(Exception::Error(
-      String::New("Could not set slave fd to nonblocking.")));
+    return NanThrowError("Could not set slave fd to nonblocking.");
   }
 
   Local<Object> obj = Object::New();
@@ -265,7 +250,7 @@ PtyOpen(const Arguments& args) {
   obj->Set(String::New("slave"), Number::New(slave));
   obj->Set(String::New("pty"), String::New(name));
 
-  return scope.Close(obj);
+  NanReturnValue(obj);
 }
 
 /**
@@ -273,16 +258,14 @@ PtyOpen(const Arguments& args) {
  * pty.resize(fd, cols, rows)
  */
 
-static Handle<Value>
-PtyResize(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(PtyResize) {
+  NanScope();
 
   if (args.Length() != 3
       || !args[0]->IsNumber()
       || !args[1]->IsNumber()
       || !args[2]->IsNumber()) {
-    return ThrowException(Exception::Error(
-      String::New("Usage: pty.resize(fd, cols, rows)")));
+    return NanThrowError("Usage: pty.resize(fd, cols, rows)");
   }
 
   int fd = args[0]->IntegerValue();
@@ -294,11 +277,10 @@ PtyResize(const Arguments& args) {
   winp.ws_ypixel = 0;
 
   if (ioctl(fd, TIOCSWINSZ, &winp) == -1) {
-    return ThrowException(Exception::Error(
-      String::New("ioctl(2) failed.")));
+    return NanThrowError("ioctl(2) failed.");
   }
 
-  return Undefined();
+  NanReturnUndefined();
 }
 
 /**
@@ -307,15 +289,13 @@ PtyResize(const Arguments& args) {
  * pty.process(fd, tty)
  */
 
-static Handle<Value>
-PtyGetProc(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(PtyGetProc) {
+  NanScope();
 
   if (args.Length() != 2
       || !args[0]->IsNumber()
       || !args[1]->IsString()) {
-    return ThrowException(Exception::Error(
-      String::New("Usage: pty.process(fd, tty)")));
+    return NanThrowError("Usage: pty.process(fd, tty)");
   }
 
   int fd = args[0]->IntegerValue();
@@ -326,12 +306,12 @@ PtyGetProc(const Arguments& args) {
   free(tty);
 
   if (name == NULL) {
-    return Undefined();
+    NanReturnUndefined();
   }
 
   Local<String> name_ = String::New(name);
   free(name);
-  return scope.Close(name_);
+  NanReturnValue(name_);
 }
 
 /**
@@ -552,7 +532,7 @@ pty_forkpty(int *amaster, char *name,
 
 extern "C" void
 init(Handle<Object> target) {
-  HandleScope scope;
+  NanScope();
   NODE_SET_METHOD(target, "fork", PtyFork);
   NODE_SET_METHOD(target, "open", PtyOpen);
   NODE_SET_METHOD(target, "resize", PtyResize);
