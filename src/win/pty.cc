@@ -60,7 +60,8 @@ const wchar_t* to_wstring(const String::Utf8Value& str)
 }
 
 static winpty_t *get_pipe_handle(int handle) {
-  for(winpty_t *ptyHandle : ptyHandles) {
+  for(size_t i = 0; i < ptyHandles.size(); ++i) {
+    winpty_t *ptyHandle = ptyHandles[i];
     int current = (int)ptyHandle->controlPipe;
     if(current == handle) {
       return ptyHandle;
@@ -70,7 +71,8 @@ static winpty_t *get_pipe_handle(int handle) {
 }
 
 static bool remove_pipe_handle(int handle) {
-  for(winpty_t *ptyHandle : ptyHandles) {
+  for(size_t i = 0; i < ptyHandles.size(); ++i) {
+    winpty_t *ptyHandle = ptyHandles[i];
     if((int)ptyHandle->controlPipe == handle) {
       delete ptyHandle;
       ptyHandle = nullptr;
