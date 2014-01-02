@@ -7,9 +7,8 @@
 *   with pseudo-terminal file descriptors.
 */
 
-#include <v8.h>
-#include <node.h>
-#include <node_buffer.h>
+#include "nan.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <winpty.h>
@@ -120,8 +119,8 @@ x64) http://sourceforge.net/projects/pywin32/files/pywin32/Build%20218/pywin32-2
 *
 */
 
-static Handle<Value> PtyOpen(const Arguments& args) {
-  HandleScope scope;
+static NAN_METHOD(PtyOpen) {
+  NanScope();
 
   if (args.Length() != 4
     || !args[0]->IsString() // dataPipe
@@ -129,8 +128,7 @@ static Handle<Value> PtyOpen(const Arguments& args) {
     || !args[2]->IsNumber() // rows
     || !args[3]->IsBoolean()) // debug
   {
-    return ThrowException(Exception::Error(
-      String::New("Usage: pty.open(dataPipe, cols, rows, debug)")));
+    return NanThrowError("Usage: pty.open(dataPipe, cols, rows, debug)");
   }
 
   const wchar_t *pipeName = to_wstring(String::Utf8Value(args[0]->ToString()));
@@ -158,8 +156,7 @@ static Handle<Value> PtyOpen(const Arguments& args) {
 
   delete pipeName;
 
-  return scope.Close(marshal);
-
+  NanReturnValue(marshal);
 }
 
 /*
@@ -167,8 +164,8 @@ static Handle<Value> PtyOpen(const Arguments& args) {
 * pty.startProcess(pid, file, env, cwd);
 */
 
-static Handle<Value> PtyStartProcess(const Arguments& args) {
-  HandleScope scope;
+static NAN_METHOD(PtyStartProcess) {
+  NanScope();
 
   if (args.Length() != 5
     || !args[0]->IsNumber() // pid
@@ -177,8 +174,8 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
     || !args[3]->IsArray() // env
     || !args[4]->IsString()) // cwd
   {
-    return ThrowException(Exception::Error(
-      String::New("Usage: pty.startProcess(pid, file, cmdline, env, cwd)")));
+    return NanThrowError(
+        "Usage: pty.startProcess(pid, file, cmdline, env, cwd)");
   }
 
   // Get winpty_t by control pipe handle
@@ -218,22 +215,22 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
 
   assert(0 == result);
 
-  return scope.Close(Undefined());
+  NanReturnUndefined();
 }
 
 /*
 * PtyResize
 * pty.resize(pid, cols, rows);
 */
-static Handle<Value> PtyResize(const Arguments& args) {
-  HandleScope scope;
+static NAN_METHOD(PtyResize) {
+  NanScope();
 
   if (args.Length() != 3
     || !args[0]->IsNumber() // pid
     || !args[1]->IsNumber() // cols
     || !args[2]->IsNumber()) // rows
   {
-    return ThrowException(Exception::Error(String::New("Usage: pty.resize(pid, cols, rows)")));
+    return NanThrowError("Usage: pty.resize(pid, cols, rows)");
   }
 
   int handle = args[0]->Int32Value();
@@ -245,20 +242,20 @@ static Handle<Value> PtyResize(const Arguments& args) {
   assert(pc != nullptr);
   assert(0 == winpty_set_size(pc, cols, rows));
 
-  return scope.Close(Undefined());
+  NanReturnUndefined();
 }
 
 /*
 * PtyKill
 * pty.kill(pid);
 */
-static Handle<Value> PtyKill(const Arguments& args) {
-  HandleScope scope;
+static NAN_METHOD(PtyKill) {
+  NanScope();
 
   if (args.Length() != 1
     || !args[0]->IsNumber()) // pid
   {
-    return ThrowException(Exception::Error(String::New("Usage: pty.kill(pid)")));
+    return NanThrowError("Usage: pty.kill(pid)");
   }
 
   int handle = args[0]->Int32Value();
@@ -269,8 +266,7 @@ static Handle<Value> PtyKill(const Arguments& args) {
   winpty_exit(pc);
   assert(true == remove_pipe_handle(handle));
 
-  return scope.Close(Undefined());
-
+  NanReturnUndefined();
 }
 
 /**
@@ -278,7 +274,7 @@ static Handle<Value> PtyKill(const Arguments& args) {
 */
 
 extern "C" void init(Handle<Object> target) {
-  HandleScope scope;
+  NanScope();
   NODE_SET_METHOD(target, "open", PtyOpen);
   NODE_SET_METHOD(target, "startProcess", PtyStartProcess);
   NODE_SET_METHOD(target, "resize", PtyResize);
