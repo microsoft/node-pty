@@ -41,8 +41,8 @@ struct winpty_s {
   HANDLE dataPipe;
 };
 
-winpty_s::winpty_s() : 
-  controlPipe(nullptr), 
+winpty_s::winpty_s() :
+  controlPipe(nullptr),
   dataPipe(nullptr)
 {
 }
@@ -54,9 +54,9 @@ winpty_s::winpty_s() :
 const wchar_t* to_wstring(const String::Utf8Value& str)
 {
   const char *bytes = *str;
-  unsigned int sizeOfStr = MultiByteToWideChar(CP_ACP, 0, bytes, -1, NULL, 0);  
-  wchar_t *output = new wchar_t[sizeOfStr];  	   
-  MultiByteToWideChar(CP_ACP, 0, bytes, -1, output, sizeOfStr);  
+  unsigned int sizeOfStr = MultiByteToWideChar(CP_ACP, 0, bytes, -1, NULL, 0);
+  wchar_t *output = new wchar_t[sizeOfStr];
+  MultiByteToWideChar(CP_ACP, 0, bytes, -1, output, sizeOfStr);
   return output;
 }
 
@@ -84,22 +84,22 @@ static bool remove_pipe_handle(int handle) {
 /*
 * PtyOpen
 * pty.open(dataPipe, cols, rows)
-* 
+*
 * If you need to debug winpty-agent.exe do the following:
 * ======================================================
-* 
+*
 * 1) Install python 2.7
 * 2) Install win32pipe
 x86) http://sourceforge.net/projects/pywin32/files/pywin32/Build%20218/pywin32-218.win32-py2.7.exe/download
 x64) http://sourceforge.net/projects/pywin32/files/pywin32/Build%20218/pywin32-218.win-amd64-py2.7.exe/download
 * 3) Start deps/winpty/misc/DebugServer.py (Before you start node)
-* 
+*
 * Then you'll see output from winpty-agent.exe.
-* 
+*
 * Important part:
 * ===============
 * CreateProcess: success 8896 0 (Windows error code)
-* 
+*
 * Create test.js:
 * ===============
 *
