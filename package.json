@@ -23,6 +23,7 @@
     "terminal"
   ],
   "dependencies": {
+    "nan": "0.7.0",
     "extend": "~1.2.1"
   },
   "devDependencies": {
