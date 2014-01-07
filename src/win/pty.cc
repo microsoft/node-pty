@@ -7,9 +7,8 @@
 *   with pseudo-terminal file descriptors.
 */
 
-#include <v8.h>
-#include <node.h>
-#include <node_buffer.h>
+#include "nan.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <winpty.h>
@@ -41,8 +40,8 @@ struct winpty_s {
   HANDLE dataPipe;
 };
 
-winpty_s::winpty_s() : 
-  controlPipe(nullptr), 
+winpty_s::winpty_s() :
+  controlPipe(nullptr),
   dataPipe(nullptr)
 {
 }
@@ -54,14 +53,15 @@ winpty_s::winpty_s() :
 const wchar_t* to_wstring(const String::Utf8Value& str)
 {
   const char *bytes = *str;
-  unsigned int sizeOfStr = MultiByteToWideChar(CP_ACP, 0, bytes, -1, NULL, 0);  
-  wchar_t *output = new wchar_t[sizeOfStr];  	   
-  MultiByteToWideChar(CP_ACP, 0, bytes, -1, output, sizeOfStr);  
+  unsigned int sizeOfStr = MultiByteToWideChar(CP_ACP, 0, bytes, -1, NULL, 0);
+  wchar_t *output = new wchar_t[sizeOfStr];
+  MultiByteToWideChar(CP_ACP, 0, bytes, -1, output, sizeOfStr);
   return output;
 }
 
 static winpty_t *get_pipe_handle(int handle) {
-  for(winpty_t *ptyHandle : ptyHandles) {
+  for(size_t i = 0; i < ptyHandles.size(); ++i) {
+    winpty_t *ptyHandle = ptyHandles[i];
     int current = (int)ptyHandle->controlPipe;
     if(current == handle) {
       return ptyHandle;
@@ -71,7 +71,8 @@ static winpty_t *get_pipe_handle(int handle) {
 }
 
 static bool remove_pipe_handle(int handle) {
-  for(winpty_t *ptyHandle : ptyHandles) {
+  for(size_t i = 0; i < ptyHandles.size(); ++i) {
+    winpty_t *ptyHandle = ptyHandles[i];
     if((int)ptyHandle->controlPipe == handle) {
       delete ptyHandle;
       ptyHandle = nullptr;
@@ -84,22 +85,22 @@ static bool remove_pipe_handle(int handle) {
 /*
 * PtyOpen
 * pty.open(dataPipe, cols, rows)
-* 
+*
 * If you need to debug winpty-agent.exe do the following:
 * ======================================================
-* 
+*
 * 1) Install python 2.7
 * 2) Install win32pipe
 x86) http://sourceforge.net/projects/pywin32/files/pywin32/Build%20218/pywin32-218.win32-py2.7.exe/download
 x64) http://sourceforge.net/projects/pywin32/files/pywin32/Build%20218/pywin32-218.win-amd64-py2.7.exe/download
 * 3) Start deps/winpty/misc/DebugServer.py (Before you start node)
-* 
+*
 * Then you'll see output from winpty-agent.exe.
-* 
+*
 * Important part:
 * ===============
 * CreateProcess: success 8896 0 (Windows error code)
-* 
+*
 * Create test.js:
 * ===============
 *
@@ -120,8 +121,8 @@ x64) http://sourceforge.net/projects/pywin32/files/pywin32/Build%20218/pywin32-2
 *
 */
 
-static Handle<Value> PtyOpen(const Arguments& args) {
-  HandleScope scope;
+static NAN_METHOD(PtyOpen) {
+  NanScope();
 
   if (args.Length() != 4
     || !args[0]->IsString() // dataPipe
@@ -129,8 +130,7 @@ static Handle<Value> PtyOpen(const Arguments& args) {
     || !args[2]->IsNumber() // rows
     || !args[3]->IsBoolean()) // debug
   {
-    return ThrowException(Exception::Error(
-      String::New("Usage: pty.open(dataPipe, cols, rows, debug)")));
+    return NanThrowError("Usage: pty.open(dataPipe, cols, rows, debug)");
   }
 
   const wchar_t *pipeName = to_wstring(String::Utf8Value(args[0]->ToString()));
@@ -158,8 +158,7 @@ static Handle<Value> PtyOpen(const Arguments& args) {
 
   delete pipeName;
 
-  return scope.Close(marshal);
-
+  NanReturnValue(marshal);
 }
 
 /*
@@ -167,8 +166,8 @@ static Handle<Value> PtyOpen(const Arguments& args) {
 * pty.startProcess(pid, file, env, cwd);
 */
 
-static Handle<Value> PtyStartProcess(const Arguments& args) {
-  HandleScope scope;
+static NAN_METHOD(PtyStartProcess) {
+  NanScope();
 
   if (args.Length() != 5
     || !args[0]->IsNumber() // pid
@@ -177,8 +176,8 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
     || !args[3]->IsArray() // env
     || !args[4]->IsString()) // cwd
   {
-    return ThrowException(Exception::Error(
-      String::New("Usage: pty.startProcess(pid, file, cmdline, env, cwd)")));
+    return NanThrowError(
+        "Usage: pty.startProcess(pid, file, cmdline, env, cwd)");
   }
 
   // Get winpty_t by control pipe handle
@@ -218,22 +217,22 @@ static Handle<Value> PtyStartProcess(const Arguments& args) {
 
   assert(0 == result);
 
-  return scope.Close(Undefined());
+  NanReturnUndefined();
 }
 
 /*
 * PtyResize
 * pty.resize(pid, cols, rows);
 */
-static Handle<Value> PtyResize(const Arguments& args) {
-  HandleScope scope;
+static NAN_METHOD(PtyResize) {
+  NanScope();
 
   if (args.Length() != 3
     || !args[0]->IsNumber() // pid
     || !args[1]->IsNumber() // cols
     || !args[2]->IsNumber()) // rows
   {
-    return ThrowException(Exception::Error(String::New("Usage: pty.resize(pid, cols, rows)")));
+    return NanThrowError("Usage: pty.resize(pid, cols, rows)");
   }
 
   int handle = args[0]->Int32Value();
@@ -245,20 +244,20 @@ static Handle<Value> PtyResize(const Arguments& args) {
   assert(pc != nullptr);
   assert(0 == winpty_set_size(pc, cols, rows));
 
-  return scope.Close(Undefined());
+  NanReturnUndefined();
 }
 
 /*
 * PtyKill
 * pty.kill(pid);
 */
-static Handle<Value> PtyKill(const Arguments& args) {
-  HandleScope scope;
+static NAN_METHOD(PtyKill) {
+  NanScope();
 
   if (args.Length() != 1
     || !args[0]->IsNumber()) // pid
   {
-    return ThrowException(Exception::Error(String::New("Usage: pty.kill(pid)")));
+    return NanThrowError("Usage: pty.kill(pid)");
   }
 
   int handle = args[0]->Int32Value();
@@ -269,8 +268,7 @@ static Handle<Value> PtyKill(const Arguments& args) {
   winpty_exit(pc);
   assert(true == remove_pipe_handle(handle));
 
-  return scope.Close(Undefined());
-
+  NanReturnUndefined();
 }
 
 /**
@@ -278,7 +276,7 @@ static Handle<Value> PtyKill(const Arguments& args) {
 */
 
 extern "C" void init(Handle<Object> target) {
-  HandleScope scope;
+  NanScope();
   NODE_SET_METHOD(target, "open", PtyOpen);
   NODE_SET_METHOD(target, "startProcess", PtyStartProcess);
   NODE_SET_METHOD(target, "resize", PtyResize);

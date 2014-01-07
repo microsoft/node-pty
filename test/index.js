@@ -34,7 +34,7 @@ var tests = [
 
 describe('Pty', function() {
   tests.forEach(function (testCase) {
-    if (testCase.options.uid && testCase.options.gid && process.getgid() !== 0) {
+    if (testCase.options.uid && testCase.options.gid && (process.platform == 'win32' || process.getgid() !== 0)) {
       // Skip tests that contains user impersonation if we are not able to do so.
       return it.skip(testCase.name);
     }

@@ -1,6 +1,9 @@
 {
   'targets': [{
     'target_name': 'pty',
+    'include_dirs' : [
+      '<!(node -e "require(\'nan\')")',
+    ],
     'conditions': [
       ['OS=="win"', {
         # "I disabled those warnings because of winpty" - @peters (GH-40)
