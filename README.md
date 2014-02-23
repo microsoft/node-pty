@@ -40,6 +40,12 @@ console.log(term.process);
 - Add a way of determining the current foreground job for platforms other
   than Linux and OSX/Darwin.
 
+## Contribution and License Agreement
+
+If you contribute code to this project, you are implicitly allowing your code
+to be distributed under the MIT license. You are also implicitly verifying that
+all code is your original work. `</legalese>`
+
 ## License
 
-Copyright (c) 2012, Christopher Jeffrey (MIT License).
+Copyright (c) 2012-2014, Christopher Jeffrey (MIT License).
