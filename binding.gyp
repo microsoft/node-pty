@@ -17,7 +17,10 @@
         ],
         'sources' : [
           'src/win/pty.cc'
-        ]
+        ],
+		'libraries': [
+			'shlwapi.lib'
+		],
       }, { # OS!="win"
         'sources': [
           'src/unix/pty.cc'
