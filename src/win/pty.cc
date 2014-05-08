@@ -205,10 +205,10 @@ static NAN_METHOD(PtyOpen) {
   ptyHandles.insert(ptyHandles.end(), pc);
 
   // Pty object values.
-  Local<Object> marshal = Object::New();
-  marshal->Set(String::New("pid"), Number::New((int)pc->controlPipe));
-  marshal->Set(String::New("pty"), Number::New(InterlockedIncrement(&ptyCounter)));
-  marshal->Set(String::New("fd"), Number::New(-1));
+  Local<Object> marshal = NanNew<Object>();
+  marshal->Set(NanNew<String>("pid"), NanNew<Number>((int)pc->controlPipe));
+  marshal->Set(NanNew<String>("pty"), NanNew<Number>(InterlockedIncrement(&ptyCounter)));
+  marshal->Set(NanNew<String>("fd"), NanNew<Number>(-1));
 
   delete pipeName;
 

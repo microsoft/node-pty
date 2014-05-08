@@ -131,7 +131,7 @@ NAN_METHOD(PtyFork) {
   argv[0] = strdup(*file);
   argv[argl-1] = NULL;
   for (; i < argc; i++) {
-    String::Utf8Value arg(argv_->Get(Integer::New(i))->ToString());
+    String::Utf8Value arg(argv_->Get(NanNew<Integer>(i))->ToString());
     argv[i+1] = strdup(*arg);
   }
 
@@ -142,7 +142,7 @@ NAN_METHOD(PtyFork) {
   char **env = new char*[envc+1];
   env[envc] = NULL;
   for (; i < envc; i++) {
-    String::Utf8Value pair(env_->Get(Integer::New(i))->ToString());
+    String::Utf8Value pair(env_->Get(NanNew<Integer>(i))->ToString());
     env[i] = strdup(*pair);
   }
 
@@ -204,10 +204,10 @@ NAN_METHOD(PtyFork) {
         return NanThrowError("Could not set master fd to nonblocking.");
       }
 
-      Local<Object> obj = Object::New();
-      obj->Set(String::New("fd"), Number::New(master));
-      obj->Set(String::New("pid"), Number::New(pid));
-      obj->Set(String::New("pty"), String::New(name));
+      Local<Object> obj = NanNew<Object>();
+      obj->Set(NanNew<String>("fd"), NanNew<Number>(master));
+      obj->Set(NanNew<String>("pid"), NanNew<Number>(pid));
+      obj->Set(NanNew<String>("pty"), NanNew<String>(name));
 
       NanReturnValue(obj);
   }
@@ -253,10 +253,10 @@ NAN_METHOD(PtyOpen) {
     return NanThrowError("Could not set slave fd to nonblocking.");
   }
 
-  Local<Object> obj = Object::New();
-  obj->Set(String::New("master"), Number::New(master));
-  obj->Set(String::New("slave"), Number::New(slave));
-  obj->Set(String::New("pty"), String::New(name));
+  Local<Object> obj = NanNew<Object>();
+  obj->Set(NanNew<String>("master"), NanNew<Number>(master));
+  obj->Set(NanNew<String>("slave"), NanNew<Number>(slave));
+  obj->Set(NanNew<String>("pty"), NanNew<String>(name));
 
   NanReturnValue(obj);
 }
@@ -317,7 +317,7 @@ NAN_METHOD(PtyGetProc) {
     NanReturnUndefined();
   }
 
-  Local<String> name_ = String::New(name);
+  Local<String> name_ = NanNew<String>(name);
   free(name);
   NanReturnValue(name_);
 }
