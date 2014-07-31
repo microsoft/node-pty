@@ -30,10 +30,10 @@
 #include <pty.h>
 #elif defined(__APPLE__) || defined(__OpenBSD__) || defined(__NetBSD__)
 /**
- * From node v0.11.0 there is also a "util.h" in node/src, which would confuse
+ * From node v0.10.28 (at least?) there is also a "util.h" in node/src, which would confuse
  * the compiler when looking for "util.h".
  */
-#if NODE_VERSION_AT_LEAST(0, 11, 0)
+#if NODE_VERSION_AT_LEAST(0, 10, 28)
 #include </usr/include/util.h>
 #else
 #include <util.h>
