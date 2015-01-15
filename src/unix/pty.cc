@@ -34,7 +34,7 @@
  * the compiler when looking for "util.h".
  */
 #if NODE_VERSION_AT_LEAST(0, 10, 28)
-#include </usr/include/util.h>
+#include <../include/util.h>
 #else
 #include <util.h>
 #endif
