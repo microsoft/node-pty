@@ -34,7 +34,11 @@
  * the compiler when looking for "util.h".
  */
 #if NODE_VERSION_AT_LEAST(0, 10, 28)
+#ifdef __APPLE__
+#include TERM_UTIL
+#else
 #include </usr/include/util.h>
+#endif
 #else
 #include <util.h>
 #endif

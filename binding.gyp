@@ -2,9 +2,21 @@
   'targets': [{
     'target_name': 'pty',
     'include_dirs' : [
-      '<!(node -e "require(\'nan\')")',
+      '<!(node -e "require(\'nan\')")'
     ],
     'conditions': [
+      ['OS=="mac"', {
+        'variables': {
+          # Find: /Applications/Xcode.app/Contents/Developer
+          # /Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk
+          # /usr/include/util.h
+          'USR_INCLUDE': '<!(gcc -x c -v -E /dev/null 2>& 1 '\
+          '| grep /usr/include | grep SDKs | tr -d "\\r\\n\\t ")',
+        },
+        'defines': [
+          'TERM_UTIL=<<(USR_INCLUDE)/util.h>'
+        ]
+      }],
       ['OS=="win"', {
         # "I disabled those warnings because of winpty" - @peters (GH-40)
         'msvs_disabled_warnings': [ 4506, 4530 ],
@@ -18,9 +30,9 @@
         'sources' : [
           'src/win/pty.cc'
         ],
-		'libraries': [
-			'shlwapi.lib'
-		],
+        'libraries': [
+          'shlwapi.lib'
+        ],
       }, { # OS!="win"
         'sources': [
           'src/unix/pty.cc'
