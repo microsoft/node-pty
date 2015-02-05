@@ -6,15 +6,9 @@
     ],
     'conditions': [
       ['OS=="mac"', {
-        'variables': {
-          # Find: /Applications/Xcode.app/Contents/Developer
-          # /Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk
-          # /usr/include/util.h
-          'USR_INCLUDE': '<!(gcc -x c -v -E /dev/null 2>& 1 '\
-          '| grep /usr/include | grep SDKs | tr -d "\\r\\n\\t ")',
-        },
         'defines': [
-          'TERM_UTIL=<<(USR_INCLUDE)/util.h>'
+          'TERM_UTIL=<<!(gcc -x c -v -E /dev/null 2>& 1 | grep /usr/include '\
+                       '| xargs -I folder find folder -name util.h | head -1)>'
         ]
       }],
       ['OS=="win"', {
