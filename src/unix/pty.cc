@@ -98,7 +98,7 @@ init(Handle<Object>);
 
 /**
  * PtyFork
- * pty.fork(file, args, env, cwd, cols, rows)
+ * pty.fork(file, args, env, cwd, cols, rows[, uid, gid])
  */
 
 NAN_METHOD(PtyFork) {
@@ -114,7 +114,7 @@ NAN_METHOD(PtyFork) {
       || (args.Length() >= 8 && !args[6]->IsNumber())
       || (args.Length() >= 8 && !args[7]->IsNumber())) {
     return NanThrowError(
-        "Usage: pty.fork(file, args, env, cwd, cols, rows[, uid, gid])");
+      "Usage: pty.fork(file, args, env, cwd, cols, rows[, uid, gid])");
   }
 
   // node/src/node_child_process.cc
