@@ -5,12 +5,6 @@
       '<!(node -e "require(\'nan\')")'
     ],
     'conditions': [
-      ['OS=="mac"', {
-        'defines': [
-          'TERM_UTIL=<<!(gcc -x c -v -E /dev/null 2>& 1 | grep /usr/include '\
-                       '| xargs -I folder find folder -name util.h | head -1)>'
-        ]
-      }],
       ['OS=="win"', {
         # "I disabled those warnings because of winpty" - @peters (GH-40)
         'msvs_disabled_warnings': [ 4506, 4530 ],
