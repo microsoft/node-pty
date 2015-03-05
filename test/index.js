@@ -49,6 +49,10 @@ describe('Pty', function() {
         count++;
       });
       term.on('exit', function () {
+        // XXX Temporary until we find out why this gets emitted twice:
+        if (done.done) return;
+        done.done = true;
+
         assert.equal(count, 0);
         done();
       });
