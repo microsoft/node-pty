@@ -1,6 +1,6 @@
 /**
  * pty.js
- * Copyright (c) 2012, Christopher Jeffrey (MIT License)
+ * Copyright (c) 2012-2015, Christopher Jeffrey (MIT License)
  *
  * pty.cc:
  *   This file is responsible for starting processes
