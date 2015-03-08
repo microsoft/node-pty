@@ -177,21 +177,21 @@ x64) http://sourceforge.net/projects/pywin32/files/pywin32/Build%20218/pywin32-2
 */
 
 static NAN_METHOD(PtyOpen) {
-  NanScope();
+  Nan::HandleScope scope;
 
-  if (args.Length() != 4
-    || !args[0]->IsString() // dataPipe
-    || !args[1]->IsNumber() // cols
-    || !args[2]->IsNumber() // rows
-    || !args[3]->IsBoolean()) // debug
+  if (info.Length() != 4
+    || !info[0]->IsString() // dataPipe
+    || !info[1]->IsNumber() // cols
+    || !info[2]->IsNumber() // rows
+    || !info[3]->IsBoolean()) // debug
   {
-    return NanThrowError("Usage: pty.open(dataPipe, cols, rows, debug)");
+    return Nan::ThrowError("Usage: pty.open(dataPipe, cols, rows, debug)");
   }
 
-  std::wstring pipeName = to_wstring(String::Utf8Value(args[0]->ToString()));
-  int cols = args[1]->Int32Value();
-  int rows = args[2]->Int32Value();
-  bool debug = args[3]->ToBoolean()->IsTrue();
+  std::wstring pipeName = to_wstring(String::Utf8Value(info[0]->ToString()));
+  int cols = info[1]->Int32Value();
+  int rows = info[2]->Int32Value();
+  bool debug = info[3]->ToBoolean()->IsTrue();
 
   // Enable/disable debugging
   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
@@ -206,12 +206,12 @@ static NAN_METHOD(PtyOpen) {
   ptyHandles.insert(ptyHandles.end(), pc);
 
   // Pty object values.
-  Local<Object> marshal = NanNew<Object>();
-  marshal->Set(NanNew<String>("pid"), NanNew<Number>((int)pc->controlPipe));
-  marshal->Set(NanNew<String>("pty"), NanNew<Number>(InterlockedIncrement(&ptyCounter)));
-  marshal->Set(NanNew<String>("fd"), NanNew<Number>(-1));
+  Local<Object> marshal = Nan::New<Object>();
+  marshal->Set(Nan::New<String>("pid").ToLocalChecked(), Nan::New<Number>((int)pc->controlPipe));
+  marshal->Set(Nan::New<String>("pty").ToLocalChecked(), Nan::New<Number>(InterlockedIncrement(&ptyCounter)));
+  marshal->Set(Nan::New<String>("fd").ToLocalChecked(), Nan::New<Number>(-1));
 
-  NanReturnValue(marshal);
+  return info.GetReturnValue().Set(marshal);
 }
 
 /*
@@ -220,34 +220,33 @@ static NAN_METHOD(PtyOpen) {
 */
 
 static NAN_METHOD(PtyStartProcess) {
-  NanScope();
+  Nan::HandleScope scope;
 
-  if (args.Length() != 5
-    || !args[0]->IsNumber() // pid
-    || !args[1]->IsString() // file
-    || !args[2]->IsString() // cmdline
-    || !args[3]->IsArray() // env
-    || !args[4]->IsString()) // cwd
+  if (info.Length() != 5
+    || !info[0]->IsNumber() // pid
+    || !info[1]->IsString() // file
+    || !info[2]->IsString() // cmdline
+    || !info[3]->IsArray() // env
+    || !info[4]->IsString()) // cwd
   {
-    return NanThrowError(
+    return Nan::ThrowError(
         "Usage: pty.startProcess(pid, file, cmdline, env, cwd)");
   }
 
-  Handle<Value> exception;
   std::stringstream why;
 
   // Get winpty_t by control pipe handle
-  int pid = args[0]->Int32Value();
+  int pid = info[0]->Int32Value();
   winpty_t *pc = get_pipe_handle(pid);
   assert(pc != nullptr);
 
-  const wchar_t *filename = to_wstring(String::Utf8Value(args[1]->ToString()));
-  const wchar_t *cmdline = to_wstring(String::Utf8Value(args[2]->ToString()));
-  const wchar_t *cwd = to_wstring(String::Utf8Value(args[4]->ToString()));
+  const wchar_t *filename = to_wstring(String::Utf8Value(info[1]->ToString()));
+  const wchar_t *cmdline = to_wstring(String::Utf8Value(info[2]->ToString()));
+  const wchar_t *cwd = to_wstring(String::Utf8Value(info[4]->ToString()));
 
   // create environment block
   wchar_t *env = NULL;
-  const Handle<Array> envValues = Handle<Array>::Cast(args[3]);
+  const Handle<Array> envValues = Handle<Array>::Cast(info[3]);
   if(!envValues.IsEmpty()) {
 
     std::wstringstream envBlock;
@@ -287,13 +286,13 @@ open:
    int result = winpty_start_process(pc, shellpath.c_str(), cmdline, cwd, env);
    if(result != 0) {
       why << "Unable to start terminal process. Win32 error code: " << result;
-      exception = NanThrowError(why.str().c_str());
+      Nan::ThrowError(why.str().c_str());
    }
    goto cleanup;
 
 invalid_filename:
    why << "File not found: " << shellpath_;
-   exception = NanThrowError(why.str().c_str());
+   Nan::ThrowError(why.str().c_str());
    goto cleanup;
 
 cleanup:
@@ -302,11 +301,7 @@ cleanup:
   delete cwd;
   delete env;
 
-  if(!exception.IsEmpty()) {
-    return exception;
-  }
-
-  NanReturnUndefined();
+  return info.GetReturnValue().SetUndefined();
 }
 
 /*
@@ -314,26 +309,26 @@ cleanup:
 * pty.resize(pid, cols, rows);
 */
 static NAN_METHOD(PtyResize) {
-  NanScope();
+  Nan::HandleScope scope;
 
-  if (args.Length() != 3
-    || !args[0]->IsNumber() // pid
-    || !args[1]->IsNumber() // cols
-    || !args[2]->IsNumber()) // rows
+  if (info.Length() != 3
+    || !info[0]->IsNumber() // pid
+    || !info[1]->IsNumber() // cols
+    || !info[2]->IsNumber()) // rows
   {
-    return NanThrowError("Usage: pty.resize(pid, cols, rows)");
+    return Nan::ThrowError("Usage: pty.resize(pid, cols, rows)");
   }
 
-  int handle = args[0]->Int32Value();
-  int cols = args[1]->Int32Value();
-  int rows = args[2]->Int32Value();
+  int handle = info[0]->Int32Value();
+  int cols = info[1]->Int32Value();
+  int rows = info[2]->Int32Value();
 
   winpty_t *pc = get_pipe_handle(handle);
 
   assert(pc != nullptr);
   assert(0 == winpty_set_size(pc, cols, rows));
 
-  NanReturnUndefined();
+  return info.GetReturnValue().SetUndefined();
 }
 
 /*
@@ -341,15 +336,15 @@ static NAN_METHOD(PtyResize) {
 * pty.kill(pid);
 */
 static NAN_METHOD(PtyKill) {
-  NanScope();
+  Nan::HandleScope scope;
 
-  if (args.Length() != 1
-    || !args[0]->IsNumber()) // pid
+  if (info.Length() != 1
+    || !info[0]->IsNumber()) // pid
   {
-    return NanThrowError("Usage: pty.kill(pid)");
+    return Nan::ThrowError("Usage: pty.kill(pid)");
   }
 
-  int handle = args[0]->Int32Value();
+  int handle = info[0]->Int32Value();
 
   winpty_t *pc = get_pipe_handle(handle);
 
@@ -357,7 +352,7 @@ static NAN_METHOD(PtyKill) {
   winpty_exit(pc);
   assert(true == remove_pipe_handle(handle));
 
-  NanReturnUndefined();
+  return info.GetReturnValue().SetUndefined();
 }
 
 /**
@@ -365,11 +360,11 @@ static NAN_METHOD(PtyKill) {
 */
 
 extern "C" void init(Handle<Object> target) {
-  NanScope();
-  NODE_SET_METHOD(target, "open", PtyOpen);
-  NODE_SET_METHOD(target, "startProcess", PtyStartProcess);
-  NODE_SET_METHOD(target, "resize", PtyResize);
-  NODE_SET_METHOD(target, "kill", PtyKill);
+  Nan::HandleScope scope;
+  Nan::SetMethod(target, "open", PtyOpen);
+  Nan::SetMethod(target, "startProcess", PtyStartProcess);
+  Nan::SetMethod(target, "resize", PtyResize);
+  Nan::SetMethod(target, "kill", PtyKill);
 };
 
 NODE_MODULE(pty, init);
