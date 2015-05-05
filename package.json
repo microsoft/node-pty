@@ -24,7 +24,7 @@
   ],
   "dependencies": {
     "extend": "~1.2.1",
-    "nan": "1.7.0"
+    "nan": "^1.8.4"
   },
   "devDependencies": {
     "mocha": "~1.17.1"
