@@ -148,6 +148,7 @@ after_wait_on_pid(uv_async_t *async /*, int unhelpful */) {
     NanNew<Integer>(baton->signal_code),
   };
   NanMakeCallback(NanGetCurrentContext()->Global(), cb, 2, argv);
+  uv_close((uv_handle_t *)async, NULL);
   delete baton;
 }
 
