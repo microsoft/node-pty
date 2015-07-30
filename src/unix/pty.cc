@@ -111,8 +111,8 @@ struct AsyncBaton {
   uv_thread_t tid;
 };
 
-void
-WaitOnPid(void *data) {
+static void
+wait_on_pid(void *data) {
   int ret;
   int stat_loc;
 
@@ -121,27 +121,30 @@ WaitOnPid(void *data) {
   errno = 0;
 
   if ((ret = waitpid(baton->pid, &stat_loc, 0)) != baton->pid) {
-    if (ret == -1 && errno == EINTR)
-      return WaitOnPid(baton);
+    if (ret == -1 && errno == EINTR) {
+      return wait_on_pid(baton);
+    }
     assert(false);
   }
 
-  if (WIFEXITED(stat_loc))
+  if (WIFEXITED(stat_loc)) {
     baton->exit_code = WEXITSTATUS(stat_loc); // errno?
+  }
 
-  if (WIFSIGNALED(stat_loc))
+  if (WIFSIGNALED(stat_loc)) {
     baton->signal_code = WTERMSIG(stat_loc);
+  }
 
   uv_async_send(&baton->async);
 }
 
-void
-AfterWaitOnPid(uv_async_t *async, int unhelpful) {
+static void
+after_wait_on_pid(uv_async_t *async, int unhelpful) {
   AsyncBaton *baton = static_cast<AsyncBaton*>(async->data);
   Local<Function> cb = NanNew<Function>(baton->cb);
   Local<Value> argv[] = {
-          NanNew<Integer>(baton->exit_code),
-          NanNew<Integer>(baton->signal_code),
+    NanNew<Integer>(baton->exit_code),
+    NanNew<Integer>(baton->signal_code),
   };
   NanMakeCallback(NanGetCurrentContext()->Global(), cb, 2, argv);
   delete baton;
@@ -272,10 +275,10 @@ NAN_METHOD(PtyFork) {
         baton->pid = pid;
         baton->async.data = baton;
 
-        uv_async_init(uv_default_loop(), &baton->async, AfterWaitOnPid);
+        uv_async_init(uv_default_loop(), &baton->async, after_wait_on_pid);
 
         // Don't touch the CB in this thread
-        uv_thread_create(&baton->tid, WaitOnPid, static_cast<void*>(baton));
+        uv_thread_create(&baton->tid, wait_on_pid, static_cast<void*>(baton));
       }
 
       NanReturnValue(obj);
