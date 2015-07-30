@@ -268,9 +268,11 @@ NAN_METHOD(PtyFork) {
         baton->signal_code = 0;
         Local<Function> cb;
         if (args.Length() == 7) {
-          cb = args[6].As<Function>();
+          // cb = args[6].As<Function>();
+          cb = Local<Function>::Cast(args[6]);
         } else {
-          cb = args[8].As<Function>();
+          // cb = args[8].As<Function>();
+          cb = Local<Function>::Cast(args[8]);
         }
         NanAssignPersistent<Function>(baton->cb, cb);
 
