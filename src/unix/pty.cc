@@ -103,7 +103,7 @@ init(Handle<Object>);
  * pty.fork(file, args, env, cwd, cols, rows[, uid, gid])
  */
 
-struct AsyncBaton {
+struct async_baton {
   Persistent<Function> cb;
   int exit_code;
   int signal_code;
@@ -117,7 +117,7 @@ wait_on_pid(void *data) {
   int ret;
   int stat_loc;
 
-  AsyncBaton *baton = static_cast<AsyncBaton*>(data);
+  async_baton *baton = static_cast<async_baton*>(data);
 
   errno = 0;
 
@@ -141,7 +141,7 @@ wait_on_pid(void *data) {
 
 static void
 after_wait_on_pid(uv_async_t *async /*, int unhelpful */) {
-  AsyncBaton *baton = static_cast<AsyncBaton*>(async->data);
+  async_baton *baton = static_cast<async_baton*>(async->data);
   Local<Function> cb = NanNew<Function>(baton->cb);
   Local<Value> argv[] = {
     NanNew<Integer>(baton->exit_code),
@@ -263,7 +263,7 @@ NAN_METHOD(PtyFork) {
       obj->Set(NanNew<String>("pty"), NanNew<String>(name));
 
       if (args.Length() >= 9 || args.Length() == 7) {
-        AsyncBaton *baton = new AsyncBaton();
+        async_baton *baton = new async_baton();
         baton->exit_code = 0;
         baton->signal_code = 0;
         Local<Function> cb;
