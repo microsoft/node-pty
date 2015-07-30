@@ -15,6 +15,7 @@
 
 #include "nan.h"
 
+#include <errno.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -101,6 +102,51 @@ init(Handle<Object>);
  * pty.fork(file, args, env, cwd, cols, rows[, uid, gid])
  */
 
+struct AsyncBaton {
+  Persistent<Function> cb;
+  int exit_code;
+  int signal_code;
+  pid_t pid;
+  uv_async_t async;
+  uv_thread_t tid;
+};
+
+void
+WaitOnPid(void *data) {
+  int ret;
+  int stat_loc;
+
+  AsyncBaton *baton = static_cast<AsyncBaton*>(data);
+
+  errno = 0;
+
+  if ((ret = waitpid(baton->pid, &stat_loc, 0)) != baton->pid) {
+    if (ret == -1 && errno == EINTR)
+      return WaitOnPid(baton);
+    assert(false);
+  }
+
+  if (WIFEXITED(stat_loc))
+    baton->exit_code = WEXITSTATUS(stat_loc); // errno?
+
+  if (WIFSIGNALED(stat_loc))
+    baton->signal_code = WTERMSIG(stat_loc);
+
+  uv_async_send(&baton->async);
+}
+
+void
+AfterWaitOnPid(uv_async_t *async, int unhelpful) {
+  AsyncBaton *baton = static_cast<AsyncBaton*>(async->data);
+  Local<Function> cb = NanNew<Function>(baton->cb);
+  Local<Value> argv[] = {
+          NanNew<Integer>(baton->exit_code),
+          NanNew<Integer>(baton->signal_code),
+  };
+  NanMakeCallback(NanGetCurrentContext()->Global(), cb, 2, argv);
+  delete baton;
+}
+
 NAN_METHOD(PtyFork) {
   NanScope();
 
@@ -111,10 +157,12 @@ NAN_METHOD(PtyFork) {
       || !args[3]->IsString()
       || !args[4]->IsNumber()
       || !args[5]->IsNumber()
+      || (args.Length() == 7 && !args[6]->IsFunction())
       || (args.Length() >= 8 && !args[6]->IsNumber())
-      || (args.Length() >= 8 && !args[7]->IsNumber())) {
+      || (args.Length() >= 8 && !args[7]->IsNumber())
+      || (args.Length() >= 9 && !args[8]->IsFunction())) {
     return NanThrowError(
-      "Usage: pty.fork(file, args, env, cwd, cols, rows[, uid, gid])");
+      "Usage: pty.fork(file, args, env, cwd, cols, rows[, uid, gid], exitcb)");
   }
 
   // node/src/node_child_process.cc
@@ -208,6 +256,27 @@ NAN_METHOD(PtyFork) {
       obj->Set(NanNew<String>("fd"), NanNew<Number>(master));
       obj->Set(NanNew<String>("pid"), NanNew<Number>(pid));
       obj->Set(NanNew<String>("pty"), NanNew<String>(name));
+
+      if (args.Length() >= 9 || args.Length() == 7) {
+        AsyncBaton *baton = new AsyncBaton();
+        baton->exit_code = 0;
+        baton->signal_code = 0;
+        Local<Function> cb;
+        if (args.Length() == 7) {
+          cb = args[6].As<Function>();
+        } else {
+          cb = args[8].As<Function>();
+        }
+        NanAssignPersistent<Function>(baton->cb, cb);
+
+        baton->pid = pid;
+        baton->async.data = baton;
+
+        uv_async_init(uv_default_loop(), &baton->async, AfterWaitOnPid);
+
+        // Don't touch the CB in this thread
+        uv_thread_create(&baton->tid, WaitOnPid, static_cast<void*>(baton));
+      }
 
       NanReturnValue(obj);
   }
