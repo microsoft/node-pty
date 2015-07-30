@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 
 /* forkpty */
@@ -139,7 +140,7 @@ wait_on_pid(void *data) {
 }
 
 static void
-after_wait_on_pid(uv_async_t *async, int unhelpful) {
+after_wait_on_pid(uv_async_t *async /*, int unhelpful */) {
   AsyncBaton *baton = static_cast<AsyncBaton*>(async->data);
   Local<Function> cb = NanNew<Function>(baton->cb);
   Local<Value> argv[] = {
