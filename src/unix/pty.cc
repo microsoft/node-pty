@@ -140,7 +140,11 @@ wait_on_pid(void *data) {
 }
 
 static void
-after_wait_on_pid(uv_async_t *async /*, int unhelpful */) {
+after_wait_on_pid(uv_async_t *async
+#if !NODE_VERSION_AT_LEAST(0, 11, 0)
+, int unhelpful
+#endif
+) {
   async_baton *baton = static_cast<async_baton*>(async->data);
   Local<Function> cb = NanNew<Function>(baton->cb);
   Local<Value> argv[] = {
