@@ -13,6 +13,10 @@
  *   man forkpty
  */
 
+/**
+ * Includes
+ */
+
 #include "nan.h"
 
 #include <errno.h>
@@ -68,13 +72,38 @@ extern char **environ;
 #include <libproc.h>
 #endif
 
+/**
+ * Namespace
+ */
+
 using namespace node;
 using namespace v8;
+
+/**
+ * Structs
+ */
+
+struct pty_baton {
+  Persistent<Function> cb;
+  int exit_code;
+  int signal_code;
+  pid_t pid;
+  uv_async_t async;
+  uv_thread_t tid;
+};
+
+/**
+ * Methods
+ */
 
 NAN_METHOD(PtyFork);
 NAN_METHOD(PtyOpen);
 NAN_METHOD(PtyResize);
 NAN_METHOD(PtyGetProc);
+
+/**
+ * Functions
+ */
 
 static int
 pty_execvpe(const char *, char **, char **);
@@ -95,6 +124,16 @@ pty_forkpty(int *, char *,
             const struct termios *,
             const struct winsize *);
 
+static void
+pty_waitpid(void *);
+
+static void
+#if NODE_VERSION_AT_LEAST(0, 11, 0)
+pty_after_waitpid(uv_async_t *);
+#else
+pty_after_waitpid(uv_async_t *, int);
+#endif
+
 extern "C" void
 init(Handle<Object>);
 
@@ -102,59 +141,6 @@ init(Handle<Object>);
  * PtyFork
  * pty.fork(file, args, env, cwd, cols, rows[, uid, gid])
  */
-
-struct async_baton {
-  Persistent<Function> cb;
-  int exit_code;
-  int signal_code;
-  pid_t pid;
-  uv_async_t async;
-  uv_thread_t tid;
-};
-
-static void
-wait_on_pid(void *data) {
-  int ret;
-  int stat_loc;
-
-  async_baton *baton = static_cast<async_baton*>(data);
-
-  errno = 0;
-
-  if ((ret = waitpid(baton->pid, &stat_loc, 0)) != baton->pid) {
-    if (ret == -1 && errno == EINTR) {
-      return wait_on_pid(baton);
-    }
-    assert(false);
-  }
-
-  if (WIFEXITED(stat_loc)) {
-    baton->exit_code = WEXITSTATUS(stat_loc); // errno?
-  }
-
-  if (WIFSIGNALED(stat_loc)) {
-    baton->signal_code = WTERMSIG(stat_loc);
-  }
-
-  uv_async_send(&baton->async);
-}
-
-static void
-after_wait_on_pid(uv_async_t *async
-#if !NODE_VERSION_AT_LEAST(0, 11, 0)
-, int unhelpful
-#endif
-) {
-  async_baton *baton = static_cast<async_baton*>(async->data);
-  Local<Function> cb = NanNew<Function>(baton->cb);
-  Local<Value> argv[] = {
-    NanNew<Integer>(baton->exit_code),
-    NanNew<Integer>(baton->signal_code),
-  };
-  NanMakeCallback(NanGetCurrentContext()->Global(), cb, 2, argv);
-  uv_close((uv_handle_t *)async, NULL);
-  delete baton;
-}
 
 NAN_METHOD(PtyFork) {
   NanScope();
@@ -267,15 +253,13 @@ NAN_METHOD(PtyFork) {
       obj->Set(NanNew<String>("pty"), NanNew<String>(name));
 
       if (args.Length() >= 9 || args.Length() == 7) {
-        async_baton *baton = new async_baton();
+        pty_baton *baton = new pty_baton();
         baton->exit_code = 0;
         baton->signal_code = 0;
         Local<Function> cb;
         if (args.Length() == 7) {
-          // cb = args[6].As<Function>();
           cb = Local<Function>::Cast(args[6]);
         } else {
-          // cb = args[8].As<Function>();
           cb = Local<Function>::Cast(args[8]);
         }
         NanAssignPersistent<Function>(baton->cb, cb);
@@ -283,10 +267,10 @@ NAN_METHOD(PtyFork) {
         baton->pid = pid;
         baton->async.data = baton;
 
-        uv_async_init(uv_default_loop(), &baton->async, after_wait_on_pid);
+        uv_async_init(uv_default_loop(), &baton->async, pty_after_waitpid);
 
         // Don't touch the CB in this thread
-        uv_thread_create(&baton->tid, wait_on_pid, static_cast<void*>(baton));
+        uv_thread_create(&baton->tid, pty_waitpid, static_cast<void*>(baton));
       }
 
       NanReturnValue(obj);
@@ -426,6 +410,60 @@ pty_nonblock(int fd) {
   int flags = fcntl(fd, F_GETFL, 0);
   if (flags == -1) return -1;
   return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
+/**
+ * pty_waitpid
+ * Wait for SIGCHLD to read exit status.
+ */
+
+static void
+pty_waitpid(void *data) {
+  int ret;
+  int stat_loc;
+
+  pty_baton *baton = static_cast<pty_baton*>(data);
+
+  errno = 0;
+
+  if ((ret = waitpid(baton->pid, &stat_loc, 0)) != baton->pid) {
+    if (ret == -1 && errno == EINTR) {
+      return pty_waitpid(baton);
+    }
+    assert(false);
+  }
+
+  if (WIFEXITED(stat_loc)) {
+    baton->exit_code = WEXITSTATUS(stat_loc); // errno?
+  }
+
+  if (WIFSIGNALED(stat_loc)) {
+    baton->signal_code = WTERMSIG(stat_loc);
+  }
+
+  uv_async_send(&baton->async);
+}
+
+/**
+ * pty_after_waitpid
+ * Callback after exit status has been read.
+ */
+
+static void
+#if NODE_VERSION_AT_LEAST(0, 11, 0)
+pty_after_waitpid(uv_async_t *async) {
+#else
+pty_after_waitpid(uv_async_t *async, int unhelpful) {
+#endif
+  pty_baton *baton = static_cast<pty_baton*>(async->data);
+  Local<Function> cb = NanNew<Function>(baton->cb);
+  Local<Value> argv[] = {
+    NanNew<Integer>(baton->exit_code),
+    NanNew<Integer>(baton->signal_code),
+  };
+  NanMakeCallback(NanGetCurrentContext()->Global(), cb, 2, argv);
+  uv_close((uv_handle_t *)async, NULL);
+  delete baton;
 }
 
 /**

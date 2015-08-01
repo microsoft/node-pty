@@ -3,6 +3,7 @@
   "description": "Pseudo terminals for node.",
   "author": "Christopher Jeffrey",
   "version": "0.2.9",
+  "license": "MIT",
   "main": "./index.js",
   "repository": "git://github.com/chjj/pty.js.git",
   "homepage": "https://github.com/chjj/pty.js",
