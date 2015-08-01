@@ -134,6 +134,9 @@ pty_after_waitpid(uv_async_t *);
 pty_after_waitpid(uv_async_t *, int);
 #endif
 
+static void
+pty_after_close(uv_handle_t *);
+
 extern "C" void
 init(Handle<Object>);
 
@@ -450,7 +453,18 @@ pty_after_waitpid(uv_async_t *async, int unhelpful) {
     NanNew<Integer>(baton->signal_code),
   };
   NanMakeCallback(NanGetCurrentContext()->Global(), cb, 2, argv);
-  uv_close((uv_handle_t *)async, NULL);
+  uv_close((uv_handle_t *)async, pty_after_close);
+}
+
+/**
+ * pty_after_close
+ * uv_close() callback - free handle data
+ */
+
+static void
+pty_after_close(uv_handle_t *handle) {
+  uv_async_t *async = (uv_async_t *)handle;
+  pty_baton *baton = static_cast<pty_baton*>(async->data);
   delete baton;
 }
 
