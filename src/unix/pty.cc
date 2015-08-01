@@ -139,25 +139,25 @@ init(Handle<Object>);
 
 /**
  * PtyFork
- * pty.fork(file, args, env, cwd, cols, rows[, uid, gid])
+ * pty.fork(file, args, env, cwd, cols, rows, uid, gid, onexit)
  */
 
 NAN_METHOD(PtyFork) {
   NanScope();
 
-  if (args.Length() < 6
-      || !args[0]->IsString()
-      || !args[1]->IsArray()
-      || !args[2]->IsArray()
-      || !args[3]->IsString()
-      || !args[4]->IsNumber()
-      || !args[5]->IsNumber()
-      || (args.Length() == 7 && !args[6]->IsFunction())
-      || (args.Length() >= 8 && !args[6]->IsNumber())
-      || (args.Length() >= 8 && !args[7]->IsNumber())
-      || (args.Length() >= 9 && !args[8]->IsFunction())) {
+  if (args.Length() < 9
+      || !args[0]->IsString() // file
+      || !args[1]->IsArray() // args
+      || !args[2]->IsArray() // env
+      || !args[3]->IsString() // cwd
+      || !args[4]->IsNumber() // cols
+      || !args[5]->IsNumber() // rows
+      || !args[6]->IsNumber() // uid
+      || !args[7]->IsNumber() // gid
+      || !args[8]->IsFunction() // onexit
+  ) {
     return NanThrowError(
-      "Usage: pty.fork(file, args, env, cwd, cols, rows[, uid, gid], exitcb)");
+      "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, onexit)");
   }
 
   // node/src/node_child_process.cc
@@ -201,12 +201,8 @@ NAN_METHOD(PtyFork) {
   winp.ws_ypixel = 0;
 
   // uid / gid
-  int uid = -1;
-  int gid = -1;
-  if (args.Length() >= 8) {
-    uid = args[6]->IntegerValue();
-    gid = args[7]->IntegerValue();
-  }
+  int uid = args[6]->IntegerValue();
+  int gid = args[7]->IntegerValue();
 
   // fork the pty
   int master = -1;
@@ -252,26 +248,18 @@ NAN_METHOD(PtyFork) {
       obj->Set(NanNew<String>("pid"), NanNew<Number>(pid));
       obj->Set(NanNew<String>("pty"), NanNew<String>(name));
 
-      if (args.Length() >= 9 || args.Length() == 7) {
-        pty_baton *baton = new pty_baton();
-        baton->exit_code = 0;
-        baton->signal_code = 0;
-        Local<Function> cb;
-        if (args.Length() == 7) {
-          cb = Local<Function>::Cast(args[6]);
-        } else {
-          cb = Local<Function>::Cast(args[8]);
-        }
-        NanAssignPersistent<Function>(baton->cb, cb);
+      pty_baton *baton = new pty_baton();
+      baton->exit_code = 0;
+      baton->signal_code = 0;
+      Local<Function> onexit = Local<Function>::Cast(args[8]);
+      NanAssignPersistent<Function>(baton->cb, onexit);
 
-        baton->pid = pid;
-        baton->async.data = baton;
+      baton->pid = pid;
+      baton->async.data = baton;
 
-        uv_async_init(uv_default_loop(), &baton->async, pty_after_waitpid);
+      uv_async_init(uv_default_loop(), &baton->async, pty_after_waitpid);
 
-        // Don't touch the CB in this thread
-        uv_thread_create(&baton->tid, pty_waitpid, static_cast<void*>(baton));
-      }
+      uv_thread_create(&baton->tid, pty_waitpid, static_cast<void*>(baton));
 
       NanReturnValue(obj);
   }
