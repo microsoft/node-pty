@@ -421,7 +421,13 @@ pty_waitpid(void *data) {
     if (ret == -1 && errno == EINTR) {
       return pty_waitpid(baton);
     }
-    assert(false);
+    if (ret == -1 && errno == ECHILD) {
+      // XXX node v0.8.x seems to have this problem.
+      // waitpid is already handled elsewhere.
+      ;
+    } else {
+      assert(false);
+    }
   }
 
   if (WIFEXITED(stat_loc)) {
