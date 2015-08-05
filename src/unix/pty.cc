@@ -452,6 +452,7 @@ pty_after_waitpid(uv_async_t *async) {
 #else
 pty_after_waitpid(uv_async_t *async, int unhelpful) {
 #endif
+  NanScope();
   pty_baton *baton = static_cast<pty_baton*>(async->data);
   Local<Function> cb = NanNew<Function>(baton->cb);
   Local<Value> argv[] = {
