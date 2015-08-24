@@ -36,8 +36,8 @@
 #include <pty.h>
 #elif defined(__APPLE__) || defined(__OpenBSD__) || defined(__NetBSD__)
 /**
- * From node v0.10.28 (at least?) there is also a "util.h" in node/src, which would confuse
- * the compiler when looking for "util.h".
+ * From node v0.10.28 (at least?) there is also a "util.h" in node/src, which
+ * would confuse the compiler when looking for "util.h".
  */
 #if NODE_VERSION_AT_LEAST(0, 10, 28)
 #include <../include/util.h>
@@ -242,9 +242,15 @@ NAN_METHOD(PtyFork) {
       }
 
       Local<Object> obj = Nan::New<Object>();
-      Nan::Set(obj, Nan::New<String>("fd").ToLocalChecked(), Nan::New<Number>(master));
-      Nan::Set(obj, Nan::New<String>("pid").ToLocalChecked(), Nan::New<Number>(pid));
-      Nan::Set(obj, Nan::New<String>("pty").ToLocalChecked(), Nan::New<String>(name).ToLocalChecked());
+      Nan::Set(obj,
+        Nan::New<String>("fd").ToLocalChecked(),
+        Nan::New<Number>(master));
+      Nan::Set(obj,
+        Nan::New<String>("pid").ToLocalChecked(),
+        Nan::New<Number>(pid));
+      Nan::Set(obj,
+        Nan::New<String>("pty").ToLocalChecked(),
+        Nan::New<String>(name).ToLocalChecked());
 
       pty_baton *baton = new pty_baton();
       baton->exit_code = 0;
@@ -302,9 +308,15 @@ NAN_METHOD(PtyOpen) {
   }
 
   Local<Object> obj = Nan::New<Object>();
-  Nan::Set(obj, Nan::New<String>("master").ToLocalChecked(), Nan::New<Number>(master));
-  Nan::Set(obj, Nan::New<String>("slave").ToLocalChecked(), Nan::New<Number>(slave));
-  Nan::Set(obj, Nan::New<String>("pty").ToLocalChecked(), Nan::New<String>(name).ToLocalChecked());
+  Nan::Set(obj,
+    Nan::New<String>("master").ToLocalChecked(),
+    Nan::New<Number>(master));
+  Nan::Set(obj,
+    Nan::New<String>("slave").ToLocalChecked(),
+    Nan::New<Number>(slave));
+  Nan::Set(obj,
+    Nan::New<String>("pty").ToLocalChecked(),
+    Nan::New<String>(name).ToLocalChecked());
 
   return info.GetReturnValue().Set(obj);
 }
@@ -638,7 +650,9 @@ pty_forkpty(int *amaster, char *name,
 
 #if defined(TIOCSCTTY)
       // glibc does this
-      if (ioctl(slave, TIOCSCTTY, NULL) == -1) _exit(1);
+      if (ioctl(slave, TIOCSCTTY, NULL) == -1) {
+        _exit(1);
+      }
 #endif
 
       dup2(slave, 0);
