@@ -85,8 +85,6 @@ using namespace v8;
 
 struct pty_baton {
   Nan::Persistent<Function> cb;
-  // Heap-style:
-  // Nan::Callback *cb;
   int exit_code;
   int signal_code;
   pid_t pid;
@@ -251,17 +249,7 @@ NAN_METHOD(PtyFork) {
       pty_baton *baton = new pty_baton();
       baton->exit_code = 0;
       baton->signal_code = 0;
-
-      // Nan::Persistent<Function> onexit(Local<Function>::Cast(info[8]));
-      // // Nan::Persistent<Function> onexit(info[8].As<Function>());
-      // baton->cb.Reset(onexit);
-
       baton->cb.Reset(Local<Function>::Cast(info[8]));
-      // baton->cb.Reset(info[8].As<Function>());
-
-      // Heap-style:
-      // baton->cb = new Nan::Callback(info[8].As<Function>());
-
       baton->pid = pid;
       baton->async.data = baton;
 
@@ -469,10 +457,6 @@ pty_after_waitpid(uv_async_t *async, int unhelpful) {
   baton->cb.Reset();
   memset(&baton->cb, -1, sizeof(baton->cb));
   Nan::Callback(cb).Call(Nan::GetCurrentContext()->Global(), 2, argv);
-
-  // Heap-style:
-  // baton->cb->Call(Nan::GetCurrentContext()->Global(), 2, argv);
-  // delete baton->cb;
 
   uv_close((uv_handle_t *)async, pty_after_close);
 }
