@@ -666,17 +666,17 @@ pty_forkpty(int *amaster, char *name,
 NAN_MODULE_INIT(init) {
   Nan::HandleScope scope;
   Nan::Set(target,
-    Nan::New<v8::String>("fork").ToLocalChecked(),
-    Nan::New<v8::FunctionTemplate>(PtyFork)->GetFunction());
+    Nan::New<String>("fork").ToLocalChecked(),
+    Nan::New<FunctionTemplate>(PtyFork)->GetFunction());
   Nan::Set(target,
-    Nan::New<v8::String>("open").ToLocalChecked(),
-    Nan::New<v8::FunctionTemplate>(PtyOpen)->GetFunction());
+    Nan::New<String>("open").ToLocalChecked(),
+    Nan::New<FunctionTemplate>(PtyOpen)->GetFunction());
   Nan::Set(target,
-    Nan::New<v8::String>("resize").ToLocalChecked(),
-    Nan::New<v8::FunctionTemplate>(PtyResize)->GetFunction());
+    Nan::New<String>("resize").ToLocalChecked(),
+    Nan::New<FunctionTemplate>(PtyResize)->GetFunction());
   Nan::Set(target,
-    Nan::New<v8::String>("process").ToLocalChecked(),
-    Nan::New<v8::FunctionTemplate>(PtyGetProc)->GetFunction());
+    Nan::New<String>("process").ToLocalChecked(),
+    Nan::New<FunctionTemplate>(PtyGetProc)->GetFunction());
 }
 
 NODE_MODULE(pty, init)
