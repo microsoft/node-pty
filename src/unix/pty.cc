@@ -84,7 +84,9 @@ using namespace v8;
  */
 
 struct pty_baton {
-  Persistent<Function> cb;
+  Nan::Persistent<Function> cb;
+  // Heap-style:
+  // Nan::Callback *cb;
   int exit_code;
   int signal_code;
   pid_t pid;
@@ -137,75 +139,70 @@ pty_after_waitpid(uv_async_t *, int);
 static void
 pty_after_close(uv_handle_t *);
 
-extern "C" void
-init(Handle<Object>);
-
 /**
  * PtyFork
  * pty.fork(file, args, env, cwd, cols, rows, uid, gid, onexit)
  */
 
 NAN_METHOD(PtyFork) {
-  NanScope();
+  Nan::HandleScope scope;
 
-  if (args.Length() < 9
-      || !args[0]->IsString() // file
-      || !args[1]->IsArray() // args
-      || !args[2]->IsArray() // env
-      || !args[3]->IsString() // cwd
-      || !args[4]->IsNumber() // cols
-      || !args[5]->IsNumber() // rows
-      || !args[6]->IsNumber() // uid
-      || !args[7]->IsNumber() // gid
-      || !args[8]->IsFunction() // onexit
+  if (info.Length() != 9
+      || !info[0]->IsString() // file
+      || !info[1]->IsArray() // args
+      || !info[2]->IsArray() // env
+      || !info[3]->IsString() // cwd
+      || !info[4]->IsNumber() // cols
+      || !info[5]->IsNumber() // rows
+      || !info[6]->IsNumber() // uid
+      || !info[7]->IsNumber() // gid
+      || !info[8]->IsFunction() // onexit
   ) {
-    return NanThrowError(
+    return Nan::ThrowError(
       "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, onexit)");
   }
 
-  // node/src/node_child_process.cc
-
   // file
-  String::Utf8Value file(args[0]->ToString());
+  String::Utf8Value file(info[0]->ToString());
 
   // args
   int i = 0;
-  Local<Array> argv_ = Local<Array>::Cast(args[1]);
+  Local<Array> argv_ = Local<Array>::Cast(info[1]);
   int argc = argv_->Length();
   int argl = argc + 1 + 1;
   char **argv = new char*[argl];
   argv[0] = strdup(*file);
   argv[argl-1] = NULL;
   for (; i < argc; i++) {
-    String::Utf8Value arg(argv_->Get(NanNew<Integer>(i))->ToString());
+    String::Utf8Value arg(argv_->Get(Nan::New<Integer>(i))->ToString());
     argv[i+1] = strdup(*arg);
   }
 
   // env
   i = 0;
-  Local<Array> env_ = Local<Array>::Cast(args[2]);
+  Local<Array> env_ = Local<Array>::Cast(info[2]);
   int envc = env_->Length();
   char **env = new char*[envc+1];
   env[envc] = NULL;
   for (; i < envc; i++) {
-    String::Utf8Value pair(env_->Get(NanNew<Integer>(i))->ToString());
+    String::Utf8Value pair(env_->Get(Nan::New<Integer>(i))->ToString());
     env[i] = strdup(*pair);
   }
 
   // cwd
-  String::Utf8Value cwd_(args[3]->ToString());
+  String::Utf8Value cwd_(info[3]->ToString());
   char *cwd = strdup(*cwd_);
 
   // size
   struct winsize winp;
-  winp.ws_col = args[4]->IntegerValue();
-  winp.ws_row = args[5]->IntegerValue();
+  winp.ws_col = info[4]->IntegerValue();
+  winp.ws_row = info[5]->IntegerValue();
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
   // uid / gid
-  int uid = args[6]->IntegerValue();
-  int gid = args[7]->IntegerValue();
+  int uid = info[6]->IntegerValue();
+  int gid = info[7]->IntegerValue();
 
   // fork the pty
   int master = -1;
@@ -222,7 +219,7 @@ NAN_METHOD(PtyFork) {
 
   switch (pid) {
     case -1:
-      return NanThrowError("forkpty(3) failed.");
+      return Nan::ThrowError("forkpty(3) failed.");
     case 0:
       if (strlen(cwd)) chdir(cwd);
 
@@ -243,19 +240,27 @@ NAN_METHOD(PtyFork) {
       _exit(1);
     default:
       if (pty_nonblock(master) == -1) {
-        return NanThrowError("Could not set master fd to nonblocking.");
+        return Nan::ThrowError("Could not set master fd to nonblocking.");
       }
 
-      Local<Object> obj = NanNew<Object>();
-      obj->Set(NanNew<String>("fd"), NanNew<Number>(master));
-      obj->Set(NanNew<String>("pid"), NanNew<Number>(pid));
-      obj->Set(NanNew<String>("pty"), NanNew<String>(name));
+      Local<Object> obj = Nan::New<Object>();
+      Nan::Set(obj, Nan::New<String>("fd").ToLocalChecked(), Nan::New<Number>(master));
+      Nan::Set(obj, Nan::New<String>("pid").ToLocalChecked(), Nan::New<Number>(pid));
+      Nan::Set(obj, Nan::New<String>("pty").ToLocalChecked(), Nan::New<String>(name).ToLocalChecked());
 
       pty_baton *baton = new pty_baton();
       baton->exit_code = 0;
       baton->signal_code = 0;
-      Local<Function> onexit = Local<Function>::Cast(args[8]);
-      NanAssignPersistent<Function>(baton->cb, onexit);
+
+      // Nan::Persistent<Function> onexit(Local<Function>::Cast(info[8]));
+      // // Nan::Persistent<Function> onexit(info[8].As<Function>());
+      // baton->cb.Reset(onexit);
+
+      baton->cb.Reset(Local<Function>::Cast(info[8]));
+      // baton->cb.Reset(info[8].As<Function>());
+
+      // Heap-style:
+      // baton->cb = new Nan::Callback(info[8].As<Function>());
 
       baton->pid = pid;
       baton->async.data = baton;
@@ -264,10 +269,10 @@ NAN_METHOD(PtyFork) {
 
       uv_thread_create(&baton->tid, pty_waitpid, static_cast<void*>(baton));
 
-      NanReturnValue(obj);
+      return info.GetReturnValue().Set(obj);
   }
 
-  NanReturnUndefined();
+  return info.GetReturnValue().SetUndefined();
 }
 
 /**
@@ -276,18 +281,18 @@ NAN_METHOD(PtyFork) {
  */
 
 NAN_METHOD(PtyOpen) {
-  NanScope();
+  Nan::HandleScope scope;
 
-  if (args.Length() != 2
-      || !args[0]->IsNumber()
-      || !args[1]->IsNumber()) {
-    return NanThrowError("Usage: pty.open(cols, rows)");
+  if (info.Length() != 2
+      || !info[0]->IsNumber()
+      || !info[1]->IsNumber()) {
+    return Nan::ThrowError("Usage: pty.open(cols, rows)");
   }
 
   // size
   struct winsize winp;
-  winp.ws_col = args[0]->IntegerValue();
-  winp.ws_row = args[1]->IntegerValue();
+  winp.ws_col = info[0]->IntegerValue();
+  winp.ws_row = info[1]->IntegerValue();
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
@@ -297,23 +302,23 @@ NAN_METHOD(PtyOpen) {
   int ret = pty_openpty(&master, &slave, name, NULL, &winp);
 
   if (ret == -1) {
-    return NanThrowError("openpty(3) failed.");
+    return Nan::ThrowError("openpty(3) failed.");
   }
 
   if (pty_nonblock(master) == -1) {
-    return NanThrowError("Could not set master fd to nonblocking.");
+    return Nan::ThrowError("Could not set master fd to nonblocking.");
   }
 
   if (pty_nonblock(slave) == -1) {
-    return NanThrowError("Could not set slave fd to nonblocking.");
+    return Nan::ThrowError("Could not set slave fd to nonblocking.");
   }
 
-  Local<Object> obj = NanNew<Object>();
-  obj->Set(NanNew<String>("master"), NanNew<Number>(master));
-  obj->Set(NanNew<String>("slave"), NanNew<Number>(slave));
-  obj->Set(NanNew<String>("pty"), NanNew<String>(name));
+  Local<Object> obj = Nan::New<Object>();
+  Nan::Set(obj, Nan::New<String>("master").ToLocalChecked(), Nan::New<Number>(master));
+  Nan::Set(obj, Nan::New<String>("slave").ToLocalChecked(), Nan::New<Number>(slave));
+  Nan::Set(obj, Nan::New<String>("pty").ToLocalChecked(), Nan::New<String>(name).ToLocalChecked());
 
-  NanReturnValue(obj);
+  return info.GetReturnValue().Set(obj);
 }
 
 /**
@@ -322,28 +327,28 @@ NAN_METHOD(PtyOpen) {
  */
 
 NAN_METHOD(PtyResize) {
-  NanScope();
+  Nan::HandleScope scope;
 
-  if (args.Length() != 3
-      || !args[0]->IsNumber()
-      || !args[1]->IsNumber()
-      || !args[2]->IsNumber()) {
-    return NanThrowError("Usage: pty.resize(fd, cols, rows)");
+  if (info.Length() != 3
+      || !info[0]->IsNumber()
+      || !info[1]->IsNumber()
+      || !info[2]->IsNumber()) {
+    return Nan::ThrowError("Usage: pty.resize(fd, cols, rows)");
   }
 
-  int fd = args[0]->IntegerValue();
+  int fd = info[0]->IntegerValue();
 
   struct winsize winp;
-  winp.ws_col = args[1]->IntegerValue();
-  winp.ws_row = args[2]->IntegerValue();
+  winp.ws_col = info[1]->IntegerValue();
+  winp.ws_row = info[2]->IntegerValue();
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
   if (ioctl(fd, TIOCSWINSZ, &winp) == -1) {
-    return NanThrowError("ioctl(2) failed.");
+    return Nan::ThrowError("ioctl(2) failed.");
   }
 
-  NanReturnUndefined();
+  return info.GetReturnValue().SetUndefined();
 }
 
 /**
@@ -353,28 +358,28 @@ NAN_METHOD(PtyResize) {
  */
 
 NAN_METHOD(PtyGetProc) {
-  NanScope();
+  Nan::HandleScope scope;
 
-  if (args.Length() != 2
-      || !args[0]->IsNumber()
-      || !args[1]->IsString()) {
-    return NanThrowError("Usage: pty.process(fd, tty)");
+  if (info.Length() != 2
+      || !info[0]->IsNumber()
+      || !info[1]->IsString()) {
+    return Nan::ThrowError("Usage: pty.process(fd, tty)");
   }
 
-  int fd = args[0]->IntegerValue();
+  int fd = info[0]->IntegerValue();
 
-  String::Utf8Value tty_(args[1]->ToString());
+  String::Utf8Value tty_(info[1]->ToString());
   char *tty = strdup(*tty_);
   char *name = pty_getproc(fd, tty);
   free(tty);
 
   if (name == NULL) {
-    NanReturnUndefined();
+    return info.GetReturnValue().SetUndefined();
   }
 
-  Local<String> name_ = NanNew<String>(name);
+  Local<String> name_ = Nan::New<String>(name).ToLocalChecked();
   free(name);
-  NanReturnValue(name_);
+  return info.GetReturnValue().Set(name_);
 }
 
 /**
@@ -452,14 +457,23 @@ pty_after_waitpid(uv_async_t *async) {
 #else
 pty_after_waitpid(uv_async_t *async, int unhelpful) {
 #endif
-  NanScope();
+  Nan::HandleScope scope;
   pty_baton *baton = static_cast<pty_baton*>(async->data);
-  Local<Function> cb = NanNew<Function>(baton->cb);
+
   Local<Value> argv[] = {
-    NanNew<Integer>(baton->exit_code),
-    NanNew<Integer>(baton->signal_code),
+    Nan::New<Integer>(baton->exit_code),
+    Nan::New<Integer>(baton->signal_code),
   };
-  NanMakeCallback(NanGetCurrentContext()->Global(), cb, 2, argv);
+
+  Local<Function> cb = Nan::New<Function>(baton->cb);
+  baton->cb.Reset();
+  memset(&baton->cb, -1, sizeof(baton->cb));
+  Nan::Callback(cb).Call(Nan::GetCurrentContext()->Global(), 2, argv);
+
+  // Heap-style:
+  // baton->cb->Call(Nan::GetCurrentContext()->Global(), 2, argv);
+  // delete baton->cb;
+
   uv_close((uv_handle_t *)async, pty_after_close);
 }
 
@@ -665,13 +679,20 @@ pty_forkpty(int *amaster, char *name,
  * Init
  */
 
-extern "C" void
-init(Handle<Object> target) {
-  NanScope();
-  NODE_SET_METHOD(target, "fork", PtyFork);
-  NODE_SET_METHOD(target, "open", PtyOpen);
-  NODE_SET_METHOD(target, "resize", PtyResize);
-  NODE_SET_METHOD(target, "process", PtyGetProc);
+NAN_MODULE_INIT(init) {
+  Nan::HandleScope scope;
+  Nan::Set(target,
+    Nan::New<v8::String>("fork").ToLocalChecked(),
+    Nan::New<v8::FunctionTemplate>(PtyFork)->GetFunction());
+  Nan::Set(target,
+    Nan::New<v8::String>("open").ToLocalChecked(),
+    Nan::New<v8::FunctionTemplate>(PtyOpen)->GetFunction());
+  Nan::Set(target,
+    Nan::New<v8::String>("resize").ToLocalChecked(),
+    Nan::New<v8::FunctionTemplate>(PtyResize)->GetFunction());
+  Nan::Set(target,
+    Nan::New<v8::String>("process").ToLocalChecked(),
+    Nan::New<v8::FunctionTemplate>(PtyGetProc)->GetFunction());
 }
 
 NODE_MODULE(pty, init)
