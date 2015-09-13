@@ -1,3 +1,0 @@
-[submodule "deps/winpty"]
-	path = deps/winpty
-	url = https://github.com/peters/winpty.git
