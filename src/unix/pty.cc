@@ -160,6 +160,9 @@ NAN_METHOD(PtyFork) {
       "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, onexit)");
   }
 
+  // Make sure the process still listens to SIGINT
+  signal(SIGINT, SIG_DFL);
+
   // file
   String::Utf8Value file(info[0]->ToString());
 
