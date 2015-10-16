@@ -1,4 +1,4 @@
-# Copyright (c) 2011-2012 Ryan Prichard
+# Copyright (c) 2015 Ryan Prichard
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -18,33 +18,31 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-PREFIX ?= /usr/local
+include ../config.mk
+include ../config-mingw.mk
 
-all :
-	cd agent && $(MAKE)
-	cd libwinpty && $(MAKE)
-	cd unix-adapter && $(MAKE)
-	cd debugserver && $(MAKE)
+PROGRAM = ../build/winpty-debugserver.exe
 
-tests :
-	cd tests && $(MAKE)
+OBJECTS = \
+	DebugServer.o
 
-install : all
-	mkdir -p $(PREFIX)/bin
-	install -m 755 -p -s build/console.exe $(PREFIX)/bin
-	install -m 755 -p -s build/winpty.dll $(PREFIX)/bin
-	install -m 755 -p -s build/winpty-agent.exe $(PREFIX)/bin
-	install -m 755 -p -s build/winpty-debugserver.exe $(PREFIX)/bin
+CXXFLAGS += \
+	-DUNICODE \
+	-D_UNICODE \
+	-D_WIN32_WINNT=0x0501 \
+	-fno-exceptions \
+	-fno-rtti
 
-clean :
-	cd agent && $(MAKE) clean
-	cd libwinpty && $(MAKE) clean
-	cd unix-adapter && $(MAKE) clean
-	cd debugserver && $(MAKE) clean
-	cd tests && $(MAKE) clean
+LDFLAGS += -static -static-libgcc -static-libstdc++
 
-distclean : clean
-	rm -f config-unix.mk
-	rm -f config-mingw.mk
+all : $(PROGRAM)
 
-.PHONY : all tests install clean distclean
+$(PROGRAM) : $(OBJECTS)
+	@echo Linking $@
+	@$(CXX) -o $@ $^ $(LDFLAGS)
+
+.PHONY : clean
+clean:
+	rm -f $(PROGRAM) *.o *.d
+
+-include $(OBJECTS:.o=.d)

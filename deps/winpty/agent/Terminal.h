@@ -23,6 +23,7 @@
 
 #include <windows.h>
 #include "Coord.h"
+#include <string>
 #include <utility>
 
 class NamedPipe;
@@ -31,9 +32,11 @@ class Terminal
 {
 public:
     explicit Terminal(NamedPipe *output);
-    void reset(bool sendClearFirst, int newLine);
+    enum SendClearFlag { OmitClear, SendClear };
+    void reset(SendClearFlag sendClearFirst, int newLine);
     void sendLine(int line, CHAR_INFO *lineData, int width);
     void finishOutput(const std::pair<int, int> &newCursorPos);
+    void setConsoleMode(int mode);
 
 private:
     void hideTerminalCursor();
@@ -45,6 +48,8 @@ private:
     bool m_cursorHidden;
     std::pair<int, int> m_cursorPos;
     int m_remoteColor;
+    bool m_consoleMode;
+    std::string m_termLine;
 };
 
 #endif // TERMINAL_H

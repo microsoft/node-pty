@@ -38,6 +38,7 @@
 #include <pthread.h>
 #include <winpty.h>
 #include "../shared/DebugClient.h"
+#include <map>
 #include <string>
 #include <vector>
 
@@ -222,7 +223,10 @@ static void setFdNonBlock(int fd)
 static std::string convertPosixPathToWin(const std::string &path)
 {
     char *tmp;
-#if !defined(__MSYS__) && CYGWIN_VERSION_API_MINOR >= 181
+#if defined(CYGWIN_VERSION_CYGWIN_CONV) && \
+        CYGWIN_VERSION_API_MINOR >= CYGWIN_VERSION_CYGWIN_CONV
+    // MSYS2 and versions of Cygwin released after 2009 or so use this API.
+    // The original MSYS still lacks this API.
     ssize_t newSize = cygwin_conv_path(CCP_POSIX_TO_WIN_A | CCP_RELATIVE,
                                        path.c_str(), NULL, 0);
     assert(newSize >= 0);
@@ -302,16 +306,25 @@ static wchar_t *heapMbsToWcs(const char *text)
 
 void setupWin32Environment()
 {
-    std::string dbgValue;
-    const char *dbgValueCStr = getenv("WINPTYDBG");
-    if (dbgValueCStr != NULL)
-        dbgValue = dbgValueCStr;
+    std::map<std::string, std::string> varsToCopy;
+    const char *vars[] = {
+        "WINPTY_DEBUG",
+        "WINPTY_SHOW_CONSOLE",
+        NULL
+    };
+    for (int i = 0; vars[i] != NULL; ++i) {
+        const char *cstr = getenv(vars[i]);
+        if (cstr != NULL && cstr[0] != '\0') {
+            varsToCopy[vars[i]] = cstr;
+        }
+    }
 
 #if defined(__MSYS__) && CYGWIN_VERSION_API_MINOR >= 48 || \
         !defined(__MSYS__) && CYGWIN_VERSION_API_MINOR >= 153
     // Use CW_SYNC_WINENV to copy the Unix environment to the Win32
     // environment.  The command performs special translation on some variables
-    // (such as PATH and TMP).  It also copies the WINPTYDBG variable.
+    // (such as PATH and TMP).  It also copies the debugging environment
+    // variables.
     //
     // Note that the API minor versions have diverged in Cygwin and MSYS.
     // CW_SYNC_WINENV was added to Cygwin in version 153.  (Cygwin's
@@ -326,12 +339,16 @@ void setupWin32Environment()
     cygwin_internal(CW_SYNC_WINENV);
 #endif
 
-    // Copy the WINPTYDBG environment variable from the Cygwin environment
+    // Copy debugging environment variables from the Cygwin environment
     // to the Win32 environment so the agent will inherit it.
-    if (!dbgValue.empty()) {
-        wchar_t *dbgvarW = heapMbsToWcs(dbgValue.c_str());
-        SetEnvironmentVariableW(L"WINPTYDBG", dbgvarW);
-        delete [] dbgvarW;
+    for (std::map<std::string, std::string>::iterator it = varsToCopy.begin();
+            it != varsToCopy.end();
+            ++it) {
+        wchar_t *nameW = heapMbsToWcs(it->first.c_str());
+        wchar_t *valueW = heapMbsToWcs(it->second.c_str());
+        SetEnvironmentVariableW(nameW, valueW);
+        delete [] nameW;
+        delete [] valueW;
     }
 }
 
@@ -343,6 +360,7 @@ int main(int argc, char *argv[])
         return 0;
     }
 
+    setlocale(LC_ALL, "");
     setupWin32Environment();
 
     winsize sz;

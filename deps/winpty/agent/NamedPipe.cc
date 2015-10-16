@@ -23,6 +23,7 @@
 #include "AgentAssert.h"
 #include "../shared/DebugClient.h"
 #include <string.h>
+#include <algorithm>
 
 NamedPipe::NamedPipe() :
     m_readBufferSize(64 * 1024),

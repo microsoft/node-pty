@@ -86,6 +86,12 @@ WINPTY_API int winpty_start_process(winpty_t *pc,
 WINPTY_API int winpty_get_exit_code(winpty_t *pc);
 
 /*
+ * Returns the process id of the process started with winpty_start_process,
+ * or -1 none is available.
+ */
+WINPTY_API int winpty_get_process_id(winpty_t *pc);
+
+/*
  * Returns an overlapped-mode pipe handle that can be read and written
  * like a Unix terminal.
  */
@@ -95,6 +101,11 @@ WINPTY_API HANDLE winpty_get_data_pipe(winpty_t *pc);
  * Change the size of the Windows console.
  */
 WINPTY_API int winpty_set_size(winpty_t *pc, int cols, int rows);
+
+/*
+ * Toggle the console mode. If in console mode, no terminal escape sequences are send.
+ */
+WINPTY_API int winpty_set_console_mode(winpty_t *pc, int mode);
 
 /*
  * Closes the winpty.

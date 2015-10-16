@@ -26,11 +26,16 @@
 
 #ifdef _MSC_VER
 
+#if _MSC_VER < 1800
 /* MSVC does not define C99's va_copy, so define one for it.  It appears that
  * with MSVC, a va_list is a char*, not an array type, so va_copy is a simple
  * assignment.  On MSVC 2012, there is a VC/include/vadefs.h file defining
  * va_list and the va_XXX routines, which has code for x86, x86-64, and ARM. */
 #define c99_va_copy(dest, src) ((dest) = (src))
+#else
+ /* Visual C++ 2013 added va_copy. */
+#define c99_va_copy(dest, src) va_copy(dest, src)
+#endif
 
 static inline int c99_vsnprintf(
         char* str,

@@ -59,10 +59,11 @@ ConsoleInput::KeyDescriptor ConsoleInput::keyDescriptorTable[] = {
     {   ESC"\x7F",      VK_BACK,    '\x08', LEFT_ALT_PRESSED,   },
     {   ESC"OH",        VK_HOME,    0,  0,                      }, // gnome-terminal
     {   ESC"OF",        VK_END,     0,  0,                      }, // gnome-terminal
+    {   ESC"[Z",        VK_TAB,     '\t', SHIFT_PRESSED         },
 };
 
-ConsoleInput::ConsoleInput(Win32Console *console, DsrSender *dsrSender) :
-    m_console(console),
+ConsoleInput::ConsoleInput(DsrSender *dsrSender) :
+    m_console(new Win32Console),
     m_dsrSender(dsrSender),
     m_dsrSent(false),
     lastWriteTick(0)
@@ -166,9 +167,14 @@ ConsoleInput::ConsoleInput(Win32Console *console, DsrSender *dsrSender) :
     }
 }
 
+ConsoleInput::~ConsoleInput()
+{
+    delete m_console;
+}
+
 void ConsoleInput::writeInput(const std::string &input)
 {
-    trace("writeInput: %d bytes", input.size());
+    //trace("writeInput: %d bytes", input.size());
     if (input.size() == 0)
         return;
     m_byteQueue.append(input);
@@ -242,7 +248,7 @@ int ConsoleInput::scanKeyPress(std::vector<INPUT_RECORD> &records,
                                int inputSize,
                                bool isEof)
 {
-    trace("scanKeyPress: %d bytes", inputSize);
+    //trace("scanKeyPress: %d bytes", inputSize);
 
     // Ctrl-C.
     if (input[0] == '\x03' && m_console->processedInputMode()) {
@@ -308,8 +314,8 @@ int ConsoleInput::scanKeyPress(std::vector<INPUT_RECORD> &records,
 
 void ConsoleInput::appendUtf8Char(std::vector<INPUT_RECORD> &records,
                                   const char *charBuffer,
-                                  int charLen,
-                                  int keyState)
+                                  const int charLen,
+                                  const int keyState)
 {
     WCHAR wideInput[2];
     int wideLen = MultiByteToWideChar(CP_UTF8,
@@ -318,22 +324,21 @@ void ConsoleInput::appendUtf8Char(std::vector<INPUT_RECORD> &records,
                                       charLen,
                                       wideInput,
                                       sizeof(wideInput) / sizeof(wideInput[0]));
-    // TODO: Characters outside the BMP.
-    if (wideLen != 1)
-        return;
-
-    short charScan = VkKeyScan(wideInput[0]);
-    int virtualKey = 0;
-    if (charScan != -1) {
-        virtualKey = charScan & 0xFF;
-        if (charScan & 0x100)
-            keyState |= SHIFT_PRESSED;
-        else if (charScan & 0x200)
-            keyState |= LEFT_CTRL_PRESSED;
-        else if (charScan & 0x400)
-            keyState |= LEFT_ALT_PRESSED;
+    for (int i = 0; i < wideLen; ++i) {
+        short charScan = VkKeyScan(wideInput[i]);
+        int virtualKey = 0;
+        int charKeyState = keyState;
+        if (charScan != -1) {
+            virtualKey = charScan & 0xFF;
+            if (charScan & 0x100)
+                charKeyState |= SHIFT_PRESSED;
+            else if (charScan & 0x200)
+                charKeyState |= LEFT_CTRL_PRESSED;
+            else if (charScan & 0x400)
+                charKeyState |= LEFT_ALT_PRESSED;
+        }
+        appendKeyPress(records, virtualKey, wideInput[i], charKeyState);
     }
-    appendKeyPress(records, virtualKey, wideInput[0], keyState);
 }
 
 void ConsoleInput::appendKeyPress(std::vector<INPUT_RECORD> &records,
@@ -429,9 +434,9 @@ int ConsoleInput::utf8CharLength(char firstByte)
 const ConsoleInput::KeyDescriptor *
 ConsoleInput::lookupKey(const char *encoding, bool isEof, bool *incomplete)
 {
-    trace("lookupKey");
-    for (int i = 0; encoding[i] != '\0'; ++i)
-        trace("%d", encoding[i]);
+    //trace("lookupKey");
+    //for (int i = 0; encoding[i] != '\0'; ++i)
+    //   trace("%d", encoding[i]);
 
     *incomplete = false;
     KeyLookup *node = &m_lookup;
@@ -439,7 +444,7 @@ ConsoleInput::lookupKey(const char *encoding, bool isEof, bool *incomplete)
     for (int i = 0; encoding[i] != '\0'; ++i) {
         unsigned char ch = encoding[i];
         node = node->getChild(ch);
-        trace("ch: %d --> node:%p", ch, node);
+        //trace("ch: %d --> node:%p", ch, node);
         if (node == NULL) {
             return longestMatch;
         } else if (node->getMatch() != NULL) {

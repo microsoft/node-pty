@@ -34,6 +34,9 @@ OBJECTS = \
 	DebugClient.o \
 	Coord.o \
 	SmallRect.o \
+	ConsoleLine.o \
+	ConsoleFont.o \
+	winpty_wcsnlen.o \
 	main.o
 
 CXXFLAGS += \
@@ -41,9 +44,10 @@ CXXFLAGS += \
 	-D_UNICODE \
 	-D_WIN32_WINNT=0x0501 \
 	-fno-exceptions \
-	-fno-rtti
+	-fno-rtti \
+	-O2
 
-LDFLAGS += -static-libgcc -static-libstdc++
+LDFLAGS += -static -static-libgcc -static-libstdc++
 
 all : $(PROGRAM)
 

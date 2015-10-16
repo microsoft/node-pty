@@ -21,9 +21,24 @@
 #ifndef WIN32CONSOLE_H
 #define WIN32CONSOLE_H
 
+#include <vector>
+#include <string>
+#include <wchar.h>
 #include <windows.h>
 #include "Coord.h"
 #include "SmallRect.h"
+
+struct ConsoleScreenBufferInfo : CONSOLE_SCREEN_BUFFER_INFO
+{
+    ConsoleScreenBufferInfo()
+    {
+        memset(this, 0, sizeof(*this));
+    }
+
+    Coord bufferSize() const        { return dwSize;    }
+    SmallRect windowRect() const    { return srWindow;  }
+    Coord cursorPosition() const    { return dwCursorPosition; }
+};
 
 class Win32Console
 {
@@ -35,14 +50,15 @@ public:
     HANDLE conout();
     HWND hwnd();
     void postCloseMessage();
-    void setSmallFont();
+    void clearLines(int row, int count, const ConsoleScreenBufferInfo &info);
+    void clearAllLines(const ConsoleScreenBufferInfo &info);
 
     // Buffer and window sizes.
+    ConsoleScreenBufferInfo bufferInfo();
     Coord bufferSize();
     SmallRect windowRect();
     void resizeBuffer(const Coord &size);
     void moveWindow(const SmallRect &rect);
-    void reposition(const Coord &bufferSize, const SmallRect &windowRect);
 
     // Cursor.
     Coord cursorPosition();
@@ -56,9 +72,16 @@ public:
     void read(const SmallRect &rect, CHAR_INFO *data);
     void write(const SmallRect &rect, const CHAR_INFO *data);
 
+    // Title.
+    std::wstring title();
+    void setTitle(const std::wstring &title);
+
+    void setTextAttribute(WORD attributes);
+
 private:
     HANDLE m_conin;
     HANDLE m_conout;
+    std::vector<wchar_t> m_titleWorkBuf;
 };
 
 #endif // WIN32CONSOLE_H

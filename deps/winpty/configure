@@ -47,23 +47,81 @@ function findTool {
 IS_CYGWIN=0
 IS_MSYS=0
 
+# Link parts of the Cygwin binary statically to aid in redistribution?  The
+# binary still links dynamically against the main DLL.  The MinGW binaries are
+# also statically linked and therefore depend only on Windows DLLs.  I started
+# linking the Cygwin/MSYS binary statically, because G++ 4.7 changed the
+# Windows C++ ABI.
+UNIX_LDFLAGS_STATIC_LIBSTDCXX='-static -static-libgcc -static-libstdc++'
+
 # Detect the environment -- Cygwin or MSYS.
 case $(uname -s) in
     CYGWIN*)
         echo 'uname -s identifies a Cygwin environment.'
         IS_CYGWIN=1
-        UNIX_GPP=i686-pc-cygwin-g++
-        MINGW_GPP="i686-pc-mingw32-g++ i686-w64-mingw32-g++"
-        UNIX_LDFLAGS_STATIC_LIBSTDCXX="-static-libgcc -static-libstdc++"
+	    case $(uname -m) in
+            i686)
+                echo 'uname -m identifies an i686 environment.'
+                UNIX_GPP=i686-pc-cygwin-g++
+                MINGW_GPP="i686-w64-mingw32-g++ i686-pc-mingw32-g++"
+                ;;
+            x86_64)
+                echo 'uname -m identifies an x86_64 environment.'
+                UNIX_GPP=x86_64-pc-cygwin-g++
+                MINGW_GPP=x86_64-w64-mingw32-g++
+                ;;
+            *)
+                echo 'Error: uname -m did not match either i686 or x86_64.'
+                exit 1
+                ;;
+	    esac
         ;;
-    MINGW*)
-        echo 'uname -s identifies a MSYS environment.'
+    MSYS*|MINGW*)
+        # MSYS2 notes:
+        #  - MSYS2 offers two shortcuts to open an environment:
+        #     - MinGW-w64 Win32 Shell.  This env reports a `uname -s` of
+        #       MINGW32_NT-6.1 on 32-bit Win7.  The MinGW-w64 compiler
+        #       (i686-w64-mingw32-g++.exe) is in the PATH.
+        #     - MSYS2 Shell.  `uname -s` instead reports MSYS_NT-6.1.
+        #       The i686-w64-mingw32-g++ compiler is not in the PATH.
+        #  - MSYS2 appears to use MinGW-w64, not the older mingw.org.
+        # MSYS notes:
+        #  - `uname -s` is always MINGW32_NT-6.1 on Win7.
+        echo 'uname -s identifies an MSYS/MSYS2 environment.'
         IS_MSYS=1
-        UNIX_GPP=i686-pc-msys-g++
-        MINGW_GPP=mingw32-g++
-        # The MSYS compiler does not recognize -static-libstdc++.  There is a
-        # msys-1.0.dll, but no gcc or stdc++ DLL.
-        UNIX_LDFLAGS_STATIC_LIBSTDCXX=
+        case $(uname -m) in
+            i686)
+                echo 'uname -m identifies an i686 environment.'
+                UNIX_GPP=i686-pc-msys-g++
+                MINGW_GPP='i686-w64-mingw32-g++.exe mingw32-g++'
+                if echo "$(uname -r)" | grep '^1[.]' > /dev/null; then
+                    # The MSYS-targeting compiler for the original 32-bit-only
+                    # MSYS does not recognize the -static-libstdc++ flag, and
+                    # it does not work with -static, because it tries to link
+                    # statically with the core MSYS library and fails.
+                    #
+                    # Distinguish between the two using the major version
+                    # number of `uname -r`:
+                    #
+                    #   MSYS uname -r:  1.0.18(0.48/3/2)
+                    #   MSYS2 uname -r: 2.0.0(0.284/5/3)
+                    #
+                    # This is suboptimal because MSYS2 is not actually the
+                    # second version of MSYS--it's a brand-new fork of Cygwin.
+                    #
+                    UNIX_LDFLAGS_STATIC_LIBSTDCXX=
+                fi
+                ;;
+            x86_64)
+                echo 'uname -m identifies an x86_64 environment.'
+                UNIX_GPP=x86_64-pc-msys-g++
+                MINGW_GPP=x86_64-w64-mingw32-g++
+                ;;
+            *)
+                echo 'Error: uname -m did not match either i686 or x86_64.'
+                exit 1
+                ;;
+        esac
         ;;
     *)
         echo 'Error: uname -s did not match either CYGWIN* or MINGW*.'
@@ -74,7 +132,7 @@ esac
 # Search the PATH and pick the first match.
 findTool "Cygwin/MSYS G++ compiler" "$UNIX_GPP"
 UNIX_GPP=$FINDTOOL_OUT
-findTool "32-bit MinGW G++ compiler" "$MINGW_GPP"
+findTool "MinGW G++ compiler" "$MINGW_GPP"
 MINGW_GPP=$FINDTOOL_OUT
 
 # Write config files.

@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2012 Ryan Prichard
+// Copyright (c) 2015 Ryan Prichard
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to
@@ -18,19 +18,11 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#ifndef AGENTMSG_H
-#define AGENTMSG_H
+#ifndef CONSOLEFONT_H
+#define CONSOLEFONT_H
 
-struct AgentMsg
-{
-    enum Type {
-        Ping,
-        StartProcess,
-        SetSize,
-        GetExitCode,
-        GetProcessId,
-        SetConsoleMode
-    };
-};
+#include <windows.h>
 
-#endif // AGENTMSG_H
+void setSmallFont(HANDLE conout);
+
+#endif // CONSOLEFONT_H

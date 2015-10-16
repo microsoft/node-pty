@@ -1,4 +1,4 @@
-# Copyright (c) 2011-2012 Ryan Prichard
+# Copyright (c) 2015 Ryan Prichard
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -18,33 +18,22 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-PREFIX ?= /usr/local
+include ../config.mk
+include ../config-mingw.mk
 
-all :
-	cd agent && $(MAKE)
-	cd libwinpty && $(MAKE)
-	cd unix-adapter && $(MAKE)
-	cd debugserver && $(MAKE)
+LDFLAGS += -static-libgcc -static-libstdc++
 
-tests :
-	cd tests && $(MAKE)
+../build/%.exe : %.cc
+	@echo Building $@
+	@$(CXX) $(CXXFLAGS) -std=c++11 -o $@ $^ $(LDFLAGS) ../build/winpty.dll
 
-install : all
-	mkdir -p $(PREFIX)/bin
-	install -m 755 -p -s build/console.exe $(PREFIX)/bin
-	install -m 755 -p -s build/winpty.dll $(PREFIX)/bin
-	install -m 755 -p -s build/winpty-agent.exe $(PREFIX)/bin
-	install -m 755 -p -s build/winpty-debugserver.exe $(PREFIX)/bin
+TEST_PROGRAMS := \
+        ../build/trivial_test.exe
 
-clean :
-	cd agent && $(MAKE) clean
-	cd libwinpty && $(MAKE) clean
-	cd unix-adapter && $(MAKE) clean
-	cd debugserver && $(MAKE) clean
-	cd tests && $(MAKE) clean
+all : $(TEST_PROGRAMS)
 
-distclean : clean
-	rm -f config-unix.mk
-	rm -f config-mingw.mk
+.PHONY : clean
+clean:
+	rm -f *.o *.d $(TEST_PROGRAMS) $(TEST_PROGRAMS:.exe=.d)
 
-.PHONY : all tests install clean distclean
+-include $(TEST_PROGRAMS:.exe=.d)

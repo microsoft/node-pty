@@ -22,17 +22,26 @@
 #define AGENT_H
 
 #include <windows.h>
+
+#include <string>
+#include <vector>
+
 #include "EventLoop.h"
 #include "DsrSender.h"
+#include "Coord.h"
+#include "SmallRect.h"
+#include "ConsoleLine.h"
+#include "Terminal.h"
 
 class Win32Console;
 class ConsoleInput;
-class Terminal;
 class ReadBuffer;
 class NamedPipe;
+struct ConsoleScreenBufferInfo;
 
 const int BUFFER_LINE_COUNT = 3000; // TODO: Use something like 9000.
 const int MAX_CONSOLE_WIDTH = 500;
+const int SYNC_MARKER_LEN = 16;
 
 class Agent : public EventLoop, public DsrSender
 {
@@ -46,7 +55,8 @@ public:
 
 private:
     NamedPipe *makeSocket(LPCWSTR pipeName);
-    void resetConsoleTracking(bool sendClear = true);
+    void resetConsoleTracking(
+        Terminal::SendClearFlag sendClear, const SmallRect &windowRect);
 
 private:
     void pollControlSocket();
@@ -60,13 +70,19 @@ protected:
     virtual void onPipeIo(NamedPipe *namedPipe);
 
 private:
-    void markEntireWindowDirty();
-    void scanForDirtyLines();
+    void markEntireWindowDirty(const SmallRect &windowRect);
+    void scanForDirtyLines(const SmallRect &windowRect);
+    void clearBufferLines(int firstRow, int count, WORD attributes);
+    void resizeImpl(const ConsoleScreenBufferInfo &origInfo);
     void resizeWindow(int cols, int rows);
-    void scrapeOutput();
+    void syncConsoleContentAndSize(bool forceResize);
+    void syncConsoleTitle();
+    void directScrapeOutput(const ConsoleScreenBufferInfo &info);
+    void scrollingScrapeOutput(const ConsoleScreenBufferInfo &info);
+    void reopenConsole();
     void freezeConsole();
     void unfreezeConsole();
-    void syncMarkerText(CHAR_INFO *output);
+    void syncMarkerText(CHAR_INFO (&output)[SYNC_MARKER_LEN]);
     int findSyncMarker();
     void createSyncMarker(int row);
 
@@ -83,12 +99,16 @@ private:
     int m_syncRow;
     int m_syncCounter;
 
+    bool m_directMode;
+    Coord m_ptySize;
     int m_scrapedLineCount;
     int m_scrolledCount;
     int m_maxBufferedLine;
-    CHAR_INFO (*m_bufferData)[MAX_CONSOLE_WIDTH];
+    std::vector<ConsoleLine> m_bufferData;
     int m_dirtyWindowTop;
     int m_dirtyLineCount;
+
+    std::wstring m_currentTitle;
 };
 
 #endif // AGENT_H

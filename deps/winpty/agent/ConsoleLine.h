@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2012 Ryan Prichard
+// Copyright (c) 2015 Ryan Prichard
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to
@@ -18,19 +18,24 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#ifndef AGENTMSG_H
-#define AGENTMSG_H
+#ifndef CONSOLE_LINE_H
+#define CONSOLE_LINE_H
 
-struct AgentMsg
+#include <windows.h>
+
+#include <vector>
+
+class ConsoleLine
 {
-    enum Type {
-        Ping,
-        StartProcess,
-        SetSize,
-        GetExitCode,
-        GetProcessId,
-        SetConsoleMode
-    };
+public:
+    ConsoleLine();
+    void reset();
+    bool detectChangeAndSetLine(const CHAR_INFO *line, int newLength);
+    void setLine(const CHAR_INFO *line, int newLength);
+    void blank(WORD attributes);
+private:
+    int m_prevLength;
+    std::vector<CHAR_INFO> m_prevData;
 };
 
-#endif // AGENTMSG_H
+#endif // CONSOLE_LINE_H

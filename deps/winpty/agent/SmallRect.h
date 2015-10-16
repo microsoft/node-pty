@@ -85,6 +85,18 @@ struct SmallRect : SMALL_RECT
                          std::max(0, y2 - y1 + 1));
     }
 
+    SmallRect ensureLineIncluded(SHORT line) const
+    {
+        const SHORT h = height();
+        if (line < Top) {
+            return SmallRect(Left, line, width(), h);
+        } else if (line > Bottom) {
+            return SmallRect(Left, line - h + 1, width(), h);
+        } else {
+            return *this;
+        }
+    }
+
     SHORT top() const               { return Top;                       }
     SHORT left() const              { return Left;                      }
     SHORT width() const             { return Right - Left + 1;          }

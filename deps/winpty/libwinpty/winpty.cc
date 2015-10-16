@@ -81,6 +81,12 @@ std::wstring to_wstring(const std::string& s)
 #include "../shared/Buffer.h"
 #include "../shared/c99_snprintf.h"
 
+// Work around a bug with mingw-gcc-g++.  mingw-w64 is unaffected.  See
+// GitHub issue 27.
+#ifndef FILE_FLAG_FIRST_PIPE_INSTANCE
+#define FILE_FLAG_FIRST_PIPE_INSTANCE 0x00080000
+#endif
+
 // TODO: Error handling, handle out-of-memory.
 
 #define AGENT_EXE L"winpty-agent.exe"
@@ -136,7 +142,7 @@ static bool pathExists(const std::wstring &path)
 static std::wstring findAgentProgram()
 {
     std::wstring progDir = dirname(getModuleFileName(getCurrentModule()));
-    std::wstring ret = progDir + L"\\"AGENT_EXE;
+    std::wstring ret = progDir + (L"\\" AGENT_EXE);
     assert(pathExists(ret));
     return ret;
 }
@@ -203,11 +209,17 @@ static HANDLE createNamedPipe(const std::wstring &name, bool overlapped)
 }
 
 struct BackgroundDesktop {
+    BackgroundDesktop();
     HWINSTA originalStation;
     HWINSTA station;
     HDESK desktop;
     std::wstring desktopName;
 };
+
+BackgroundDesktop::BackgroundDesktop() :
+        originalStation(NULL), station(NULL), desktop(NULL)
+{
+}
 
 static std::wstring getObjectName(HANDLE object)
 {
@@ -227,29 +239,46 @@ static std::wstring getObjectName(HANDLE object)
     return ret;
 }
 
+// For debugging purposes, provide a way to keep the console on the main window
+// station, visible.
+static bool shouldShowConsoleWindow()
+{
+    char buf[32];
+    return GetEnvironmentVariableA("WINPTY_SHOW_CONSOLE", buf, sizeof(buf)) > 0;
+}
+
 // Get a non-interactive window station for the agent.
 // TODO: review security w.r.t. windowstation and desktop.
 static BackgroundDesktop setupBackgroundDesktop()
 {
     BackgroundDesktop ret;
     ret.originalStation = GetProcessWindowStation();
-    ret.station = CreateWindowStation(NULL, 0, WINSTA_ALL_ACCESS, NULL);
-    bool success = SetProcessWindowStation(ret.station);
-    assert(success);
-    ret.desktop = CreateDesktop(L"Default", NULL, NULL, 0, GENERIC_ALL, NULL);
-    assert(ret.originalStation != NULL);
-    assert(ret.station != NULL);
-    assert(ret.desktop != NULL);
-    ret.desktopName =
-        getObjectName(ret.station) + L"\\" + getObjectName(ret.desktop);
+
+    if (!shouldShowConsoleWindow()) {
+        ret.station = CreateWindowStation(NULL, 0, WINSTA_ALL_ACCESS, NULL);
+        if (ret.station != NULL) {
+            bool success = SetProcessWindowStation(ret.station);
+            assert(success);
+            ret.desktop = CreateDesktop(L"Default", NULL, NULL, 0, GENERIC_ALL, NULL);
+            assert(ret.originalStation != NULL);
+            assert(ret.station != NULL);
+            assert(ret.desktop != NULL);
+            ret.desktopName =
+                getObjectName(ret.station) + L"\\" + getObjectName(ret.desktop);
+        } else {
+            trace("CreateWindowStation failed");
+        }
+    }
     return ret;
 }
 
 static void restoreOriginalDesktop(const BackgroundDesktop &desktop)
 {
-    SetProcessWindowStation(desktop.originalStation);
-    CloseDesktop(desktop.desktop);
-    CloseWindowStation(desktop.station);
+    if (desktop.station != NULL) {
+        SetProcessWindowStation(desktop.originalStation);
+        CloseDesktop(desktop.desktop);
+        CloseWindowStation(desktop.station);
+    }
 }
 
 static std::wstring getDesktopFullName()
@@ -265,7 +294,7 @@ static std::wstring getDesktopFullName()
 
 static void startAgentProcess(const BackgroundDesktop &desktop,
                               std::wstring &controlPipeName,
-                              std::wstring &dataPipeName, 
+                              std::wstring &dataPipeName,
                               int cols, int rows)
 {
     bool success;
@@ -281,7 +310,9 @@ static void startAgentProcess(const BackgroundDesktop &desktop,
     STARTUPINFO sui;
     memset(&sui, 0, sizeof(sui));
     sui.cb = sizeof(sui);
-    sui.lpDesktop = (LPWSTR)desktop.desktopName.c_str();
+    if (desktop.station != NULL) {
+        sui.lpDesktop = (LPWSTR)desktop.desktopName.c_str();
+    }
     PROCESS_INFORMATION pi;
     memset(&pi, 0, sizeof(pi));
     std::vector<wchar_t> cmdline(agentCmdLine.size() + 1);
@@ -294,11 +325,14 @@ static void startAgentProcess(const BackgroundDesktop &desktop,
                             /*dwCreationFlags=*/CREATE_NEW_CONSOLE,
                             NULL, NULL,
                             &sui, &pi);
-    if (!success) {
-        fprintf(stderr,
-                "Error %#x starting %ls\n",
-                (unsigned int)GetLastError(),
-                agentCmdLine.c_str());
+    if (success) {
+        trace("Created agent successfully, pid=%ld, cmdline=%ls",
+              (long)pi.dwProcessId, agentCmdLine.c_str());
+    } else {
+        unsigned int err = GetLastError();
+        trace("Error creating agent, err=%#x, cmdline=%ls",
+              err, agentCmdLine.c_str());
+        fprintf(stderr, "Error %#x starting %ls\n", err, agentCmdLine.c_str());
         exit(1);
     }
 
@@ -483,6 +517,14 @@ WINPTY_API int winpty_get_exit_code(winpty_t *pc)
     return readInt32(pc);
 }
 
+WINPTY_API int winpty_get_process_id(winpty_t *pc)
+{
+    WriteBuffer packet;
+    packet.putInt(AgentMsg::GetProcessId);
+    writePacket(pc, packet);
+    return readInt32(pc);
+}
+
 WINPTY_API HANDLE winpty_get_data_pipe(winpty_t *pc)
 {
     return pc->dataPipe;
@@ -504,4 +546,13 @@ WINPTY_API void winpty_exit(winpty_t *pc)
 	if(pc->dataPipe > 0) {
 		CloseHandle(pc->dataPipe);
 	}
+}
+
+WINPTY_API int winpty_set_console_mode(winpty_t *pc, int mode)
+{
+    WriteBuffer packet;
+    packet.putInt(AgentMsg::SetConsoleMode);
+    packet.putInt(mode);
+    writePacket(pc, packet);
+    return readInt32(pc);
 }

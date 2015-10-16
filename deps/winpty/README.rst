@@ -25,7 +25,7 @@ You need the following to build winpty:
 
 * A Cygwin or MSYS installation
 * GNU make
-* A MinGW 32-bit g++ toolchain, v4 or later, to build ``winpty.dll`` and
+* A MinGW g++ toolchain, v4 or later, to build ``winpty.dll`` and
   ``winpty-agent.exe``
 * A g++ toolchain targeting Cygwin or MSYS, v3 or later, to build
   ``console.exe``
@@ -38,8 +38,7 @@ compiled with the MSYS/Cygwin toolchain.
 
 MinGW appears to be split into two distributions -- MinGW (creates 32-bit
 binaries) and MinGW-w64 (creates both 32-bit and 64-bit binaries).  Either
-one is acceptable, but the compiler must be v4 or later and produce 32-bit
-binaries.
+one is acceptable, but the compiler must be v4 or later.
 
 Cygwin packages
 ---------------
@@ -48,21 +47,33 @@ The default g++ compiler for Cygwin targets Cygwin itself, but Cygwin also
 packages MinGW compilers from both the MinGW and MinGW-w64 projects.  As of
 this writing, the necessary packages are:
 
-* Either ``mingw-gcc-g++`` or ``mingw64-i686-gcc-g++`` (but not
-  ``mingw64-x86_64-gcc-g++``)
-* ``gcc4-g++``
+* Either ``mingw-gcc-g++``, ``mingw64-i686-gcc-g++`` or
+  ``mingw64-x86_64-gcc-g++``.  Select the appropriate compiler for your
+  CPU architecture.
+* ``gcc-g++``
+* ``make``
 
-MinGW packages
---------------
+MSYS packages
+-------------
 
-The default g++ compiler for MinGW targets native Windows, but the MinGW 
-project also packages compilers to target the MSYS environment itself. The
-required packages are:
+For the original MSYS, use the ``mingw-get`` tool (MinGW Installation Manager),
+and select at least these components:
 
-* ``mingw32-make`` 
-* ``g++`` 
-* ``msys-dvlpr``
+* ``mingw-developer-toolkit``
+* ``mingw32-base``
+* ``mingw32-gcc-g++``
+* ``msys-base``
+* ``msys-system-builder``
 
+When running ``./configure``, make sure that ``mingw32-g++`` is in your
+``PATH``.  It will be in the ``C:\MinGW\bin`` directory.
+
+For MSYS2, use ``pacman`` and install at least these packages:
+
+* ``msys/gcc``
+* ``mingw32/mingw-w64-i686-gcc`` or ``mingw64/mingw-w64-x86_64-gcc``.  Select
+  the appropriate compiler for your CPU architecture.
+* ``make``
 
 Build
 =====
@@ -78,7 +89,7 @@ This will produce three binaries:
 Using the Unix adapter
 ======================
 
-To run a Windows console program in ``mintty`` or Cygwin ``sshd``, prepend 
+To run a Windows console program in ``mintty`` or Cygwin ``sshd``, prepend
 ``console.exe`` to the command-line::
 
     $ build/console.exe c:/Python27/python.exe
@@ -88,3 +99,16 @@ To run a Windows console program in ``mintty`` or Cygwin ``sshd``, prepend
     30
     >>> exit()
     $
+
+Debugging winpty
+================
+
+winpty comes with a tool for collecting timestamped debugging output.  To use
+it:
+
+1. Run ``winpty-debugserver.exe`` on the same computer as winpty.
+2. Set the ``WINPTY_DEBUG`` environment variable to 1 for the ``console.exe``
+   process and/or the process using ``libwinpty.dll``.
+
+winpty also recognizes a ``WINPTY_SHOW_CONSOLE`` environment variable.  Set it
+to 1 to prevent winpty from hiding the console window.

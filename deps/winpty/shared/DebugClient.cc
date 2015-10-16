@@ -55,7 +55,7 @@ static const char *getTracingConfig()
     if (tracingConfig == NULL) {
         const int bufSize = 256;
         char buf[bufSize];
-        DWORD actualSize = GetEnvironmentVariableA("WINPTYDBG", buf, bufSize);
+        DWORD actualSize = GetEnvironmentVariableA("WINPTY_DEBUG", buf, bufSize);
         if (actualSize == 0 || actualSize >= (DWORD)bufSize)
             buf[0] = '\0';
         tracingConfig = new char[strlen(buf) + 1];

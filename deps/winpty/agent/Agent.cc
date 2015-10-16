@@ -24,9 +24,11 @@
 #include "Terminal.h"
 #include "NamedPipe.h"
 #include "AgentAssert.h"
+#include "ConsoleFont.h"
 #include "../shared/DebugClient.h"
 #include "../shared/AgentMsg.h"
 #include "../shared/Buffer.h"
+#include "../shared/c99_snprintf.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,7 +40,8 @@
 
 const int SC_CONSOLE_MARK = 0xFFF2;
 const int SC_CONSOLE_SELECT_ALL = 0xFFF5;
-const int SYNC_MARKER_LEN = 16;
+
+#define COUNT_OF(x) (sizeof(x) / sizeof((x)[0]))
 
 static BOOL WINAPI consoleCtrlHandler(DWORD dwCtrlType)
 {
@@ -49,6 +52,23 @@ static BOOL WINAPI consoleCtrlHandler(DWORD dwCtrlType)
     return FALSE;
 }
 
+static std::string wstringToUtf8String(const std::wstring &input)
+{
+    int mblen = WideCharToMultiByte(CP_UTF8, 0,
+                                    input.c_str(), input.size() + 1,
+                                    NULL, 0, NULL, NULL);
+    if (mblen <= 0) {
+        return std::string();
+    }
+    std::vector<char> tmp(mblen);
+    int mblen2 = WideCharToMultiByte(CP_UTF8, 0,
+                                     input.c_str(), input.size() + 1,
+                                     tmp.data(), tmp.size(),
+                                     NULL, NULL);
+    ASSERT(mblen2 == mblen);
+    return tmp.data();
+}
+
 Agent::Agent(LPCWSTR controlPipeName,
              LPCWSTR dataPipeName,
              int initialCols,
@@ -57,25 +77,33 @@ Agent::Agent(LPCWSTR controlPipeName,
     m_terminal(NULL),
     m_childProcess(NULL),
     m_childExitCode(-1),
-    m_syncCounter(0)
+    m_syncCounter(0),
+    m_directMode(false),
+    m_ptySize(initialCols, initialRows)
 {
     trace("Agent starting...");
 
-    m_bufferData = new CHAR_INFO[BUFFER_LINE_COUNT][MAX_CONSOLE_WIDTH];
+    m_bufferData.resize(BUFFER_LINE_COUNT);
 
     m_console = new Win32Console;
-    m_console->setSmallFont();
-    m_console->reposition(
-                Coord(initialCols, BUFFER_LINE_COUNT),
-                SmallRect(0, 0, initialCols, initialRows));
+    setSmallFont(m_console->conout());
+    m_console->moveWindow(SmallRect(0, 0, 1, 1));
+    m_console->resizeBuffer(Coord(initialCols, BUFFER_LINE_COUNT));
+    m_console->moveWindow(SmallRect(0, 0, initialCols, initialRows));
     m_console->setCursorPosition(Coord(0, 0));
+    m_console->setTitle(m_currentTitle);
+
+    // For the sake of the color translation heuristic, set the console color
+    // to LtGray-on-Black.
+    m_console->setTextAttribute(7);
+    m_console->clearAllLines(m_console->bufferInfo());
 
     m_controlSocket = makeSocket(controlPipeName);
     m_dataSocket = makeSocket(dataPipeName);
     m_terminal = new Terminal(m_dataSocket);
-    m_consoleInput = new ConsoleInput(m_console, this);
+    m_consoleInput = new ConsoleInput(this);
 
-    resetConsoleTracking(false);
+    resetConsoleTracking(Terminal::OmitClear, m_console->windowRect());
 
     // Setup Ctrl-C handling.  First restore default handling of Ctrl-C.  This
     // attribute is inherited by child processes.  Then register a custom
@@ -93,7 +121,6 @@ Agent::~Agent()
     m_console->postCloseMessage();
     if (m_childProcess != NULL)
         CloseHandle(m_childProcess);
-    delete [] m_bufferData;
     delete m_console;
     delete m_terminal;
     delete m_consoleInput;
@@ -119,11 +146,17 @@ NamedPipe *Agent::makeSocket(LPCWSTR pipeName)
     return pipe;
 }
 
-void Agent::resetConsoleTracking(bool sendClear)
+void Agent::resetConsoleTracking(
+    Terminal::SendClearFlag sendClear, const SmallRect &windowRect)
 {
-    memset(m_bufferData, 0, sizeof(CHAR_INFO) * BUFFER_LINE_COUNT * MAX_CONSOLE_WIDTH);
+    for (std::vector<ConsoleLine>::iterator
+            it = m_bufferData.begin(), itEnd = m_bufferData.end();
+            it != itEnd;
+            ++it) {
+        it->reset();
+    }
     m_syncRow = -1;
-    m_scrapedLineCount = m_console->windowRect().top();
+    m_scrapedLineCount = windowRect.top();
     m_scrolledCount = 0;
     m_maxBufferedLine = -1;
     m_dirtyWindowTop = -1;
@@ -178,11 +211,27 @@ void Agent::handlePacket(ReadBuffer &packet)
         result = handleStartProcessPacket(packet);
         break;
     case AgentMsg::SetSize:
+        // TODO: I think it might make sense to collapse consecutive SetSize
+        // messages.  i.e. The terminal process can probably generate SetSize
+        // messages faster than they can be processed, and some GUIs might
+        // generate a flood of them, so if we can read multiple SetSize packets
+        // at once, we can ignore the early ones.
         result = handleSetSizePacket(packet);
         break;
     case AgentMsg::GetExitCode:
         ASSERT(packet.eof());
         result = m_childExitCode;
+        break;
+    case AgentMsg::GetProcessId:
+        ASSERT(packet.eof());
+        if (m_childProcess == NULL)
+            result = -1;
+        else
+            result = GetProcessId(m_childProcess);
+        break;
+    case AgentMsg::SetConsoleMode:
+        m_terminal->setConsoleMode(packet.getInt());
+        result = 0;
         break;
     default:
         trace("Unrecognized message, id:%d", type);
@@ -289,8 +338,9 @@ void Agent::onPollTimeout()
 
     // Scrape for output *after* the above exit-check to ensure that we collect
     // the child process's final output.
-    if (!m_dataSocket->isClosed())
-        scrapeOutput();
+    if (!m_dataSocket->isClosed()) {
+        syncConsoleContentAndSize(false);
+    }
 
     if (m_closingDataSocket &&
             !m_dataSocket->isClosed() &&
@@ -303,18 +353,16 @@ void Agent::onPollTimeout()
 // Detect window movement.  If the window moves down (presumably as a
 // result of scrolling), then assume that all screen buffer lines down to
 // the bottom of the window are dirty.
-void Agent::markEntireWindowDirty()
+void Agent::markEntireWindowDirty(const SmallRect &windowRect)
 {
-    SmallRect windowRect = m_console->windowRect();
     m_dirtyLineCount = std::max(m_dirtyLineCount,
                                 windowRect.top() + windowRect.height());
 }
 
 // Scan the screen buffer and advance the dirty line count when we find
 // non-empty lines.
-void Agent::scanForDirtyLines()
+void Agent::scanForDirtyLines(const SmallRect &windowRect)
 {
-    const SmallRect windowRect = m_console->windowRect();
     CHAR_INFO prevChar;
     if (m_dirtyLineCount >= 1) {
         m_console->read(SmallRect(windowRect.width() - 1,
@@ -324,7 +372,7 @@ void Agent::scanForDirtyLines()
     } else {
         m_console->read(SmallRect(0, 0, 1, 1), &prevChar);
     }
-    int attr = prevChar.Attributes;
+    WORD attr = prevChar.Attributes;
 
     for (int line = m_dirtyLineCount;
          line < windowRect.top() + windowRect.height();
@@ -333,50 +381,227 @@ void Agent::scanForDirtyLines()
         SmallRect lineRect(0, line, windowRect.width(), 1);
         m_console->read(lineRect, lineData);
         for (int col = 0; col < windowRect.width(); ++col) {
-            int newAttr = lineData[col].Attributes;
-            if (lineData[col].Char.AsciiChar != ' ' || attr!= newAttr)
+            WORD newAttr = lineData[col].Attributes;
+            if (lineData[col].Char.UnicodeChar != L' ' || attr != newAttr)
                 m_dirtyLineCount = line + 1;
             newAttr = attr;
         }
     }
 }
 
-void Agent::resizeWindow(int cols, int rows)
+// Clear lines in the line buffer.  The `firstRow` parameter is in
+// screen-buffer coordinates.
+void Agent::clearBufferLines(
+        const int firstRow,
+        const int count,
+        const WORD attributes)
 {
-    freezeConsole();
+    ASSERT(!m_directMode);
+    for (int row = firstRow; row < firstRow + count; ++row) {
+        const int bufLine = row + m_scrolledCount;
+        m_maxBufferedLine = std::max(m_maxBufferedLine, bufLine);
+        m_bufferData[bufLine % BUFFER_LINE_COUNT].blank(attributes);
+    }
+}
 
-    Coord bufferSize = m_console->bufferSize();
-    SmallRect windowRect = m_console->windowRect();
-    Coord newBufferSize(cols, bufferSize.Y);
-    SmallRect newWindowRect;
+// This function is called with the console frozen, and the console is still
+// frozen when it returns.
+void Agent::resizeImpl(const ConsoleScreenBufferInfo &origInfo)
+{
+    const int cols = m_ptySize.X;
+    const int rows = m_ptySize.Y;
 
-    // This resize behavior appears to match what happens when I resize the
-    // console window by hand.
-    if (windowRect.top() + windowRect.height() == bufferSize.Y ||
-            windowRect.top() + rows >= bufferSize.Y) {
-        // Lock the bottom of the new window to the bottom of the buffer if either
-        //  - the window was already at the bottom of the buffer, OR
-        //  - there isn't enough room.
-        newWindowRect = SmallRect(0, newBufferSize.Y - rows, cols, rows);
-    } else {
-        // Keep the top of the window where it is.
-        newWindowRect = SmallRect(0, windowRect.top(), cols, rows);
+    {
+        //
+        // To accommodate Windows 10, erase all lines up to the top of the
+        // visible window.  It's hard to tell whether this is strictly
+        // necessary.  It ensures that the sync marker won't move downward,
+        // and it ensures that we won't repeat lines that have already scrolled
+        // up into the scrollback.
+        //
+        // It *is* possible for these blank lines to reappear in the visible
+        // window (e.g. if the window is made taller), but because we blanked
+        // the lines in the line buffer, we still don't output them again.
+        //
+        const Coord origBufferSize = origInfo.bufferSize();
+        const SmallRect origWindowRect = origInfo.windowRect();
+
+        if (!m_directMode) {
+            m_console->clearLines(0, origWindowRect.Top, origInfo);
+            clearBufferLines(0, origWindowRect.Top, origInfo.wAttributes);
+            if (m_syncRow != -1) {
+                createSyncMarker(m_syncRow);
+            }
+        }
+
+        const Coord finalBufferSize(
+            cols,
+            // If there was previously no scrollback (e.g. a full-screen app
+            // in direct mode) and we're reducing the window height, then
+            // reduce the console buffer's height too.
+            (origWindowRect.height() == origBufferSize.Y)
+                ? rows
+                : std::max<int>(rows, origBufferSize.Y));
+        const bool cursorWasInWindow =
+            origInfo.cursorPosition().Y >= origWindowRect.Top &&
+            origInfo.cursorPosition().Y <= origWindowRect.Bottom;
+
+        // Step 1: move the window.
+        const int tmpWindowWidth = std::min(origBufferSize.X, finalBufferSize.X);
+        const int tmpWindowHeight = std::min<int>(origBufferSize.Y, rows);
+        SmallRect tmpWindowRect(
+            0,
+            std::min<int>(origBufferSize.Y - tmpWindowHeight,
+                          origWindowRect.Top),
+            tmpWindowWidth,
+            tmpWindowHeight);
+        if (cursorWasInWindow) {
+            tmpWindowRect = tmpWindowRect.ensureLineIncluded(
+                origInfo.cursorPosition().Y);
+        }
+        m_console->moveWindow(tmpWindowRect);
+
+        // Step 2: resize the buffer.
+        unfreezeConsole();
+        m_console->resizeBuffer(finalBufferSize);
     }
 
-    if (m_dirtyWindowTop != -1 && m_dirtyWindowTop < windowRect.top())
-        markEntireWindowDirty();
-    m_dirtyWindowTop = newWindowRect.top();
+    // Step 3: expand the window to its full size.
+    {
+        freezeConsole();
+        const ConsoleScreenBufferInfo info = m_console->bufferInfo();
+        const bool cursorWasInWindow =
+            info.cursorPosition().Y >= info.windowRect().Top &&
+            info.cursorPosition().Y <= info.windowRect().Bottom;
 
-    m_console->reposition(newBufferSize, newWindowRect);
+        SmallRect finalWindowRect(
+            0,
+            std::min<int>(info.bufferSize().Y - rows,
+                          info.windowRect().Top),
+            cols,
+            rows);
+
+        //
+        // Once a line in the screen buffer is "dirty", it should stay visible
+        // in the console window, so that we continue to update its content in
+        // the terminal.  This code is particularly (only?) necessary on
+        // Windows 10, where making the buffer wider can rewrap lines and move
+        // the console window upward.
+        //
+        if (!m_directMode && m_dirtyLineCount > finalWindowRect.Bottom + 1) {
+            // In theory, we avoid ensureLineIncluded, because, a massive
+            // amount of output could have occurred while the console was
+            // unfrozen, so that the *top* of the window is now below the
+            // dirtiest tracked line.
+            finalWindowRect = SmallRect(
+                0, m_dirtyLineCount - rows,
+                cols, rows);
+        }
+
+        // Highest priority constraint: ensure that the cursor remains visible.
+        if (cursorWasInWindow) {
+            finalWindowRect = finalWindowRect.ensureLineIncluded(
+                info.cursorPosition().Y);
+        }
+
+        m_console->moveWindow(finalWindowRect);
+        m_dirtyWindowTop = finalWindowRect.Top;
+    }
+}
+
+void Agent::resizeWindow(const int cols, const int rows)
+{
+    if (cols < 1 ||
+            cols > MAX_CONSOLE_WIDTH ||
+            rows < 1 ||
+            rows > BUFFER_LINE_COUNT - 1) {
+        trace("resizeWindow: invalid size: cols=%d,rows=%d", cols, rows);
+        return;
+    }
+    m_ptySize = Coord(cols, rows);
+    syncConsoleContentAndSize(true);
+}
+
+void Agent::syncConsoleContentAndSize(bool forceResize)
+{
+    reopenConsole();
+    freezeConsole();
+    syncConsoleTitle();
+
+    const ConsoleScreenBufferInfo info = m_console->bufferInfo();
+
+    // If an app resizes the buffer height, then we enter "direct mode", where
+    // we stop trying to track incremental console changes.
+    const bool newDirectMode = (info.bufferSize().Y != BUFFER_LINE_COUNT);
+    if (newDirectMode != m_directMode) {
+        trace("Entering %s mode", newDirectMode ? "direct" : "scrolling");
+        resetConsoleTracking(Terminal::SendClear, info.windowRect());
+        m_directMode = newDirectMode;
+
+        // When we switch from direct->scrolling mode, make sure the console is
+        // the right size.
+        if (!m_directMode) {
+            forceResize = true;
+        }
+    }
+
+    if (m_directMode) {
+        directScrapeOutput(info);
+    } else {
+        scrollingScrapeOutput(info);
+    }
+
+    if (forceResize) {
+        resizeImpl(info);
+    }
+
     unfreezeConsole();
 }
 
-void Agent::scrapeOutput()
+void Agent::syncConsoleTitle()
 {
-    freezeConsole();
+    std::wstring newTitle = m_console->title();
+    if (newTitle != m_currentTitle) {
+        std::string command = std::string("\x1b]0;") +
+                wstringToUtf8String(newTitle) + "\x07";
+        m_dataSocket->write(command.c_str());
+        m_currentTitle = newTitle;
+    }
+}
 
-    const Coord cursor = m_console->cursorPosition();
+void Agent::directScrapeOutput(const ConsoleScreenBufferInfo &info)
+{
+    const Coord cursor = info.cursorPosition();
     const SmallRect windowRect = m_console->windowRect();
+    const int stopLine = std::min(windowRect.height(), m_ptySize.Y);
+    bool sawModifiedLine = false;
+
+    for (int line = 0; line < stopLine; ++line) {
+        ASSERT(m_ptySize.X <= MAX_CONSOLE_WIDTH);
+        CHAR_INFO curLine[MAX_CONSOLE_WIDTH];
+        const int w = std::min(windowRect.width(), m_ptySize.X);
+        m_console->read(SmallRect(0, windowRect.top() + line, w, 1), curLine);
+
+        ConsoleLine &bufLine = m_bufferData[line % BUFFER_LINE_COUNT];
+        if (sawModifiedLine) {
+            bufLine.setLine(curLine, w);
+        } else {
+            sawModifiedLine = bufLine.detectChangeAndSetLine(curLine, w);
+        }
+        if (sawModifiedLine) {
+            //trace("sent line %d", line);
+            m_terminal->sendLine(line, curLine, w);
+        }
+    }
+
+    m_terminal->finishOutput(std::pair<int, int>(cursor.X,
+                                                 cursor.Y - windowRect.top()));
+}
+
+void Agent::scrollingScrapeOutput(const ConsoleScreenBufferInfo &info)
+{
+    const Coord cursor = info.cursorPosition();
+    const SmallRect windowRect = info.windowRect();
 
     if (m_syncRow != -1) {
         // If a synchronizing marker was placed into the history, look for it
@@ -384,14 +609,16 @@ void Agent::scrapeOutput()
         int markerRow = findSyncMarker();
         if (markerRow == -1) {
             // Something has happened.  Reset the terminal.
-            trace("Sync marker has disappeared -- resetting the terminal");
-            resetConsoleTracking();
+            trace("Sync marker has disappeared -- resetting the terminal"
+                  " (m_syncCounter=%d)",
+                  m_syncCounter);
+            resetConsoleTracking(Terminal::SendClear, windowRect);
         } else if (markerRow != m_syncRow) {
             ASSERT(markerRow < m_syncRow);
             m_scrolledCount += (m_syncRow - markerRow);
             m_syncRow = markerRow;
             // If the buffer has scrolled, then the entire window is dirty.
-            markEntireWindowDirty();
+            markEntireWindowDirty(windowRect);
         }
     }
 
@@ -403,65 +630,75 @@ void Agent::scrapeOutput()
     if (m_dirtyWindowTop != -1) {
         if (windowRect.top() > m_dirtyWindowTop) {
             // The window has moved down, presumably as a result of scrolling.
-            markEntireWindowDirty();
+            markEntireWindowDirty(windowRect);
         } else if (windowRect.top() < m_dirtyWindowTop) {
             // The window has moved upward.  This is generally not expected to
             // happen, but the CMD/PowerShell CLS command will move the window
             // to the top as part of clearing everything else in the console.
-            trace("Window moved upward -- resetting the terminal");
-            resetConsoleTracking();
+            trace("Window moved upward -- resetting the terminal"
+                  " (m_syncCounter=%d)",
+                  m_syncCounter);
+            resetConsoleTracking(Terminal::SendClear, windowRect);
         }
     }
     m_dirtyWindowTop = windowRect.top();
     m_dirtyLineCount = std::max(m_dirtyLineCount, cursor.Y + 1);
     m_dirtyLineCount = std::max(m_dirtyLineCount, (int)windowRect.top());
-    scanForDirtyLines();
+    scanForDirtyLines(windowRect);
 
     // Note that it's possible for all the lines on the current window to
     // be non-dirty.
 
-    int firstLine = std::min(m_scrapedLineCount,
-                             windowRect.top() + m_scrolledCount);
-    int stopLine = std::min(m_dirtyLineCount,
-                            windowRect.top() + windowRect.height()) +
+    const int firstLine = std::min(m_scrapedLineCount,
+                                   windowRect.top() + m_scrolledCount);
+    const int stopLine = std::min(m_dirtyLineCount,
+                                  windowRect.top() + windowRect.height()) +
             m_scrolledCount;
 
     bool sawModifiedLine = false;
 
     for (int line = firstLine; line < stopLine; ++line) {
-        CHAR_INFO curLine[MAX_CONSOLE_WIDTH]; // TODO: bufoverflow
+        CHAR_INFO curLine[MAX_CONSOLE_WIDTH];
         const int w = windowRect.width();
+        ASSERT(w >= 1 && w <= MAX_CONSOLE_WIDTH);
         m_console->read(SmallRect(0, line - m_scrolledCount, w, 1), curLine);
 
-        // TODO: The memcpy can overflow the m_bufferData buffer.
-        CHAR_INFO (&bufLine)[MAX_CONSOLE_WIDTH] =
-                m_bufferData[line % BUFFER_LINE_COUNT];
-        if (sawModifiedLine ||
-                line > m_maxBufferedLine ||
-                memcmp(curLine, bufLine, sizeof(CHAR_INFO) * w) != 0) {
-            //trace("sent line %d", line);
-            m_terminal->sendLine(line, curLine, windowRect.width());
-            memset(bufLine, 0, sizeof(bufLine));
-            memcpy(bufLine, curLine, sizeof(CHAR_INFO) * w);
-            for (int col = w; col < MAX_CONSOLE_WIDTH; ++col) {
-                bufLine[col].Attributes = curLine[w - 1].Attributes;
-                bufLine[col].Char.AsciiChar = ' ';
-            }
-            m_maxBufferedLine = std::max(m_maxBufferedLine, line);
+        ConsoleLine &bufLine = m_bufferData[line % BUFFER_LINE_COUNT];
+        if (line > m_maxBufferedLine) {
+            m_maxBufferedLine = line;
             sawModifiedLine = true;
+        }
+        if (sawModifiedLine) {
+            bufLine.setLine(curLine, w);
+        } else {
+            sawModifiedLine = bufLine.detectChangeAndSetLine(curLine, w);
+        }
+        if (sawModifiedLine) {
+            //trace("sent line %d", line);
+            m_terminal->sendLine(line, curLine, w);
         }
     }
 
     m_scrapedLineCount = windowRect.top() + m_scrolledCount;
 
-    if (windowRect.top() > 200) { // TODO: replace hard-coded constant
-        createSyncMarker(windowRect.top() - 200);
+    // Creating a new sync row requires clearing part of the console buffer, so
+    // avoid doing it if there's already a sync row that's good enough.
+    // TODO: replace hard-coded constants
+    const int newSyncRow = static_cast<int>(windowRect.top()) - 200;
+    if (newSyncRow >= 1 && newSyncRow >= m_syncRow + 200) {
+        createSyncMarker(newSyncRow);
     }
 
     m_terminal->finishOutput(std::pair<int, int>(cursor.X,
                                                  cursor.Y + m_scrolledCount));
+}
 
-    unfreezeConsole();
+void Agent::reopenConsole()
+{
+    // Reopen CONOUT.  The application may have changed the active screen
+    // buffer.  (See https://github.com/rprichard/winpty/issues/34)
+    delete m_console;
+    m_console = new Win32Console();
 }
 
 void Agent::freezeConsole()
@@ -474,13 +711,14 @@ void Agent::unfreezeConsole()
     SendMessage(m_console->hwnd(), WM_CHAR, 27, 0x00010001);
 }
 
-void Agent::syncMarkerText(CHAR_INFO *output)
+void Agent::syncMarkerText(CHAR_INFO (&output)[SYNC_MARKER_LEN])
 {
-    char str[SYNC_MARKER_LEN + 1];// TODO: use a random string
-    sprintf(str, "S*Y*N*C*%08x", m_syncCounter);
-    memset(output, 0, sizeof(CHAR_INFO) * SYNC_MARKER_LEN);
+    // XXX: The marker text generated here could easily collide with ordinary
+    // console output.  Does it make sense to try to avoid the collision?
+    char str[SYNC_MARKER_LEN];
+    c99_snprintf(str, COUNT_OF(str), "S*Y*N*C*%08x", m_syncCounter);
     for (int i = 0; i < SYNC_MARKER_LEN; ++i) {
-        output[i].Char.AsciiChar = str[i];
+        output[i].Char.UnicodeChar = str[i];
         output[i].Attributes = 7;
     }
 }
@@ -497,7 +735,7 @@ int Agent::findSyncMarker()
     for (i = m_syncRow; i >= 0; --i) {
         int j;
         for (j = 0; j < SYNC_MARKER_LEN; ++j) {
-            if (column[i + j].Char.AsciiChar != marker[j].Char.AsciiChar)
+            if (column[i + j].Char.UnicodeChar != marker[j].Char.UnicodeChar)
                 break;
         }
         if (j == SYNC_MARKER_LEN)
@@ -508,6 +746,13 @@ int Agent::findSyncMarker()
 
 void Agent::createSyncMarker(int row)
 {
+    ASSERT(row >= 1);
+
+    // Clear the lines around the marker to ensure that Windows 10's rewrapping
+    // does not affect the marker.
+    m_console->clearLines(row - 1, SYNC_MARKER_LEN + 1,
+                          m_console->bufferInfo());
+
     // Write a new marker.
     m_syncCounter++;
     CHAR_INFO marker[SYNC_MARKER_LEN];

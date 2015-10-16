@@ -31,7 +31,8 @@ class DsrSender;
 class ConsoleInput
 {
 public:
-    ConsoleInput(Win32Console *console, DsrSender *dsrSender);
+    ConsoleInput(DsrSender *dsrSender);
+    ~ConsoleInput();
     void writeInput(const std::string &input);
     void flushIncompleteEscapeCode();
 

@@ -21,17 +21,22 @@
 #include "Win32Console.h"
 #include "AgentAssert.h"
 #include "../shared/DebugClient.h"
+#include <string>
+#include <wchar.h>
 #include <windows.h>
 
-Win32Console::Win32Console()
+Win32Console::Win32Console() : m_titleWorkBuf(16)
 {
     m_conin = GetStdHandle(STD_INPUT_HANDLE);
-    m_conout = GetStdHandle(STD_OUTPUT_HANDLE);
+    m_conout = CreateFileW(L"CONOUT$",
+                           GENERIC_READ | GENERIC_WRITE,
+                           FILE_SHARE_READ | FILE_SHARE_WRITE,
+                           NULL, OPEN_EXISTING, 0, NULL);
+    ASSERT(m_conout != INVALID_HANDLE_VALUE);
 }
 
 Win32Console::~Win32Console()
 {
-    CloseHandle(m_conin);
     CloseHandle(m_conout);
 }
 
@@ -57,136 +62,49 @@ void Win32Console::postCloseMessage()
         PostMessage(h, WM_CLOSE, 0, 0);
 }
 
-// A Windows console window can never be larger than the desktop window.  To
-// maximize the possible size of the console in rows*cols, try to configure
-// the console with a small font.
-void Win32Console::setSmallFont()
+void Win32Console::clearLines(
+    int row,
+    int count,
+    const ConsoleScreenBufferInfo &info)
 {
-    // Some of these types and functions are missing from the MinGW headers.
-    // Others are undocumented.
-
-    struct AGENT_CONSOLE_FONT_INFO {
-        DWORD nFont;
-        COORD dwFontSize;
-    };
-
-    struct AGENT_CONSOLE_FONT_INFOEX {
-        ULONG cbSize;
-        DWORD nFont;
-        COORD dwFontSize;
-        UINT FontFamily;
-        UINT FontWeight;
-        WCHAR FaceName[LF_FACESIZE];
-    };
-
-    typedef BOOL WINAPI SetConsoleFontType(
-                HANDLE hOutput,
-                DWORD dwFontIndex);
-    typedef BOOL WINAPI GetCurrentConsoleFontType(
-                HANDLE hOutput,
-                BOOL bMaximize,
-                AGENT_CONSOLE_FONT_INFO *pFontInfo);
-    typedef BOOL WINAPI SetCurrentConsoleFontExType(
-                HANDLE hConsoleOutput,
-                BOOL bMaximumWindow,
-                AGENT_CONSOLE_FONT_INFOEX *lpConsoleCurrentFontEx);
-    typedef COORD WINAPI GetConsoleFontSizeType(
-                HANDLE hConsoleOutput,
-                DWORD nFont);
-
-    HINSTANCE dll = LoadLibrary(L"kernel32.dll");
-    ASSERT(dll != NULL);
-
-    SetConsoleFontType *pSetConsoleFont =
-            (SetConsoleFontType*)GetProcAddress(dll, "SetConsoleFont");
-    GetCurrentConsoleFontType *pGetCurrentConsoleFont =
-            (GetCurrentConsoleFontType*)GetProcAddress(dll, "GetCurrentConsoleFont");
-    SetCurrentConsoleFontExType *pSetCurrentConsoleFontEx =
-            (SetCurrentConsoleFontExType*)GetProcAddress(dll, "SetCurrentConsoleFontEx");
-    GetConsoleFontSizeType *pGetConsoleFontSize =
-            (GetConsoleFontSizeType*)GetProcAddress(dll, "GetConsoleFontSize");
-
-    BOOL success;
-
-    // The undocumented GetNumberOfConsoleFonts API reports that my Windows 7
-    // system has 12 fonts on it.  Each font is really just a differently-sized
-    // raster/Terminal font.  Font index 0 is the smallest font, so we want to
-    // choose it.
-    if (pGetConsoleFontSize == NULL) {
-        // This API should exist even on Windows XP.
-        trace("error: GetConsoleFontSize API is missing");
-        return;
+    // TODO: error handling
+    const int width = info.bufferSize().X;
+    DWORD actual = 0;
+    if (!FillConsoleOutputCharacterW(
+            m_conout, L' ', width * count, Coord(0, row),
+            &actual) || static_cast<int>(actual) != width * count) {
+        trace("FillConsoleOutputCharacterW failed");
     }
-    if (pGetCurrentConsoleFont == NULL) {
-        // This API should exist even on Windows XP.
-        trace("error: GetCurrentConsoleFont API is missing");
-        return;
+    if (!FillConsoleOutputAttribute(
+            m_conout, info.wAttributes, width * count, Coord(0, row),
+            &actual) || static_cast<int>(actual) != width * count) {
+        trace("FillConsoleOutputAttribute failed");
     }
+}
 
-    AGENT_CONSOLE_FONT_INFO fi;
-    success = pGetCurrentConsoleFont(m_conout, FALSE, &fi);
-    if (!success) {
-        trace("error: GetCurrentConsoleFont failed");
-        return;
-    }
-    COORD smallest = pGetConsoleFontSize(m_conout, 0);
-    if (smallest.X == 0 || smallest.Y == 0) {
-        trace("error: GetConsoleFontSize failed");
-        return;
-    }
-    trace("font #0: X=%d Y=%d", smallest.X, smallest.Y);
-    trace("current font: idx=%d X=%d Y=%d",
-          (int)fi.nFont, fi.dwFontSize.X, fi.dwFontSize.Y);
-    if (fi.dwFontSize.X <= smallest.X && fi.dwFontSize.Y <= smallest.Y)
-        return;
+void Win32Console::clearAllLines(const ConsoleScreenBufferInfo &info)
+{
+    clearLines(0, info.bufferSize().Y, info);
+}
 
-    // First try to call the documented Vista API.
-    if (pSetCurrentConsoleFontEx != NULL) {
-        AGENT_CONSOLE_FONT_INFOEX fix = {0};
-        fix.cbSize = sizeof(fix);
-        fix.nFont = 0;
-        fix.dwFontSize = smallest;
-        success = pSetCurrentConsoleFontEx(m_conout, FALSE, &fix);
-        trace("SetCurrentConsoleFontEx call %s",
-              success ? "succeeded" : "failed");
-        return;
+ConsoleScreenBufferInfo Win32Console::bufferInfo()
+{
+    // TODO: error handling
+    ConsoleScreenBufferInfo info;
+    if (!GetConsoleScreenBufferInfo(m_conout, &info)) {
+        trace("GetConsoleScreenBufferInfo failed");
     }
-
-    // Then try to call the undocumented Windows XP API.
-    //
-    // Somewhat described here:
-    // http://blogs.microsoft.co.il/blogs/pavely/archive/2009/07/23/changing-console-fonts.aspx
-    //
-    if (pSetConsoleFont != NULL) {
-        success = pSetConsoleFont(m_conout, 0);
-        trace("SetConsoleFont call %s", success ? "succeeded" : "failed");
-        return;
-    }
-
-    trace("Not setting console font size -- "
-          "neither SetConsoleFont nor SetCurrentConsoleFontEx API exists");
+    return info;
 }
 
 Coord Win32Console::bufferSize()
 {
-    // TODO: error handling
-    CONSOLE_SCREEN_BUFFER_INFO info;
-    memset(&info, 0, sizeof(info));
-    if (!GetConsoleScreenBufferInfo(m_conout, &info)) {
-        trace("GetConsoleScreenBufferInfo failed");
-    }
-    return info.dwSize;
+    return bufferInfo().bufferSize();
 }
 
 SmallRect Win32Console::windowRect()
 {
-    // TODO: error handling
-    CONSOLE_SCREEN_BUFFER_INFO info;
-    memset(&info, 0, sizeof(info));
-    if (!GetConsoleScreenBufferInfo(m_conout, &info)) {
-        trace("GetConsoleScreenBufferInfo failed");
-    }
-    return info.srWindow;
+    return bufferInfo().windowRect();
 }
 
 void Win32Console::resizeBuffer(const Coord &size)
@@ -205,51 +123,9 @@ void Win32Console::moveWindow(const SmallRect &rect)
     }
 }
 
-void Win32Console::reposition(const Coord &newBufferSize,
-                              const SmallRect &newWindowRect)
-{
-    // Windows has one API for resizing the screen buffer and a different one
-    // for resizing the window.  It seems that either API can fail if the
-    // window does not fit on the screen buffer.
-
-    const SmallRect origWindowRect(windowRect());
-    const SmallRect origBufferRect(Coord(), bufferSize());
-
-    ASSERT(!newBufferSize.isEmpty());
-    SmallRect bufferRect(Coord(), newBufferSize);
-    ASSERT(bufferRect.contains(newWindowRect));
-
-    SmallRect tempWindowRect = origWindowRect.intersected(bufferRect);
-    if (tempWindowRect.width() <= 0) {
-        tempWindowRect.setLeft(newBufferSize.X - 1);
-        tempWindowRect.setWidth(1);
-    }
-    if (tempWindowRect.height() <= 0) {
-        tempWindowRect.setTop(newBufferSize.Y - 1);
-        tempWindowRect.setHeight(1);
-    }
-
-    // Alternatively, if we can immediately use the new window size,
-    // do that instead.
-    if (origBufferRect.contains(newWindowRect))
-        tempWindowRect = newWindowRect;
-
-    if (tempWindowRect != origWindowRect)
-        moveWindow(tempWindowRect);
-    resizeBuffer(newBufferSize);
-    if (newWindowRect != tempWindowRect)
-        moveWindow(newWindowRect);
-}
-
 Coord Win32Console::cursorPosition()
 {
-    // TODO: error handling
-    CONSOLE_SCREEN_BUFFER_INFO info;
-    memset(&info, 0, sizeof(info));
-    if (!GetConsoleScreenBufferInfo(m_conout, &info)) {
-        trace("GetConsoleScreenBufferInfo failed");
-    }
-    return info.dwCursorPosition;
+    return bufferInfo().dwCursorPosition;
 }
 
 void Win32Console::setCursorPosition(const Coord &coord)
@@ -283,7 +159,7 @@ void Win32Console::read(const SmallRect &rect, CHAR_INFO *data)
 {
     // TODO: error handling
     SmallRect tmp(rect);
-    if (!ReadConsoleOutput(m_conout, data, rect.size(), Coord(), &tmp)) {
+    if (!ReadConsoleOutputW(m_conout, data, rect.size(), Coord(), &tmp)) {
         trace("ReadConsoleOutput failed [x:%d,y:%d,w:%d,h:%d]",
               rect.Left, rect.Top, rect.width(), rect.height());
     }
@@ -293,7 +169,42 @@ void Win32Console::write(const SmallRect &rect, const CHAR_INFO *data)
 {
     // TODO: error handling
     SmallRect tmp(rect);
-    if (!WriteConsoleOutput(m_conout, data, rect.size(), Coord(), &tmp)) {
+    if (!WriteConsoleOutputW(m_conout, data, rect.size(), Coord(), &tmp)) {
         trace("WriteConsoleOutput failed");
+    }
+}
+
+std::wstring Win32Console::title()
+{
+    while (true) {
+        // The MSDN documentation for GetConsoleTitle is wrong.  It documents
+        // nSize as the "size of the buffer pointed to by the lpConsoleTitle
+        // parameter, in characters" and the successful return value as "the
+        // length of the console window's title, in characters."  In fact,
+        // nSize is in *bytes*.  In contrast, the return value is a count of
+        // UTF-16 code units.  Make the buffer extra large so we can
+        // technically match the documentation.
+        DWORD count = GetConsoleTitleW(m_titleWorkBuf.data(),
+                                       m_titleWorkBuf.size());
+        if (count >= m_titleWorkBuf.size() / sizeof(wchar_t)) {
+            m_titleWorkBuf.resize((count + 1) * sizeof(wchar_t));
+            continue;
+        }
+        m_titleWorkBuf[count] = L'\0';
+        return m_titleWorkBuf.data();
+    }
+}
+
+void Win32Console::setTitle(const std::wstring &title)
+{
+    if (!SetConsoleTitleW(title.c_str())) {
+        trace("SetConsoleTitleW failed");
+    }
+}
+
+void Win32Console::setTextAttribute(WORD attributes)
+{
+    if (!SetConsoleTextAttribute(m_conout, attributes)) {
+        trace("SetConsoleTextAttribute failed");
     }
 }
