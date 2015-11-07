@@ -25,7 +25,7 @@ cleanFolderRecursive = function(folder) {
 try {
   cleanFolderRecursive(RELEASE_DIR);
 } catch(e) {
-  console.log(BUILD_FILES.forEach);
+  console.log(e);
   process.exit(1);
 } finally {
   process.exit(0);
