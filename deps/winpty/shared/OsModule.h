@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2012 Ryan Prichard
+// Copyright (c) 2015 Ryan Prichard
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to
@@ -18,11 +18,30 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#ifndef AGENTASSERT_H
-#define AGENTASSERT_H
+#ifndef OS_MODULE_H
+#define OS_MODULE_H
 
-#define ASSERT(x) do { if (!(x)) assertFail(__FILE__, __LINE__, #x); } while(0)
+#include "DebugClient.h"
+#include "WinptyAssert.h"
 
-void assertFail(const char *file, int line, const char *cond);
+class OsModule {
+    HMODULE m_module;
+public:
+    OsModule(const wchar_t *fileName) {
+        m_module = LoadLibraryW(fileName);
+        ASSERT(m_module != NULL);
+    }
+    ~OsModule() {
+        FreeLibrary(m_module);
+    }
+    HMODULE handle() const { return m_module; }
+    FARPROC proc(const char *funcName) {
+        FARPROC ret = GetProcAddress(m_module, funcName);
+        if (ret == NULL) {
+            trace("GetProcAddress: %s is missing", funcName);
+        }
+        return ret;
+    }
+};
 
-#endif // AGENTASSERT_H
+#endif // OS_MODULE_H

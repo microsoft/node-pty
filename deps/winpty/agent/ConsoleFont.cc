@@ -29,9 +29,10 @@
 #include <string>
 #include <vector>
 
-#include "AgentAssert.h"
 #include "../shared/DebugClient.h"
-#include "winpty_wcsnlen.h"
+#include "../shared/OsModule.h"
+#include "../shared/WinptyAssert.h"
+#include "../shared/winpty_wcsnlen.h"
 
 namespace {
 

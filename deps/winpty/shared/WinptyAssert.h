@@ -18,4 +18,11 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "../shared/DebugClient.cc"
+#ifndef WINPTY_ASSERT_H
+#define WINPTY_ASSERT_H
+
+#define ASSERT(x) do { if (!(x)) assertFail(__FILE__, __LINE__, #x); } while(0)
+
+void assertFail(const char *file, int line, const char *cond);
+
+#endif // WINPTY_ASSERT_H

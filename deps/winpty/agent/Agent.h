@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2012 Ryan Prichard
+// Copyright (c) 2011-2015 Ryan Prichard
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to
@@ -22,6 +22,7 @@
 #define AGENT_H
 
 #include <windows.h>
+#include <stdint.h>
 
 #include <string>
 #include <vector>
@@ -32,6 +33,7 @@
 #include "SmallRect.h"
 #include "ConsoleLine.h"
 #include "Terminal.h"
+#include "LargeConsoleRead.h"
 
 class Win32Console;
 class ConsoleInput;
@@ -39,8 +41,11 @@ class ReadBuffer;
 class NamedPipe;
 struct ConsoleScreenBufferInfo;
 
-const int BUFFER_LINE_COUNT = 3000; // TODO: Use something like 9000.
-const int MAX_CONSOLE_WIDTH = 500;
+// We must be able to issue a single ReadConsoleOutputW call of
+// MAX_CONSOLE_WIDTH characters, and a single read of approximately several
+// hundred fewer characters than BUFFER_LINE_COUNT.
+const int BUFFER_LINE_COUNT = 3000;
+const int MAX_CONSOLE_WIDTH = 2500;
 const int SYNC_MARKER_LEN = 16;
 
 class Agent : public EventLoop, public DsrSender
@@ -87,6 +92,7 @@ private:
     void createSyncMarker(int row);
 
 private:
+    bool m_useMark;
     Win32Console *m_console;
     NamedPipe *m_controlSocket;
     NamedPipe *m_dataSocket;
@@ -101,9 +107,10 @@ private:
 
     bool m_directMode;
     Coord m_ptySize;
-    int m_scrapedLineCount;
-    int m_scrolledCount;
-    int m_maxBufferedLine;
+    int64_t m_scrapedLineCount;
+    int64_t m_scrolledCount;
+    int64_t m_maxBufferedLine;
+    LargeConsoleReadBuffer m_readBuffer;
     std::vector<ConsoleLine> m_bufferData;
     int m_dirtyWindowTop;
     int m_dirtyLineCount;

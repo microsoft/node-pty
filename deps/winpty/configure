@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2011-2012 Ryan Prichard
+# Copyright (c) 2011-2015 Ryan Prichard
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -52,7 +52,7 @@ IS_MSYS=0
 # also statically linked and therefore depend only on Windows DLLs.  I started
 # linking the Cygwin/MSYS binary statically, because G++ 4.7 changed the
 # Windows C++ ABI.
-UNIX_LDFLAGS_STATIC_LIBSTDCXX='-static -static-libgcc -static-libstdc++'
+UNIX_LDFLAGS_STATIC='-static -static-libgcc -static-libstdc++'
 
 # Detect the environment -- Cygwin or MSYS.
 case $(uname -s) in
@@ -109,7 +109,7 @@ case $(uname -s) in
                     # This is suboptimal because MSYS2 is not actually the
                     # second version of MSYS--it's a brand-new fork of Cygwin.
                     #
-                    UNIX_LDFLAGS_STATIC_LIBSTDCXX=
+                    UNIX_LDFLAGS_STATIC=
                 fi
                 ;;
             x86_64)
@@ -136,8 +136,28 @@ findTool "MinGW G++ compiler" "$MINGW_GPP"
 MINGW_GPP=$FINDTOOL_OUT
 
 # Write config files.
-echo Writing config-unix.mk
-echo CXX=$UNIX_GPP > config-unix.mk
-echo LDFLAGS_STATIC_LIBSTDCXX=$UNIX_LDFLAGS_STATIC_LIBSTDCXX >> config-unix.mk
-echo Writing config-mingw.mk
-echo CXX=$MINGW_GPP > config-mingw.mk
+echo Writing config.mk
+echo UNIX_CXX=$UNIX_GPP > config.mk
+echo UNIX_LDFLAGS_STATIC=$UNIX_LDFLAGS_STATIC >> config.mk
+echo MINGW_CXX=$MINGW_GPP >> config.mk
+echo GIT_REVPARSE_WORKS=$GIT_REVPARSE_WORKS >> config.mk
+
+# Figure out how to embed build info (e.g. git commit) into the binary.
+if test -f BUILD_INFO.txt; then
+    echo "Build info: source package"
+    eval $(grep '^VERSION_SUFFIX=' BUILD_INFO.txt | tr -d '\r')
+    eval $(grep '^COMMIT_HASH=' BUILD_INFO.txt | tr -d '\r')
+    echo "VERSION_SUFFIX ?= ${VERSION_SUFFIX}" >> config.mk
+    echo "COMMIT_HASH ?= ${COMMIT_HASH}" >> config.mk
+    echo "BUILD_INFO_DEP = config.mk" >> config.mk
+elif test -d .git && git rev-parse HEAD >&/dev/null; then
+    echo "Build info: git"
+    echo 'VERSION_SUFFIX ?= -dev' >> config.mk
+    echo 'COMMIT_HASH ?= $$(git rev-parse HEAD)' >> config.mk
+    echo 'BUILD_INFO_DEP = config.mk .git/HEAD' >> config.mk
+else
+    echo "Build info: none"
+    echo 'VERSION_SUFFIX ?= -dev' >> config.mk
+    echo 'COMMIT_HASH ?= none' >> config.mk
+    echo 'BUILD_INFO_DEP = config.mk' >> config.mk
+fi

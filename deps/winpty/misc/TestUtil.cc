@@ -114,25 +114,31 @@ static void repeatChar(int count, char ch) {
 // it helps to call `setlocale(LC_ALL, "")`, but the Japanese symbols are
 // ultimately converted to `?` symbols, even though MS Gothic is able to
 // display its own name, and the current code page is 932 (Shift-JIS).
-static void cvprintf(const wchar_t *fmt, va_list ap) {
+static void cvfprintf(HANDLE conout, const wchar_t *fmt, va_list ap) {
     wchar_t buffer[256];
     vswprintf(buffer, 256 - 1, fmt, ap);
     buffer[255] = L'\0';
     DWORD actual = 0;
-    if (!WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE),
-                       buffer, wcslen(buffer), &actual, NULL)) {
+    if (!WriteConsoleW(conout, buffer, wcslen(buffer), &actual, NULL)) {
         wprintf(L"WriteConsoleW call failed!\n");
     }
+}
+
+static void cfprintf(HANDLE conout, const wchar_t *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    cvfprintf(conout, fmt, ap);
+    va_end(ap);
 }
 
 static void cprintf(const wchar_t *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    cvprintf(fmt, ap);
+    cvfprintf(GetStdHandle(STD_OUTPUT_HANDLE), fmt, ap);
     va_end(ap);
 }
 
-std::string narrowString(const std::wstring &input)
+static std::string narrowString(const std::wstring &input)
 {
     int mblen = WideCharToMultiByte(
         CP_UTF8, 0,

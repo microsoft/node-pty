@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2012 Ryan Prichard
+// Copyright (c) 2011-2015 Ryan Prichard
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to
@@ -19,11 +19,14 @@
 // IN THE SOFTWARE.
 
 #include "Win32Console.h"
-#include "AgentAssert.h"
-#include "../shared/DebugClient.h"
-#include <string>
-#include <wchar.h>
+
 #include <windows.h>
+#include <wchar.h>
+
+#include <string>
+
+#include "../shared/DebugClient.h"
+#include "../shared/WinptyAssert.h"
 
 Win32Console::Win32Console() : m_titleWorkBuf(16)
 {
@@ -177,17 +180,38 @@ void Win32Console::write(const SmallRect &rect, const CHAR_INFO *data)
 std::wstring Win32Console::title()
 {
     while (true) {
-        // The MSDN documentation for GetConsoleTitle is wrong.  It documents
-        // nSize as the "size of the buffer pointed to by the lpConsoleTitle
-        // parameter, in characters" and the successful return value as "the
-        // length of the console window's title, in characters."  In fact,
-        // nSize is in *bytes*.  In contrast, the return value is a count of
-        // UTF-16 code units.  Make the buffer extra large so we can
-        // technically match the documentation.
+        // Calling GetConsoleTitleW is tricky, because its behavior changed
+        // from XP->Vista, then again from Win7->Win8.  The Vista+Win7 behavior
+        // is especially broken.
+        //
+        // The MSDN documentation documents nSize as the "size of the buffer
+        // pointed to by the lpConsoleTitle parameter, in characters" and the
+        // successful return value as "the length of the console window's
+        // title, in characters."
+        //
+        // On XP, the function returns the title length, AFTER truncation
+        // (excluding the NUL terminator).  If the title is blank, the API
+        // returns 0 and does not NUL-terminate the buffer.  To accommodate
+        // XP, the function must:
+        //  * Terminate the buffer itself.
+        //  * Double the size of the title buffer in a loop.
+        //
+        // On Vista and up, the function returns the non-truncated title
+        // length (excluding the NUL terminator).
+        //
+        // On Vista and Windows 7, there is a bug where the buffer size is
+        // interpreted as a byte count rather than a wchar_t count.  To
+        // work around this, we must pass GetConsoleTitleW a buffer that is
+        // twice as large as what is actually needed.
+        //
+        // See misc/*/Test_GetConsoleTitleW.cc for tests demonstrating Windows'
+        // behavior.
+
         DWORD count = GetConsoleTitleW(m_titleWorkBuf.data(),
                                        m_titleWorkBuf.size());
-        if (count >= m_titleWorkBuf.size() / sizeof(wchar_t)) {
-            m_titleWorkBuf.resize((count + 1) * sizeof(wchar_t));
+        const size_t needed = (count + 1) * sizeof(wchar_t);
+        if (m_titleWorkBuf.size() < needed) {
+            m_titleWorkBuf.resize(needed);
             continue;
         }
         m_titleWorkBuf[count] = L'\0';

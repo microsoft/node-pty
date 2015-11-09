@@ -68,6 +68,9 @@ and select at least these components:
 When running ``./configure``, make sure that ``mingw32-g++`` is in your
 ``PATH``.  It will be in the ``C:\MinGW\bin`` directory.
 
+MSYS2 packages
+--------------
+
 For MSYS2, use ``pacman`` and install at least these packages:
 
 * ``msys/gcc``
@@ -112,3 +115,12 @@ it:
 
 winpty also recognizes a ``WINPTY_SHOW_CONSOLE`` environment variable.  Set it
 to 1 to prevent winpty from hiding the console window.
+
+Copyright
+=========
+
+This project is distributed under the MIT license (see the ``LICENSE`` file in
+the project root).
+
+By submitting a pull request for this project, you agree to license your
+contribution under the MIT license to this project.

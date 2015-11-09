@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2012 Ryan Prichard
+// Copyright (c) 2015 Ryan Prichard
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to
@@ -18,18 +18,12 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "AgentAssert.h"
-#include "../shared/DebugClient.h"
+#ifndef WINPTY_WCSNLEN_H
+#define WINPTY_WCSNLEN_H
+
 #include <stdlib.h>
+#include <wchar.h>
 
-// Calling the standard assert() function does not work in the agent because
-// the error message would be printed to the console, and the only way the
-// user can see the console is via a working agent!  This custom assert
-// function instead sends the message to the DebugServer.
+size_t winpty_wcsnlen(const wchar_t *s, size_t maxlen);
 
-void assertFail(const char *file, int line, const char *cond)
-{
-    trace("Assertion failed: %s, file %s, line %d",
-          cond, file, line);
-    abort();
-}
+#endif // WINPTY_WCSNLEN_H

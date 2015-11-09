@@ -1,4 +1,4 @@
-# Copyright (c) 2011-2012 Ryan Prichard
+# Copyright (c) 2015 Ryan Prichard
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -18,45 +18,11 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-include ../config.mk
-include ../config-mingw.mk
+build/%.exe : tests/%.cc build/winpty.dll
+	@echo Building $@
+	@$(MINGW_CXX) $(MINGW_CXXFLAGS) $(MINGW_LDFLAGS) -std=c++11 -o $@ $^
 
-PROGRAM = ../build/winpty-agent.exe
+TEST_PROGRAMS = \
+        build/trivial_test.exe
 
-OBJECTS = \
-	EventLoop.o \
-	NamedPipe.o \
-	Agent.o \
-	AgentAssert.o \
-	Terminal.o \
-	Win32Console.o \
-	ConsoleInput.o \
-	DebugClient.o \
-	Coord.o \
-	SmallRect.o \
-	ConsoleLine.o \
-	ConsoleFont.o \
-	winpty_wcsnlen.o \
-	main.o
-
-CXXFLAGS += \
-	-DUNICODE \
-	-D_UNICODE \
-	-D_WIN32_WINNT=0x0501 \
-	-fno-exceptions \
-	-fno-rtti \
-	-O2
-
-LDFLAGS += -static -static-libgcc -static-libstdc++
-
-all : $(PROGRAM)
-
-$(PROGRAM) : $(OBJECTS)
-	@echo Linking $@
-	@$(CXX) -o $@ $^ $(LDFLAGS)
-
-.PHONY : clean
-clean:
-	rm -f $(PROGRAM) *.o *.d
-
--include $(OBJECTS:.o=.d)
+-include $(TEST_PROGRAMS:.exe=.d)

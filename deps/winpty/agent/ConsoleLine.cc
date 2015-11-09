@@ -27,8 +27,10 @@
 //
 
 #include "ConsoleLine.h"
-#include "algorithm"
-#include "AgentAssert.h"
+
+#include <algorithm>
+
+#include "../shared/WinptyAssert.h"
 
 static CHAR_INFO blankChar(WORD attributes)
 {

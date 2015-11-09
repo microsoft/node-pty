@@ -1,4 +1,4 @@
-# Copyright (c) 2011-2012 Ryan Prichard
+# Copyright (c) 2011-2015 Ryan Prichard
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -18,29 +18,15 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-include ../config.mk
-include ../config-mingw.mk
+ALL_TARGETS += build/$(UNIX_ADAPTER_EXE)
 
-LIBRARY = ../build/winpty.dll
-OBJECTS = winpty.o DebugClient.o
-LDFLAGS += -shared -static -static-libgcc -static-libstdc++
+UNIX_ADAPTER_OBJECTS = \
+	build/unix/unix-adapter/main.o \
+	build/unix/shared/DebugClient.o \
+	build/unix/shared/WinptyVersion.o
 
-CXXFLAGS += \
-	-I../include \
-	-DUNICODE \
-	-D_UNICODE \
-	-D_WIN32_WINNT=0x0501 \
-	-DWINPTY \
-	-fno-exceptions \
-	-fno-rtti \
-	-O2
-
-$(LIBRARY) : $(OBJECTS)
+build/$(UNIX_ADAPTER_EXE) : $(UNIX_ADAPTER_OBJECTS) build/winpty.dll
 	@echo Linking $@
-	@$(CXX) $(LDFLAGS) -o $@ $^
+	@$(UNIX_CXX) $(UNIX_LDFLAGS) -o $@ $^
 
-.PHONY : clean
-clean :
-	rm -f $(LIBRARY) *.o *.d
-
--include $(OBJECTS:.o=.d)
+-include $(UNIX_ADAPTER_OBJECTS:.o=.d)

@@ -1,4 +1,4 @@
-# Copyright (c) 2011-2012 Ryan Prichard
+# Copyright (c) 2015 Ryan Prichard
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -18,22 +18,13 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-include ../config.mk
-include ../config-unix.mk
+ALL_TARGETS += build/winpty-debugserver.exe
 
-PROGRAM = ../build/console.exe
-OBJECTS = main.o Shared.o
-CXXFLAGS += -I../include
-LDFLAGS += $(LDFLAGS_STATIC_LIBSTDCXX) ../build/winpty.dll
+DEBUGSERVER_OBJECTS = \
+	build/mingw/debugserver/DebugServer.o
 
-all : $(PROGRAM)
-
-$(PROGRAM) : $(OBJECTS)
+build/winpty-debugserver.exe : $(DEBUGSERVER_OBJECTS)
 	@echo Linking $@
-	@$(CXX) -o $@ $^ $(LDFLAGS)
+	@$(MINGW_CXX) $(MINGW_LDFLAGS) -o $@ $^
 
-.PHONY : clean
-clean:
-	rm -f $(PROGRAM) *.o *.d
-
--include $(OBJECTS:.o=.d)
+-include $(DEBUGSERVER_OBJECTS:.o=.d)

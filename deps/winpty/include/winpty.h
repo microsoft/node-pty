@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <windows.h>
 
-#ifdef WINPTY
+#ifdef COMPILING_WINPTY_DLL
 #define WINPTY_API __declspec(dllexport)
 #else
 #define WINPTY_API __declspec(dllimport)

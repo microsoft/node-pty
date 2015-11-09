@@ -1,4 +1,4 @@
-# Copyright (c) 2011-2012 Ryan Prichard
+# Copyright (c) 2011-2015 Ryan Prichard
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -18,26 +18,14 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-CFLAGS += -MMD -Wall
-CXXFLAGS += -MMD -Wall
+ALL_TARGETS += build/winpty.dll
 
-# Use gmake -n to see the command-lines gmake would run.
+LIBWINPTY_OBJECTS = \
+	build/mingw/libwinpty/winpty.o \
+	build/mingw/shared/DebugClient.o
 
-%.o : %.c
-	@echo Compiling $<
-	@$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
+build/winpty.dll : $(LIBWINPTY_OBJECTS)
+	@echo Linking $@
+	@$(MINGW_CXX) $(MINGW_LDFLAGS) -shared -o $@ $^
 
-%.o : %.cc
-	@echo Compiling $<
-	@$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
-
-%.o : ../shared/%.cc
-	@echo Compiling $<
-	@$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
-
-# Attempt to detect whether configure has been run yet.  The CWD will
-# be one of the subdirectories, so refer to ../config-mingw.mk instead
-# of ./config-mingw.mk.
-ifeq "$(wildcard ../config-mingw.mk)" ""
-    $(error config-mingw.mk does not exist.  Please run ./configure)
-endif
+-include $(LIBWINPTY_OBJECTS:.o=.d)

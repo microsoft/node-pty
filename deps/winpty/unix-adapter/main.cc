@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2012 Ryan Prichard
+// Copyright (c) 2011-2015 Ryan Prichard
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to
@@ -38,6 +38,7 @@
 #include <pthread.h>
 #include <winpty.h>
 #include "../shared/DebugClient.h"
+#include "../shared/WinptyVersion.h"
 #include <map>
 #include <string>
 #include <vector>
@@ -352,13 +353,52 @@ void setupWin32Environment()
     }
 }
 
+static void usage(const char *program, int exitCode)
+{
+    printf("Usage: %s [options] [--] program [args]\n", program);
+    printf("\n");
+    printf("Options:\n");
+    printf("  -h, --help  Show this help message\n");
+    printf("  --version   Show the winpty version number\n");
+    exit(exitCode);
+}
+
+struct Arguments {
+    std::vector<std::string> childArgv;
+};
+
+static void parseArguments(int argc, char *argv[], Arguments &out)
+{
+    const char *const program = argc >= 1 ? argv[0] : "<program>";
+    int argi = 1;
+    while (argi < argc) {
+        std::string arg(argv[argi++]);
+        if (arg.size() >= 1 && arg[0] == '-') {
+            if (arg == "-h" || arg == "--help") {
+                usage(program, 0);
+            } else if (arg == "--version") {
+                dumpVersionToStdout();
+                exit(0);
+            } else if (arg == "--") {
+                break;
+            }
+        } else {
+            out.childArgv.push_back(arg);
+            break;
+        }
+    }
+    for (; argi < argc; ++argi) {
+        out.childArgv.push_back(argv[argi]);
+    }
+    if (out.childArgv.size() == 0) {
+        usage(program, 1);
+    }
+}
+
 int main(int argc, char *argv[])
 {
-    if (argc == 1) {
-        printf("Usage: %s program [args]\n",
-               argv[0]);
-        return 0;
-    }
+    Arguments args;
+    parseArguments(argc, argv, args);
 
     setlocale(LC_ALL, "");
     setupWin32Environment();
@@ -374,11 +414,8 @@ int main(int argc, char *argv[])
 
     {
         // Start the child process under the console.
-        std::vector<std::string> argVector;
-        argVector.push_back(convertPosixPathToWin(argv[1]));
-        for (int i = 2; i < argc; ++i)
-            argVector.push_back(argv[i]);
-        std::string cmdLine = argvToCommandLine(argVector);
+        args.childArgv[0] = convertPosixPathToWin(args.childArgv[0]);
+        std::string cmdLine = argvToCommandLine(args.childArgv);
         wchar_t *cmdLineW = heapMbsToWcs(cmdLine.c_str());
         int ret = winpty_start_process(winpty,
                                          NULL,

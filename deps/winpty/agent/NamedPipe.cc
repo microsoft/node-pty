@@ -18,12 +18,14 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "NamedPipe.h"
-#include "EventLoop.h"
-#include "AgentAssert.h"
-#include "../shared/DebugClient.h"
 #include <string.h>
+
 #include <algorithm>
+
+#include "EventLoop.h"
+#include "NamedPipe.h"
+#include "../shared/DebugClient.h"
+#include "../shared/WinptyAssert.h"
 
 NamedPipe::NamedPipe() :
     m_readBufferSize(64 * 1024),

@@ -22,9 +22,11 @@
 #define SMALLRECT_H
 
 #include <windows.h>
-#include "Coord.h"
+
 #include <algorithm>
 #include <string>
+
+#include "Coord.h"
 
 struct SmallRect : SMALL_RECT
 {

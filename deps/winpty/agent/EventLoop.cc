@@ -19,9 +19,12 @@
 // IN THE SOFTWARE.
 
 #include "EventLoop.h"
+
+#include <algorithm>
+
 #include "NamedPipe.h"
-#include "AgentAssert.h"
 #include "../shared/DebugClient.h"
+#include "../shared/WinptyAssert.h"
 
 EventLoop::EventLoop() : m_exiting(false), m_pollInterval(0)
 {
