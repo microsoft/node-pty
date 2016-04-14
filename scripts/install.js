@@ -3,8 +3,7 @@ require('child_process').exec(
     {'cwd': require('path').join(__dirname, '..')},
     function(err, stdout, stderr){
       if (err) {
-        console.error(err);
-        return;
+        console.log(err);
       }
       console.log(stdout);
       process.exit(0);
