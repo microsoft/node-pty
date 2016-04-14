@@ -1,4 +1,4 @@
-require('child_process').execSync(
+require('child_process').exec(
     'node-gyp rebuild',
     {'cwd': require('path').join(__dirname, '..')},
     function(err, stdout, stderr){
@@ -7,5 +7,5 @@ require('child_process').execSync(
         return;
       }
       console.log(stdout);
+      process.exit(0);
 });
-process.exit(0);
