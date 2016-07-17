@@ -52,11 +52,7 @@ MINGW_CXXFLAGS += \
 MINGW_LDFLAGS += -static -static-libgcc -static-libstdc++
 UNIX_LDFLAGS += $(UNIX_LDFLAGS_STATIC)
 
-include agent/subdir.mk
-include debugserver/subdir.mk
-include libwinpty/subdir.mk
-include tests/subdir.mk
-include unix-adapter/subdir.mk
+include src/subdir.mk
 
 all : $(ALL_TARGETS)
 
@@ -77,12 +73,12 @@ distclean : clean
 
 .PHONY : default all tests install clean distclean
 
-build/mingw/%.o : %.cc
+build/mingw/%.o : src/%.cc
 	@echo Compiling $<
 	@mkdir -p $$(dirname $@)
-	@$(MINGW_CXX) $(MINGW_CXXFLAGS) -I include -c -o $@ $<
+	@$(MINGW_CXX) $(MINGW_CXXFLAGS) -I src/include -c -o $@ $<
 
-build/unix/%.o : %.cc
+build/unix/%.o : src/%.cc
 	@echo Compiling $<
 	@mkdir -p $$(dirname $@)
-	@$(UNIX_CXX) $(UNIX_CXXFLAGS) -I include -c -o $@ $<
+	@$(UNIX_CXX) $(UNIX_CXXFLAGS) -I src/include -c -o $@ $<

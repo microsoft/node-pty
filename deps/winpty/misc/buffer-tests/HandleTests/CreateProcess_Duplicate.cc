@@ -11,7 +11,7 @@
 
 // This handle duplication seems to be broken in WOW64 mode.  It affects
 // at least:
-//  - Windows 7 SP2
+//  - Windows 7 SP1
 // For some reason, the problem apparently only affects the client operating
 // system, not the server OS.
 //

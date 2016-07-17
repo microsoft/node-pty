@@ -1,0 +1,10 @@
+*.sln
+*.suo
+*.vcxproj
+*.vcxproj.filters
+Default
+winpty.sdf
+winpty.opensdf
+/config.mk
+/build
+/ship/packages

@@ -21,9 +21,15 @@
 #ifndef CONSOLEINPUT_H
 #define CONSOLEINPUT_H
 
+#include <windows.h>
+#include <stdint.h>
+
 #include <string>
 #include <vector>
-#include <windows.h>
+
+#include "Coord.h"
+#include "InputMap.h"
+#include "SmallRect.h"
 
 class Win32Console;
 class DsrSender;
@@ -35,59 +41,49 @@ public:
     ~ConsoleInput();
     void writeInput(const std::string &input);
     void flushIncompleteEscapeCode();
+    void setMouseInputEnabled(bool val) { m_mouseInputEnabled = val; }
+    void setMouseWindowRect(SmallRect val) { m_mouseWindowRect = val; }
 
 private:
-    struct KeyDescriptor {
-        const char *encoding;
-        int virtualKey;
-        int unicodeChar;
-        int keyState;
-        int encodingLen;
-    };
-
-    class KeyLookup {
-    public:
-        KeyLookup();
-        ~KeyLookup();
-        void set(const char *encoding, const KeyDescriptor *descriptor);
-        const KeyDescriptor *getMatch() const { return match; }
-        bool hasChildren() const { return children != NULL; }
-        KeyLookup *getChild(int i) { return children != NULL ? (*children)[i] : NULL; }
-    private:
-        const KeyDescriptor *match;
-        KeyLookup *(*children)[256];
-    };
-
     void doWrite(bool isEof);
-    int scanKeyPress(std::vector<INPUT_RECORD> &records,
-                     const char *input,
-                     int inputSize,
-                     bool isEof);
+    int scanInput(std::vector<INPUT_RECORD> &records,
+                  const char *input,
+                  int inputSize,
+                  bool isEof);
+    int scanMouseInput(std::vector<INPUT_RECORD> &records,
+                       const char *input,
+                       int inputSize);
     void appendUtf8Char(std::vector<INPUT_RECORD> &records,
                         const char *charBuffer,
                         int charLen,
-                        int keyState);
+                        uint16_t keyState);
     void appendKeyPress(std::vector<INPUT_RECORD> &records,
-                        int virtualKey,
-                        int unicodeChar,
-                        int keyState);
+                        uint16_t virtualKey,
+                        uint16_t unicodeChar,
+                        uint16_t keyState);
     void appendInputRecord(std::vector<INPUT_RECORD> &records,
                            BOOL keyDown,
-                           int virtualKey,
-                           int unicodeChar,
-                           int keyState);
-    static int utf8CharLength(char firstByte);
-    const KeyDescriptor *lookupKey(const char *encoding, bool isEof, bool *incomplete);
-    static int matchDsr(const char *encoding);
+                           uint16_t virtualKey,
+                           uint16_t unicodeChar,
+                           uint16_t keyState);
 
 private:
-    static KeyDescriptor keyDescriptorTable[];
     Win32Console *m_console;
     DsrSender *m_dsrSender;
     bool m_dsrSent;
     std::string m_byteQueue;
-    KeyLookup m_lookup;
-    DWORD lastWriteTick;
+    InputMap m_inputMap;
+    DWORD m_lastWriteTick;
+    DWORD m_mouseButtonState;
+    struct DoubleClickDetection {
+        DoubleClickDetection() : button(0), tick(0), released(0) {}
+        DWORD button;
+        Coord pos;
+        DWORD tick;
+        bool released;
+    } m_doubleClick;
+    bool m_mouseInputEnabled;
+    SmallRect m_mouseWindowRect;
 };
 
 #endif // CONSOLEINPUT_H

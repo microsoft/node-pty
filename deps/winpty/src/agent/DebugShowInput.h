@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2012 Ryan Prichard
+// Copyright (c) 2015 Ryan Prichard
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to
@@ -18,10 +18,15 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#ifndef DEBUGCLIENT_H
-#define DEBUGCLIENT_H
+#ifndef AGENT_DEBUG_SHOW_INPUT_H
+#define AGENT_DEBUG_SHOW_INPUT_H
 
-bool isTracingEnabled();
-void trace(const char *format, ...);
+#include <windows.h>
 
-#endif // DEBUGCLIENT_H
+#include <string>
+
+std::string controlKeyStatePrefix(DWORD controlKeyState);
+std::string mouseEventToString(const MOUSE_EVENT_RECORD &mer);
+void debugShowInput(bool enableMouse);
+
+#endif // AGENT_DEBUG_SHOW_INPUT_H

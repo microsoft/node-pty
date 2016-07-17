@@ -18,43 +18,39 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include <stdio.h>
-#include <stdlib.h>
+#ifndef UNIX_ADAPTER_OUTPUT_HANDLER_H
+#define UNIX_ADAPTER_OUTPUT_HANDLER_H
 
-#include "Agent.h"
-#include "../shared/WinptyAssert.h"
-#include "../shared/WinptyVersion.h"
+#include <windows.h>
+#include <pthread.h>
+#include <signal.h>
 
-static wchar_t *heapMbsToWcs(const char *text)
-{
-    size_t len = mbstowcs(NULL, text, 0);
-    ASSERT(len != (size_t)-1);
-    wchar_t *ret = new wchar_t[len + 1];
-    size_t len2 = mbstowcs(ret, text, len + 1);
-    ASSERT(len == len2);
-    return ret;
-}
+#include "Event.h"
+#include "WakeupFd.h"
 
-int main(int argc, char *argv[])
-{
-    if (argc == 2 && !strcmp(argv[1], "--version")) {
-        dumpVersionToStdout();
-        return 0;
+// Connect winpty overlapped I/O to Cygwin blocking STDOUT_FILENO.
+class OutputHandler {
+public:
+    OutputHandler(HANDLE winpty, WakeupFd &completionWakeup);
+    ~OutputHandler() { shutdown(); }
+    bool isComplete() { return m_threadCompleted; }
+    void startShutdown() { m_shouldShutdown = 1; m_wakeup.set(); }
+    void shutdown();
+
+private:
+    static void *threadProcS(void *pvthis) {
+        reinterpret_cast<OutputHandler*>(pvthis)->threadProc();
+        return NULL;
     }
+    void threadProc();
 
-    if (argc != 5) {
-        fprintf(stderr,
-            "Usage: %s controlPipeName dataPipeName cols rows\n"
-            "Usage: %s --version\n"
-            "\n"
-            "(Note: This program is intended to be run by libwinpty.dll.)\n",
-            argv[0], argv[0]);
-        return 1;
-    }
+    HANDLE m_winpty;
+    pthread_t m_thread;
+    WakeupFd &m_completionWakeup;
+    Event m_wakeup;
+    bool m_threadHasBeenJoined;
+    volatile sig_atomic_t m_shouldShutdown;
+    volatile sig_atomic_t m_threadCompleted;
+};
 
-    Agent agent(heapMbsToWcs(argv[1]),
-                heapMbsToWcs(argv[2]),
-                atoi(argv[3]),
-                atoi(argv[4]));
-    agent.run();
-}
+#endif // UNIX_ADAPTER_OUTPUT_HANDLER_H

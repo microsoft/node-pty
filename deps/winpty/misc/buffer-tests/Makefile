@@ -9,7 +9,7 @@ CXXFLAGS += \
     -MMD \
     -Wall \
     -Wno-format \
-    -Iharness -I../../shared \
+    -Iharness -I../../src/shared \
     -std=c++11 \
     -DUNICODE \
     -D_UNICODE \
@@ -80,7 +80,7 @@ build/obj/%.o : %.cc $(PCHDEPS)
 	@mkdir -p $$(dirname $@)
 	@$(CXX) $(PCHFLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
 
-build/obj/shared/%.o : ../../shared/%.cc $(PCHDEPS)
+build/obj/shared/%.o : ../../src/shared/%.cc $(PCHDEPS)
 	@echo Compiling $<
 	@mkdir -p $$(dirname $@)
 	@$(CXX) $(PCHFLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
