@@ -18,31 +18,15 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-ALL_TARGETS += build/winpty-agent.exe
+ALL_TARGETS += build/$(UNIX_ADAPTER_EXE)
 
-AGENT_OBJECTS = \
-	build/mingw/agent/Agent.o \
-	build/mingw/agent/ConsoleFont.o \
-	build/mingw/agent/ConsoleInput.o \
-	build/mingw/agent/ConsoleLine.o \
-	build/mingw/agent/Coord.o \
-	build/mingw/agent/DebugShowInput.o \
-	build/mingw/agent/DefaultInputMap.o \
-	build/mingw/agent/EventLoop.o \
-	build/mingw/agent/InputMap.o \
-	build/mingw/agent/LargeConsoleRead.o \
-	build/mingw/agent/NamedPipe.o \
-	build/mingw/agent/SmallRect.o \
-	build/mingw/agent/Terminal.o \
-	build/mingw/agent/Win32Console.o \
-	build/mingw/agent/main.o \
-	build/mingw/shared/DebugClient.o \
-	build/mingw/shared/WinptyAssert.o \
-	build/mingw/shared/WinptyVersion.o \
-	build/mingw/shared/winpty_wcsnlen.o
+UNIX_ADAPTER_OBJECTS = \
+	build/unix/unix-adapter/main.o \
+	build/unix/shared/DebugClient.o \
+	build/unix/shared/WinptyVersion.o
 
-build/winpty-agent.exe : $(AGENT_OBJECTS)
+build/$(UNIX_ADAPTER_EXE) : $(UNIX_ADAPTER_OBJECTS) build/winpty.dll
 	@echo Linking $@
-	@$(MINGW_CXX) $(MINGW_LDFLAGS) -o $@ $^
+	@$(UNIX_CXX) $(UNIX_LDFLAGS) -o $@ $^
 
--include $(AGENT_OBJECTS:.o=.d)
+-include $(UNIX_ADAPTER_OBJECTS:.o=.d)

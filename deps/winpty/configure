@@ -45,8 +45,7 @@ function findTool {
 }
 
 IS_CYGWIN=0
-IS_MSYS1=0
-IS_MSYS2=0
+IS_MSYS=0
 
 # Link parts of the Cygwin binary statically to aid in redistribution?  The
 # binary still links dynamically against the main DLL.  The MinGW binaries are
@@ -63,13 +62,13 @@ case $(uname -s) in
 	    case $(uname -m) in
             i686)
                 echo 'uname -m identifies an i686 environment.'
-                UNIX_CXX=i686-pc-cygwin-g++
-                MINGW_CXX="i686-w64-mingw32-g++ i686-pc-mingw32-g++"
+                UNIX_GPP=i686-pc-cygwin-g++
+                MINGW_GPP="i686-w64-mingw32-g++ i686-pc-mingw32-g++"
                 ;;
             x86_64)
                 echo 'uname -m identifies an x86_64 environment.'
-                UNIX_CXX=x86_64-pc-cygwin-g++
-                MINGW_CXX=x86_64-w64-mingw32-g++
+                UNIX_GPP=x86_64-pc-cygwin-g++
+                MINGW_GPP=x86_64-w64-mingw32-g++
                 ;;
             *)
                 echo 'Error: uname -m did not match either i686 or x86_64.'
@@ -89,10 +88,12 @@ case $(uname -s) in
         # MSYS notes:
         #  - `uname -s` is always MINGW32_NT-6.1 on Win7.
         echo 'uname -s identifies an MSYS/MSYS2 environment.'
+        IS_MSYS=1
         case $(uname -m) in
             i686)
                 echo 'uname -m identifies an i686 environment.'
-                UNIX_CXX=i686-pc-msys-g++
+                UNIX_GPP=i686-pc-msys-g++
+                MINGW_GPP='i686-w64-mingw32-g++.exe mingw32-g++'
                 if echo "$(uname -r)" | grep '^1[.]' > /dev/null; then
                     # The MSYS-targeting compiler for the original 32-bit-only
                     # MSYS does not recognize the -static-libstdc++ flag, and
@@ -108,19 +109,13 @@ case $(uname -s) in
                     # This is suboptimal because MSYS2 is not actually the
                     # second version of MSYS--it's a brand-new fork of Cygwin.
                     #
-                    IS_MSYS1=1
                     UNIX_LDFLAGS_STATIC=
-                    MINGW_CXX=mingw32-g++
-                else
-                    IS_MSYS2=1
-                    MINGW_CXX=i686-w64-mingw32-g++.exe
                 fi
                 ;;
             x86_64)
                 echo 'uname -m identifies an x86_64 environment.'
-                IS_MSYS2=1
-                UNIX_CXX=x86_64-pc-msys-g++
-                MINGW_CXX=x86_64-w64-mingw32-g++
+                UNIX_GPP=x86_64-pc-msys-g++
+                MINGW_GPP=x86_64-w64-mingw32-g++
                 ;;
             *)
                 echo 'Error: uname -m did not match either i686 or x86_64.'
@@ -135,20 +130,17 @@ case $(uname -s) in
 esac
 
 # Search the PATH and pick the first match.
-findTool "Cygwin/MSYS G++ compiler" "$UNIX_CXX"
-UNIX_CXX=$FINDTOOL_OUT
-findTool "MinGW G++ compiler" "$MINGW_CXX"
-MINGW_CXX=$FINDTOOL_OUT
+findTool "Cygwin/MSYS G++ compiler" "$UNIX_GPP"
+UNIX_GPP=$FINDTOOL_OUT
+findTool "MinGW G++ compiler" "$MINGW_GPP"
+MINGW_GPP=$FINDTOOL_OUT
 
 # Write config files.
 echo Writing config.mk
-echo UNIX_CXX=$UNIX_CXX > config.mk
+echo UNIX_CXX=$UNIX_GPP > config.mk
 echo UNIX_LDFLAGS_STATIC=$UNIX_LDFLAGS_STATIC >> config.mk
-echo MINGW_CXX=$MINGW_CXX >> config.mk
-
-if test $IS_MSYS1 = 1; then
-    echo UNIX_CXXFLAGS += -DWINPTY_TARGET_MSYS1 >> config.mk
-fi
+echo MINGW_CXX=$MINGW_GPP >> config.mk
+echo GIT_REVPARSE_WORKS=$GIT_REVPARSE_WORKS >> config.mk
 
 # Figure out how to embed build info (e.g. git commit) into the binary.
 if test -f BUILD_INFO.txt; then

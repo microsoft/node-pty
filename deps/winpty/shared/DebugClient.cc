@@ -19,16 +19,12 @@
 // IN THE SOFTWARE.
 
 #include "DebugClient.h"
-
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
-
-#include <string>
-
 #include "c99_snprintf.h"
 
-void *volatile g_debugConfig;
+char *tracingConfig;
 
 static void sendToDebugServer(const char *message)
 {
@@ -54,52 +50,23 @@ static long long unixTimeMillis()
     return msTime - 134774LL * 24 * 3600 * 1000;
 }
 
-static const char *getDebugConfig()
+static const char *getTracingConfig()
 {
-    if (g_debugConfig == NULL) {
+    if (tracingConfig == NULL) {
         const int bufSize = 256;
         char buf[bufSize];
         DWORD actualSize = GetEnvironmentVariableA("WINPTY_DEBUG", buf, bufSize);
         if (actualSize == 0 || actualSize >= (DWORD)bufSize)
             buf[0] = '\0';
-        char *newConfig = new char[strlen(buf) + 1];
-        strcpy(newConfig, buf);
-        void *oldValue = InterlockedCompareExchangePointer(
-            &g_debugConfig, newConfig, NULL);
-        if (oldValue != NULL) {
-            delete [] newConfig;
-        }
+        tracingConfig = new char[strlen(buf) + 1];
+        strcpy(tracingConfig, buf);
     }
-    return static_cast<const char*>(g_debugConfig);
+    return tracingConfig;
 }
 
 bool isTracingEnabled()
 {
-    static bool disabled, enabled;
-    if (disabled) {
-        return false;
-    } else if (enabled) {
-        return true;
-    } else {
-        // Recognize WINPTY_DEBUG=1 for backwards compatibility.
-        bool value = hasDebugFlag("trace") || hasDebugFlag("1");
-        disabled = !value;
-        enabled = value;
-        return value;
-    }
-}
-
-bool hasDebugFlag(const char *flag)
-{
-    if (strchr(flag, ',') != NULL) {
-        trace("INTERNAL ERROR: hasDebugFlag flag has comma: '%s'", flag);
-        abort();
-    }
-    std::string config(getDebugConfig());
-    std::string flagStr(flag);
-    config = "," + config + ",";
-    flagStr = "," + flagStr + ",";
-    return config.find(flagStr) != std::string::npos;
+    return getTracingConfig()[0] != '\0';
 }
 
 void trace(const char *format, ...)

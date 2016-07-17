@@ -1,54 +1,20 @@
 Console Handles and Standard Handles
 ====================================
 
-This document attempts to explain how console handles and standard handles
-work, and how they interact with process creation and console attachment and
-detachment.  It is based on experiments that I ran against various versions of
-Windows from Windows XP to Windows 10.
+This document attempts to explain how console handles work and how they
+interact with process creation and console attachment and detachment.  It is
+based on experiments that I ran against various versions of Windows from
+Windows XP to Windows 10.
 
 The information here is verified by the test suite in the `misc/buffer-tests`
-directory.  It should be taken with a grain of salt.  I don't have access
+directory.  It should be taken with a large grain of salt.  I don't have access
 to many operating systems.  There may be important things I didn't think to
-test.  Some of the behavior is surprising, so it's hard to be sure I have
+test.  A lot of the behavior is surprising, so it's hard to be sure I have
 fully identified the behavior.
 
 Feel free to report errors or omissions.  An easy thing to do is to run the
-accompanying test suite and report errors.  The [test suite](#test-suite) is
+accompanying test suite and report errors.  The [test suite](#test_suite) is
 designed to expect bugs on the appropriate Windows releases.
-
-
-
-
-Table of Contents
------------------
-
- * [Common semantics](#common-semantics)
- * [Traditional semantics](#traditional-semantics)
-   * [Console handles and handle sets (traditional)](#console-handles-and-handle-sets-traditional)
-   * [CreateProcess (traditional)](#createprocess-traditional)
-   * [AllocConsole, AttachConsole (traditional)](#allocconsole-attachconsole-traditional)
-   * [FreeConsole (traditional)](#freeconsole-traditional)
- * [Modern semantics](#modern-semantics)
-   * [Console handles (modern)](#console-handles-modern)
-   * [CreateProcess (modern)](#createprocess-modern)
-   * [AllocConsole, AttachConsole (modern)](#allocconsole-attachconsole-modern)
-   * [Implicit screen buffer refcount](#implicit-screen-buffer-refcount)
-   * [FreeConsole (modern)](#freeconsole-modern)
-   * [Interesting properties](#interesting-properties)
- * [Other notes](#other-notes)
-   * [SetActiveConsoleScreenBuffer](#setactiveconsolescreenbuffer)
-   * [CREATE_NO_WINDOW process creation flag](#create_no_window-process-creation-flag)
-   * [PROC_THREAD_ATTRIBUTE_HANDLE_LIST](#proc_thread_attribute_handle_list)
- * [Bugs](#bugs)
-   * [Windows XP does not duplicate a pipe's read handle [xppipe]](#windows-xp-does-not-duplicate-a-pipes-read-handle-xppipe)
-   * [Windows XP duplication inheritability [xpinh]](#windows-xp-duplication-inheritability-xpinh)
-   * [CreateProcess duplicates `INVALID_HANDLE_VALUE` until Windows 8.1 [dupproc]](#createprocess-duplicates-invalid_handle_value-until-windows-81-dupproc)
-   * [CreateProcess duplication broken w/WOW64 [wow64dup]](#createprocess-duplication-broken-wwow64-wow64dup)
-   * [Windows Vista BSOD](#windows-vista-bsod)
-   * [Windows 7 inheritability [win7inh]](#windows-7-inheritability-win7inh)
-   * [Windows 7 conhost.exe crash with `CONOUT$` [win7_conout_crash]](#windows-7-conhostexe-crash-with-conout-win7_conout_crash)
- * [Test suite](#test-suite)
- * [Footnotes](#footnotes)
 
 
 
@@ -127,7 +93,7 @@ Instead, the values are always multiples of four minus one (i.e. 0x3, 0x7,
 and perform LPCs to `csrss.exe` and/or `conhost.exe`.
 
 A new console's initial console handles are always inheritable, but
-non-inheritable handles can also be created.  The inheritability can
+non-inheritable handles can also be created.  The inheritability can usually
 be changed, except on Windows 7 (see [[win7inh]](#win7inh)).
 
 Traditional console handles cannot be duplicated to other processes.  If such
@@ -396,9 +362,6 @@ are specified:
  - *UseStdHandles* is false
  - *CreationConsoleMode* is *Inherit*
 
-Bugs
-----
-
 ### <a name="xppipe">Windows XP does not duplicate a pipe's read handle [xppipe]</a>
 
 On Windows XP, `CreateProcess` fails to duplicate a handle in this situation:
@@ -432,15 +395,15 @@ On some older operating systems, the WOW64 mode also translates
 
 ### <a name="wow64dup">CreateProcess duplication broken w/WOW64 [wow64dup]</a>
 
-On some versions of 64-bit Windows, when a 32-bit program invokes another
-32-bit program, `CreateProcess`'s handle duplication does not occur.
-Traditional console handles are passed through, but other handles are converted
-to `NULL`.  The problem does not occur when 64-bit programs invoke 64-bit
-programs.  (I have not tested 32-bit to 64-bit or vice versa.)
+On some versions of Windows, when a 32-bit program invokes another 32-bit
+program, `CreateProcess`'s handle duplication does not occur.  Traditional
+console handles are passed through, but other handles are converted to `NULL`.
+The problem does not occur when 64-bit programs invoke 64-bit programs.  (I
+have not tested 32-bit to 64-bit or vice versa.)
 
 The problem affects at least:
 
- - Windows 7 SP1
+ - Windows 7 SP2
 
 ### Windows Vista BSOD
 
@@ -465,13 +428,10 @@ to the last screen buffer, then (2) creating a new screen buffer:
 ### <a name="win7inh">Windows 7 inheritability [win7inh]</a>
 
  * Calling `DuplicateHandle(bInheritHandle=FALSE)` on an inheritable console
-   handle produces an inheritable handle, but it should be non-inheritable.
-   Previous and later Windows releases work as expected, as does Windows 7 with
-   a non-console handle.
+   handle produces an inheritable handle.  According to documentation and
+   previous releases, it should be non-inheritable.
 
- * Calling `SetHandleInformation(dwMask=HANDLE_FLAG_INHERIT)` fails on console
-   handles, so the inheritability of an existing console handle cannot be
-   changed.
+ * Calling `SetHandleInformation` fails on console handles.
 
 ### <a name="win7_conout_crash">Windows 7 `conhost.exe` crash with `CONOUT$` [win7_conout_crash]</a>
 
@@ -504,8 +464,7 @@ Windows Server 2008 R2 SP1, the server version of the OS.
 
 See `misc/buffer-tests/HandleTests/Win7_Conout_Crash.cc`.
 
-Test suite
-----------
+### <a name="test_suite">Test suite</a>
 
 To run the `misc/buffer-tests` test suite, follow the instructions for
 building winpty.  Then, enter the `misc/buffer-tests` directory, run `make`,

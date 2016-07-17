@@ -22,47 +22,33 @@
 // defined, which is defined in windows.h.  Therefore, include windows.h early.
 #include <windows.h>
 
-#include <assert.h>
-#include <cygwin/version.h>
-#include <errno.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
+#include <termios.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/cygwin.h>
-#include <termios.h>
+#include <cygwin/version.h>
 #include <unistd.h>
-
+#include <fcntl.h>
+#include <signal.h>
+#include <errno.h>
+#include <pthread.h>
+#include <winpty.h>
+#include "../shared/DebugClient.h"
+#include "../shared/WinptyVersion.h"
 #include <map>
 #include <string>
 #include <vector>
 
-#include <winpty.h>
-#include "../shared/DebugClient.h"
-#include "../shared/UnixCtrlChars.h"
-#include "../shared/WinptyVersion.h"
-#include "InputHandler.h"
-#include "OutputHandler.h"
-#include "Util.h"
-#include "WakeupFd.h"
 
-#define CSI "\x1b["
+static int signalWriteFd;
+static volatile bool ioHandlerDied;
 
-static WakeupFd *g_mainWakeup = NULL;
 
-static WakeupFd &mainWakeup()
-{
-    if (g_mainWakeup == NULL) {
-        static const char msg[] = "Internal error: g_mainWakeup is NULL\r\n";
-        write(STDERR_FILENO, msg, sizeof(msg) - 1);
-        abort();
-    }
-    return *g_mainWakeup;
-}
-
-// Put the input terminal into non-canonical mode.
+// Put the input terminal into non-blocking non-canonical mode.
 static termios setRawTerminalMode()
 {
     if (!isatty(STDIN_FILENO)) {
@@ -102,49 +88,135 @@ static void restoreTerminalMode(termios original)
     }
 }
 
-static void debugShowKey()
+static void writeToSignalFd()
 {
-    printf("\r\nPress any keys -- Ctrl-D exits\r\n\r\n");
-    const termios saved = setRawTerminalMode();
-    char buf[128];
-    while (true) {
-        const ssize_t len = read(STDIN_FILENO, buf, sizeof(buf));
-        if (len <= 0) {
-            break;
-        }
-        for (int i = 0; i < len; ++i) {
-            char ctrl = decodeUnixCtrlChar(buf[i]);
-            if (ctrl == '\0') {
-                putchar(buf[i]);
-            } else {
-                putchar('^');
-                putchar(ctrl);
-            }
-        }
-        for (int i = 0; i < len; ++i) {
-            unsigned char uch = buf[i];
-            printf("\t%3d %04o 0x%02x\r\n", uch, uch, uch);
-        }
-        if (buf[0] == 4) {
-            // Ctrl-D
-            break;
-        }
-    }
-    restoreTerminalMode(saved);
+    char dummy = 0;
+    write(signalWriteFd, &dummy, 1);
 }
 
 static void terminalResized(int signo)
 {
-    mainWakeup().set();
+    writeToSignalFd();
 }
 
-static void registerResizeSignalHandler()
+// Create a manual reset, initially unset event.
+static HANDLE createEvent()
 {
-    struct sigaction resizeSigAct;
-    memset(&resizeSigAct, 0, sizeof(resizeSigAct));
-    resizeSigAct.sa_handler = terminalResized;
-    resizeSigAct.sa_flags = SA_RESTART;
-    sigaction(SIGWINCH, &resizeSigAct, NULL);
+    return CreateEvent(NULL, TRUE, FALSE, NULL);
+}
+
+
+// Connect winpty overlapped I/O to Cygwin blocking STDOUT_FILENO.
+class OutputHandler {
+public:
+    OutputHandler(HANDLE winpty);
+    pthread_t getThread() { return thread; }
+private:
+    static void *threadProc(void *pvthis);
+    HANDLE winpty;
+    pthread_t thread;
+};
+
+OutputHandler::OutputHandler(HANDLE winpty) : winpty(winpty)
+{
+    pthread_create(&thread, NULL, OutputHandler::threadProc, this);
+}
+
+// TODO: See whether we can make the pipe non-overlapped if we still use
+// an OVERLAPPED structure in the ReadFile/WriteFile calls.
+void *OutputHandler::threadProc(void *pvthis)
+{
+    OutputHandler *pthis = (OutputHandler*)pvthis;
+    HANDLE event = createEvent();
+    OVERLAPPED over;
+    const int bufferSize = 4096;
+    char *buffer = new char[bufferSize];
+    while (true) {
+        DWORD amount;
+        memset(&over, 0, sizeof(over));
+        over.hEvent = event;
+        BOOL ret = ReadFile(pthis->winpty,
+                            buffer, bufferSize,
+                            &amount,
+                            &over);
+        if (!ret && GetLastError() == ERROR_IO_PENDING)
+            ret = GetOverlappedResult(pthis->winpty, &over, &amount, TRUE);
+        if (!ret || amount == 0)
+            break;
+        // TODO: partial writes?
+        // I don't know if this write can be interrupted or not, but handle it
+        // just in case.
+        int written;
+        do {
+            written = write(STDOUT_FILENO, buffer, amount);
+        } while (written == -1 && errno == EINTR);
+        if (written != (int)amount)
+            break;
+    }
+    delete [] buffer;
+    CloseHandle(event);
+    ioHandlerDied = true;
+    writeToSignalFd();
+    return NULL;
+}
+
+
+// Connect Cygwin non-blocking STDIN_FILENO to winpty overlapped I/O.
+class InputHandler {
+public:
+    InputHandler(HANDLE winpty);
+    pthread_t getThread() { return thread; }
+private:
+    static void *threadProc(void *pvthis);
+    HANDLE winpty;
+    pthread_t thread;
+};
+
+InputHandler::InputHandler(HANDLE winpty) : winpty(winpty)
+{
+    pthread_create(&thread, NULL, InputHandler::threadProc, this);
+}
+
+void *InputHandler::threadProc(void *pvthis)
+{
+    InputHandler *pthis = (InputHandler*)pvthis;
+    HANDLE event = createEvent();
+    const int bufferSize = 4096;
+    char *buffer = new char[bufferSize];
+    while (true) {
+        int amount = read(STDIN_FILENO, buffer, bufferSize);
+        if (amount == -1 && errno == EINTR) {
+            // Apparently, this read is interrupted on Cygwin 1.7 by a SIGWINCH
+            // signal even though I set the SA_RESTART flag on the handler.
+            continue;
+        }
+        if (amount <= 0)
+            break;
+        DWORD written;
+        OVERLAPPED over;
+        memset(&over, 0, sizeof(over));
+        over.hEvent = event;
+        BOOL ret = WriteFile(pthis->winpty,
+                             buffer, amount,
+                             &written,
+                             &over);
+        if (!ret && GetLastError() == ERROR_IO_PENDING)
+            ret = GetOverlappedResult(pthis->winpty, &over, &written, TRUE);
+        // TODO: partial writes?
+        if (!ret || (int)written != amount)
+            break;
+    }
+    delete [] buffer;
+    CloseHandle(event);
+    ioHandlerDied = true;
+    writeToSignalFd();
+    return NULL;
+}
+
+static void setFdNonBlock(int fd)
+{
+    int status = fcntl(fd, F_GETFL);
+    fcntl(fd, F_SETFL, status | O_NONBLOCK);
 }
 
 // Convert the path to a Win32 path if it is a POSIX path, and convert slashes
@@ -287,20 +359,16 @@ static void usage(const char *program, int exitCode)
     printf("\n");
     printf("Options:\n");
     printf("  -h, --help  Show this help message\n");
-    printf("  --mouse     Enable terminal mouse input\n");
-    printf("  --showkey   Dump STDIN escape sequences\n");
     printf("  --version   Show the winpty version number\n");
     exit(exitCode);
 }
 
 struct Arguments {
     std::vector<std::string> childArgv;
-    bool mouseInput;
 };
 
 static void parseArguments(int argc, char *argv[], Arguments &out)
 {
-    out.mouseInput = false;
     const char *const program = argc >= 1 ? argv[0] : "<program>";
     int argi = 1;
     while (argi < argc) {
@@ -308,20 +376,11 @@ static void parseArguments(int argc, char *argv[], Arguments &out)
         if (arg.size() >= 1 && arg[0] == '-') {
             if (arg == "-h" || arg == "--help") {
                 usage(program, 0);
-            } else if (arg == "--mouse") {
-                out.mouseInput = true;
-            } else if (arg == "--showkey") {
-                debugShowKey();
-                exit(0);
             } else if (arg == "--version") {
                 dumpVersionToStdout();
                 exit(0);
             } else if (arg == "--") {
                 break;
-            } else {
-                fprintf(stderr, "Error: unrecognized option: '%s'\n",
-                    arg.c_str());
-                exit(1);
             }
         } else {
             out.childArgv.push_back(arg);
@@ -338,8 +397,6 @@ static void parseArguments(int argc, char *argv[], Arguments &out)
 
 int main(int argc, char *argv[])
 {
-    g_mainWakeup = new WakeupFd();
-
     Arguments args;
     parseArguments(argc, argv, args);
 
@@ -360,11 +417,11 @@ int main(int argc, char *argv[])
         args.childArgv[0] = convertPosixPathToWin(args.childArgv[0]);
         std::string cmdLine = argvToCommandLine(args.childArgv);
         wchar_t *cmdLineW = heapMbsToWcs(cmdLine.c_str());
-        const int ret = winpty_start_process(winpty,
-                                             NULL,
-                                             cmdLineW,
-                                             NULL,
-                                             NULL);
+        int ret = winpty_start_process(winpty,
+                                         NULL,
+                                         cmdLineW,
+                                         NULL,
+                                         NULL);
         if (ret != 0) {
             fprintf(stderr,
                     "Error %#x starting %s\n",
@@ -375,39 +432,51 @@ int main(int argc, char *argv[])
         delete [] cmdLineW;
     }
 
-    registerResizeSignalHandler();
-    termios mode = setRawTerminalMode();
-
-    if (args.mouseInput) {
-        // Start by disabling UTF-8 coordinate mode (1005), just in case we
-        // have a terminal that does not support 1006/1015 modes, and 1005
-        // happens to be enabled.  The UTF-8 coordinates can't be unambiguously
-        // decoded.
-        //
-        // Enable basic mouse support first (1000), then try to switch to
-        // button-move mode (1002), then try full mouse-move mode (1003).
-        // Terminals that don't support a mode will be stuck at the highest
-        // mode they do support.
-        //
-        // Enable encoding mode 1015 first, then try to switch to 1006.  On
-        // some terminals, both modes will be enabled, but 1006 will have
-        // priority.  On other terminals, 1006 wins because it's listed last.
-        //
-        // See misc/MouseInputNotes.txt for details.
-        writeStr(STDOUT_FILENO,
-            CSI"?1005l"
-            CSI"?1000h" CSI"?1002h" CSI"?1003h" CSI"?1015h" CSI"?1006h");
+    {
+        struct sigaction resizeSigAct;
+        memset(&resizeSigAct, 0, sizeof(resizeSigAct));
+        resizeSigAct.sa_handler = terminalResized;
+        resizeSigAct.sa_flags = SA_RESTART;
+        sigaction(SIGWINCH, &resizeSigAct, NULL);
     }
 
-    OutputHandler outputHandler(winpty_get_data_pipe(winpty), mainWakeup());
-    InputHandler inputHandler(winpty_get_data_pipe(winpty), mainWakeup());
+    termios mode = setRawTerminalMode();
+    int signalReadFd;
+
+    {
+        int pipeFd[2];
+        if (pipe(pipeFd) != 0) {
+            perror("Could not create pipe");
+            exit(1);
+        }
+        setFdNonBlock(pipeFd[0]);
+        setFdNonBlock(pipeFd[1]);
+        signalReadFd = pipeFd[0];
+        signalWriteFd = pipeFd[1];
+    }
+
+    OutputHandler outputHandler(winpty_get_data_pipe(winpty));
+    InputHandler inputHandler(winpty_get_data_pipe(winpty));
 
     while (true) {
         fd_set readfds;
         FD_ZERO(&readfds);
-        FD_SET(mainWakeup().fd(), &readfds);
-        selectWrapper("main thread", mainWakeup().fd() + 1, &readfds);
-        mainWakeup().reset();
+        FD_SET(signalReadFd, &readfds);
+        if (select(signalReadFd + 1, &readfds, NULL, NULL, NULL) < 0 &&
+                errno != EINTR) {
+            perror("select failed");
+            exit(1);
+        }
+
+        // Discard any data in the signal pipe.
+        {
+            char tmpBuf[256];
+            int amount = read(signalReadFd, tmpBuf, sizeof(tmpBuf));
+            if (amount == 0 || (amount < 0 && errno != EAGAIN)) {
+                perror("error reading internal signal fd");
+                exit(1);
+            }
+        }
 
         // Check for terminal resize.
         {
@@ -421,26 +490,13 @@ int main(int argc, char *argv[])
 
         // Check for an I/O handler shutting down (possibly indicating that the
         // child process has exited).
-        if (outputHandler.isComplete() || inputHandler.isComplete()) {
+        if (ioHandlerDied)
             break;
-        }
     }
 
-    outputHandler.shutdown();
-    inputHandler.shutdown();
-
-    const int exitCode = winpty_get_exit_code(winpty);
-
-    if (args.mouseInput) {
-        // Reseting both encoding modes (1006 and 1015) is necessary, but
-        // apparently we only need to use reset on one of the 100[023] modes.
-        // Doing both doesn't hurt.
-        writeStr(STDOUT_FILENO,
-            CSI"?1006l" CSI"?1015l" CSI"?1003l" CSI"?1002l" CSI"?1000l");
-    }
+    int exitCode = winpty_get_exit_code(winpty);
 
     restoreTerminalMode(mode);
-    winpty_close(winpty);
-
+    // TODO: Call winpty_close?  Shut down one or both I/O threads?
     return exitCode;
 }

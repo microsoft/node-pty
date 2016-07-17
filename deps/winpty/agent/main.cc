@@ -18,39 +18,43 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#ifndef UNIX_ADAPTER_OUTPUT_HANDLER_H
-#define UNIX_ADAPTER_OUTPUT_HANDLER_H
+#include <stdio.h>
+#include <stdlib.h>
 
-#include <windows.h>
-#include <pthread.h>
-#include <signal.h>
+#include "Agent.h"
+#include "../shared/WinptyAssert.h"
+#include "../shared/WinptyVersion.h"
 
-#include "Event.h"
-#include "WakeupFd.h"
+static wchar_t *heapMbsToWcs(const char *text)
+{
+    size_t len = mbstowcs(NULL, text, 0);
+    ASSERT(len != (size_t)-1);
+    wchar_t *ret = new wchar_t[len + 1];
+    size_t len2 = mbstowcs(ret, text, len + 1);
+    ASSERT(len == len2);
+    return ret;
+}
 
-// Connect winpty overlapped I/O to Cygwin blocking STDOUT_FILENO.
-class OutputHandler {
-public:
-    OutputHandler(HANDLE winpty, WakeupFd &completionWakeup);
-    ~OutputHandler() { shutdown(); }
-    bool isComplete() { return m_threadCompleted; }
-    void startShutdown() { m_shouldShutdown = 1; m_wakeup.set(); }
-    void shutdown();
-
-private:
-    static void *threadProcS(void *pvthis) {
-        reinterpret_cast<OutputHandler*>(pvthis)->threadProc();
-        return NULL;
+int main(int argc, char *argv[])
+{
+    if (argc == 2 && !strcmp(argv[1], "--version")) {
+        dumpVersionToStdout();
+        return 0;
     }
-    void threadProc();
 
-    HANDLE m_winpty;
-    pthread_t m_thread;
-    WakeupFd &m_completionWakeup;
-    Event m_wakeup;
-    bool m_threadHasBeenJoined;
-    volatile sig_atomic_t m_shouldShutdown;
-    volatile sig_atomic_t m_threadCompleted;
-};
+    if (argc != 5) {
+        fprintf(stderr,
+            "Usage: %s controlPipeName dataPipeName cols rows\n"
+            "Usage: %s --version\n"
+            "\n"
+            "(Note: This program is intended to be run by libwinpty.dll.)\n",
+            argv[0], argv[0]);
+        return 1;
+    }
 
-#endif // UNIX_ADAPTER_OUTPUT_HANDLER_H
+    Agent agent(heapMbsToWcs(argv[1]),
+                heapMbsToWcs(argv[2]),
+                atoi(argv[3]),
+                atoi(argv[4]));
+    agent.run();
+}

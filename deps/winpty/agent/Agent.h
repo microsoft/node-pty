@@ -69,7 +69,6 @@ private:
     int handleStartProcessPacket(ReadBuffer &packet);
     int handleSetSizePacket(ReadBuffer &packet);
     void pollDataSocket();
-    void updateMouseInputFlags(bool forceTrace=false);
 
 protected:
     virtual void onPollTimeout();
@@ -95,8 +94,6 @@ private:
 private:
     bool m_useMark;
     Win32Console *m_console;
-    bool m_consoleMouseInputEnabled;
-    bool m_consoleQuickEditEnabled;
     NamedPipe *m_controlSocket;
     NamedPipe *m_dataSocket;
     bool m_closingDataSocket;

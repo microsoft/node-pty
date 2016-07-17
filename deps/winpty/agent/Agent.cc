@@ -160,20 +160,6 @@ Agent::Agent(LPCWSTR controlPipeName,
     SetConsoleCtrlHandler(NULL, FALSE);
     SetConsoleCtrlHandler(consoleCtrlHandler, TRUE);
 
-    // Disable Quick Edit mode.  The user has little control over winpty's
-    // console, and I think it's better to default it off for the sake of
-    // programs that care about mouse input.
-    DWORD mode = 0;
-    if (!GetConsoleMode(m_console->conin(), &mode)) {
-        trace("Agent startup: GetConsoleMode failed");
-    } else {
-        mode &= ~ENABLE_QUICK_EDIT_MODE;
-        if (!SetConsoleMode(m_console->conin(), mode)) {
-            trace("Agent startup: SetConsoleMode failed");
-        }
-    }
-
-    updateMouseInputFlags(true);
     setPollInterval(25);
 }
 
@@ -303,7 +289,7 @@ void Agent::handlePacket(ReadBuffer &packet)
 
 int Agent::handleStartProcessPacket(ReadBuffer &packet)
 {
-    BOOL success;
+     BOOL success;
     ASSERT(m_childProcess == NULL);
 
     std::wstring program = packet.getWString();
@@ -323,7 +309,11 @@ int Agent::handleStartProcessPacket(ReadBuffer &packet)
         cmdlineArg = &cmdlineCopy[0];
     }
     LPCWSTR cwdArg = cwd.empty() ? NULL : cwd.c_str();
-    LPCWSTR envArg = env.empty() ? NULL : env.data();
+    LPCWSTR envArg = env.empty() ? NULL : env.c_str();
+
+    if(envArg != NULL && wcscmp(envArg, L"")) {
+       envArg = NULL;
+    }
 
     STARTUPINFO sui;
     PROCESS_INFORMATION pi;
@@ -374,29 +364,8 @@ void Agent::pollDataSocket()
     }
 }
 
-void Agent::updateMouseInputFlags(bool forceTrace)
-{
-    DWORD mode = 0;
-    GetConsoleMode(m_console->conin(), &mode);
-    bool newFlagMI = mode & ENABLE_MOUSE_INPUT;
-    bool newFlagQE = mode & ENABLE_QUICK_EDIT_MODE;
-    if (forceTrace ||
-            newFlagMI != m_consoleMouseInputEnabled ||
-            newFlagQE != m_consoleQuickEditEnabled) {
-        trace("CONIN mode: ENABLE_MOUSE_INPUT=%s ENABLE_QUICK_EDIT_MODE=%s",
-            newFlagMI ? "enabled" : "disabled",
-            newFlagQE ? "enabled" : "disabled");
-    }
-    m_consoleMouseInputEnabled = newFlagMI;
-    m_consoleQuickEditEnabled = newFlagQE;
-    m_consoleInput->setMouseInputEnabled(newFlagMI && !newFlagQE);
-}
-
 void Agent::onPollTimeout()
 {
-    // Check the mouse input flag so we can output a trace message.
-    updateMouseInputFlags();
-
     // Give the ConsoleInput object a chance to flush input from an incomplete
     // escape sequence (e.g. pressing ESC).
     m_consoleInput->flushIncompleteEscapeCode();
@@ -603,7 +572,6 @@ void Agent::syncConsoleContentAndSize(bool forceResize)
     syncConsoleTitle();
 
     const ConsoleScreenBufferInfo info = m_console->bufferInfo();
-    m_consoleInput->setMouseWindowRect(info.windowRect());
 
     // If an app resizes the buffer height, then we enter "direct mode", where
     // we stop trying to track incremental console changes.

@@ -1,4 +1,4 @@
-# Copyright (c) 2011-2015 Ryan Prichard
+# Copyright (c) 2015 Ryan Prichard
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -18,19 +18,11 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-ALL_TARGETS += build/$(UNIX_ADAPTER_EXE)
+build/%.exe : tests/%.cc build/winpty.dll
+	@echo Building $@
+	@$(MINGW_CXX) $(MINGW_CXXFLAGS) $(MINGW_LDFLAGS) -std=c++11 -o $@ $^
 
-UNIX_ADAPTER_OBJECTS = \
-	build/unix/unix-adapter/InputHandler.o \
-	build/unix/unix-adapter/OutputHandler.o \
-	build/unix/unix-adapter/Util.o \
-	build/unix/unix-adapter/WakeupFd.o \
-	build/unix/unix-adapter/main.o \
-	build/unix/shared/DebugClient.o \
-	build/unix/shared/WinptyVersion.o
+TEST_PROGRAMS = \
+        build/trivial_test.exe
 
-build/$(UNIX_ADAPTER_EXE) : $(UNIX_ADAPTER_OBJECTS) build/winpty.dll
-	@echo Linking $@
-	@$(UNIX_CXX) $(UNIX_LDFLAGS) -o $@ $^
-
--include $(UNIX_ADAPTER_OBJECTS:.o=.d)
+-include $(TEST_PROGRAMS:.exe=.d)

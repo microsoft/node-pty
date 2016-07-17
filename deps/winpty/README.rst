@@ -110,8 +110,8 @@ winpty comes with a tool for collecting timestamped debugging output.  To use
 it:
 
 1. Run ``winpty-debugserver.exe`` on the same computer as winpty.
-2. Set the ``WINPTY_DEBUG`` environment variable to ``trace`` for the
-   ``console.exe`` process and/or the process using ``libwinpty.dll``.
+2. Set the ``WINPTY_DEBUG`` environment variable to 1 for the ``console.exe``
+   process and/or the process using ``libwinpty.dll``.
 
 winpty also recognizes a ``WINPTY_SHOW_CONSOLE`` environment variable.  Set it
 to 1 to prevent winpty from hiding the console window.
