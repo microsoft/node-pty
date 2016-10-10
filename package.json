@@ -23,7 +23,8 @@
   "scripts": {
     "install": "node scripts/install.js",
     "postinstall": "node scripts/post-install.js",
-    "test": "NODE_ENV=test mocha -R spec"
+    "test": "NODE_ENV=test mocha -R spec",
+    "test-windows": "set \"NODE_ENV=test\" && mocha -R spec test-windows"
   },
   "tags": [
     "pty",
