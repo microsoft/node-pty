@@ -55,9 +55,9 @@ winpty_s::winpty_s() :
 const wchar_t* to_wstring(const String::Utf8Value& str)
 {
   const char *bytes = *str;
-  unsigned int sizeOfStr = MultiByteToWideChar(CP_ACP, 0, bytes, -1, NULL, 0);
+  unsigned int sizeOfStr = MultiByteToWideChar(CP_UTF8, 0, bytes, -1, NULL, 0);
   wchar_t *output = new wchar_t[sizeOfStr];
-  MultiByteToWideChar(CP_ACP, 0, bytes, -1, output, sizeOfStr);
+  MultiByteToWideChar(CP_UTF8, 0, bytes, -1, output, sizeOfStr);
   return output;
 }
 
