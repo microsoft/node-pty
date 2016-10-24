@@ -115,7 +115,13 @@ private:
     int m_dirtyWindowTop;
     int m_dirtyLineCount;
 
-    std::wstring m_currentTitle;
+    // If the title is initialized to the empty string, then cmd.exe will
+    // sometimes print this error:
+    //     Not enough storage is available to process this command.
+    // It happens on Windows 7 when logged into a Cygwin SSH session, for
+    // example.  Using a title of a single space character avoids the problem.
+    // See https://github.com/rprichard/winpty/issues/74.
+    std::wstring m_currentTitle = L" ";
 };
 
 #endif // AGENT_H
