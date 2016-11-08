@@ -197,7 +197,17 @@ static NAN_METHOD(PtyOpen) {
   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
 
   // Open a new pty session.
-  winpty_t *pc = winpty_open(cols, rows);
+  //winpty_t *pc = winpty_open(cols, rows);
+  winpty_t *pc = winpty_open_use_own_datapipe(pipeName.c_str(), cols, rows);
+
+
+
+  // If API changes back, need to get winpty_get_data_pipe to pass it back to the js, use where ever
+  // the old data pipe was used. Can I get the pipe name from the handle?
+
+  //winpty_get_data_pipe(pc);
+
+
 
   // Error occured during startup of agent process.
   assert(pc != nullptr);

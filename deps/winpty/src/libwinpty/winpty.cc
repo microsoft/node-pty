@@ -468,6 +468,54 @@ WINPTY_API winpty_t *winpty_open(int cols, int rows)
     return pc;
 }
 
+WINPTY_API winpty_t *winpty_open_use_own_datapipe(const wchar_t *dataPipe, int cols, int rows)
+{
+
+	winpty_t *pc = new winpty_t;
+
+	// Setup pipes.
+	std::wstringstream pipeName;
+    pipeName << L"\\\\.\\pipe\\winpty-" << GetCurrentProcessId()
+             << L"-" << InterlockedIncrement(&consoleCounter);
+    std::wstring controlPipeName = pipeName.str() + L"-control";
+
+	// The callee provides his own pipe implementation for handling sending/recieving
+	// data between the started child process.
+	std::wstring dataPipeName(to_wstring(to_utf8(dataPipe)));
+
+	// Create control pipe
+	pc->controlPipe = createNamedPipe(controlPipeName, false);
+	if (pc->controlPipe == INVALID_HANDLE_VALUE) {
+		delete pc;
+		return NULL;
+	}
+
+	// Setup a background desktop for the agent.
+	BackgroundDesktop desktop = setupBackgroundDesktop();
+
+	// Start the agent.
+	startAgentProcess(desktop, controlPipeName, dataPipeName, cols, rows);
+
+	// Test control pipe connection.
+	if (!connectNamedPipe(pc->controlPipe, false)) {
+		delete pc;
+		return NULL;
+	}
+
+	// Restore desktop.
+	restoreOriginalDesktop(desktop);
+
+	WriteBuffer packet;
+	packet.putInt(AgentMsg::Ping);
+	writePacket(pc, packet);
+	if (readInt32(pc) != 0) {
+		delete pc;
+		return NULL;
+	}
+
+	return pc;
+} 
+
 // Return a std::wstring containing every character of the environment block.
 // Typically, the block is non-empty, so the std::wstring returned ends with
 // two NUL terminators.  (These two terminators are counted in size(), so

@@ -49,6 +49,16 @@ typedef struct winpty_s winpty_t;
  */
 WINPTY_API winpty_t *winpty_open(int cols, int rows);
 
+/**
+* Starts a new winpty instance with the given size.
+* 
+* This function creates a new agent process and connects to it. 
+* By using this method you are responsible for creating your own named
+* pipe server for communicating with the child process.
+* 
+*/
+WINPTY_API winpty_t *winpty_open_use_own_datapipe(const wchar_t *dataPipe, int cols, int rows);
+
 /*
  * Start a child process.  Either (but not both) of appname and cmdline may
  * be NULL.  cwd and env may be NULL.  env is a pointer to an environment
