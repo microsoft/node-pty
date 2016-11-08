@@ -188,7 +188,7 @@ static NAN_METHOD(PtyOpen) {
     return Nan::ThrowError("Usage: pty.open(dataPipe, cols, rows, debug)");
   }
 
-  //std::wstring pipeName = to_wstring(String::Utf8Value(info[0]->ToString()));
+  std::wstring pipeName = to_wstring(String::Utf8Value(info[0]->ToString()));
   int cols = info[1]->Int32Value();
   int rows = info[2]->Int32Value();
   bool debug = info[3]->ToBoolean()->IsTrue();

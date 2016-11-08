@@ -39,6 +39,53 @@
 #include "../shared/WinptyException.h"
 #include "../shared/WinptyVersion.h"
 
+
+
+std::string to_utf8(const wchar_t* buffer, int len)
+{
+        int nChars = ::WideCharToMultiByte(
+                CP_UTF8,
+                0,
+                buffer,
+                len,
+                NULL,
+                0,
+                NULL,
+                NULL);
+        if (nChars == 0) return "";
+
+        std::string newbuffer;
+        newbuffer.resize(nChars) ;
+        ::WideCharToMultiByte(
+                CP_UTF8,
+                0,
+                buffer,
+                len,
+                const_cast< char* >(newbuffer.c_str()),
+                nChars,
+                NULL,
+                NULL); 
+
+        return newbuffer;
+}
+
+std::string to_utf8(const std::wstring& str)
+{
+        return to_utf8(str.c_str(), (int)str.size());
+}
+
+std::wstring to_wstring(const std::string& s)
+{
+ int len;
+ int slength = (int)s.length() + 1;
+ len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, 0, 0); 
+ wchar_t* buf = new wchar_t[len];
+ MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, buf, len);
+ std::wstring r(buf);
+ delete[] buf;
+ return r;
+}
+
 // TODO: Error handling, handle out-of-memory.
 
 #define AGENT_EXE L"winpty-agent.exe"
@@ -470,51 +517,89 @@ WINPTY_API winpty_t *winpty_open(int cols, int rows)
 
 WINPTY_API winpty_t *winpty_open_use_own_datapipe(const wchar_t *dataPipe, int cols, int rows)
 {
+    dumpWindowsVersion();
+    dumpVersionToTrace();
 
-	winpty_t *pc = new winpty_t;
+    winpty_t *pc = new winpty_t;
 
-	// Setup pipes.
-	std::wstringstream pipeName;
-    pipeName << L"\\\\.\\pipe\\winpty-" << GetCurrentProcessId()
-             << L"-" << InterlockedIncrement(&consoleCounter);
-    std::wstring controlPipeName = pipeName.str() + L"-control";
-
-	// The callee provides his own pipe implementation for handling sending/recieving
+    // Start pipes.
+    const auto basePipeName =
+        L"\\\\.\\pipe\\winpty-" + GenRandom().uniqueName();
+    const std::wstring controlPipeName = basePipeName + L"-control";
+    pc->controlPipe = createNamedPipe(controlPipeName, false);
+    if (pc->controlPipe == INVALID_HANDLE_VALUE) {
+        delete pc;
+        return NULL;
+    }
+    // The callee provides his own pipe implementation for handling sending/recieving
 	// data between the started child process.
-	std::wstring dataPipeName(to_wstring(to_utf8(dataPipe)));
+	const std::wstring dataPipeName(to_wstring(to_utf8(dataPipe)));
+    pc->dataPipe = createNamedPipe(dataPipeName, true);
+    if (pc->dataPipe == INVALID_HANDLE_VALUE) {
+        delete pc;
+        return NULL;
+    }
 
-	// Create control pipe
-	pc->controlPipe = createNamedPipe(controlPipeName, false);
-	if (pc->controlPipe == INVALID_HANDLE_VALUE) {
-		delete pc;
-		return NULL;
-	}
+    // Setup a background desktop for the agent.
+    BackgroundDesktop desktop = setupBackgroundDesktop();
 
-	// Setup a background desktop for the agent.
-	BackgroundDesktop desktop = setupBackgroundDesktop();
+    // Start the agent.
+    HANDLE agentProcess = NULL;
+    DWORD agentPid = INFINITE;
+    startAgentProcess(desktop, controlPipeName, dataPipeName, cols, rows,
+                      agentProcess, agentPid);
+    OwnedHandle autoClose(agentProcess);
 
-	// Start the agent.
-	startAgentProcess(desktop, controlPipeName, dataPipeName, cols, rows);
+    // TODO: Frequently, I see the CreateProcess call return successfully,
+    // but the agent immediately dies.  The following pipe connect calls then
+    // hang.  These calls should probably timeout.  Maybe this code could also
+    // poll the agent process handle?
 
-	// Test control pipe connection.
-	if (!connectNamedPipe(pc->controlPipe, false)) {
-		delete pc;
-		return NULL;
-	}
+    // Connect the pipes.
+    bool success;
+    success = connectNamedPipe(pc->controlPipe, false);
+    if (!success) {
+        delete pc;
+        return NULL;
+    }
+    success = connectNamedPipe(pc->dataPipe, true);
+    if (!success) {
+        delete pc;
+        return NULL;
+    }
 
-	// Restore desktop.
-	restoreOriginalDesktop(desktop);
+    // Close handles to the background desktop and restore the original window
+    // station.  This must wait until we know the agent is running -- if we
+    // close these handles too soon, then the desktop and windowstation will be
+    // destroyed before the agent can connect with them.
+    restoreOriginalDesktop(desktop);
 
-	WriteBuffer packet;
-	packet.putInt(AgentMsg::Ping);
-	writePacket(pc, packet);
-	if (readInt32(pc) != 0) {
-		delete pc;
-		return NULL;
-	}
+    // Check that the pipe clients are correct.
+    if (!verifyPipeClientPid(pc->controlPipe, agentPid) ||
+            !verifyPipeClientPid(pc->dataPipe, agentPid)) {
+        delete pc;
+        return NULL;
+    }
 
-	return pc;
-} 
+    // TODO: This comment is now out-of-date.  The named pipes now have a DACL
+    // that should prevent arbitrary users from connecting, even just to read.
+    //
+    // The default security descriptor for a named pipe allows anyone to connect
+    // to the pipe to read, but not to write.  Only the "creator owner" and
+    // various system accounts can write to the pipe.  By sending and receiving
+    // a dummy message on the control pipe, we should confirm that something
+    // trusted (i.e. the agent we just started) successfully connected and wrote
+    // to one of our pipes.
+    auto packet = newPacket();
+    packet.putInt32(AgentMsg::Ping);
+    writePacket(pc, packet);
+    if (readInt32(pc) != 0) {
+        delete pc;
+        return NULL;
+    }
+
+    return pc;
+}
 
 // Return a std::wstring containing every character of the environment block.
 // Typically, the block is non-empty, so the std::wstring returned ends with
