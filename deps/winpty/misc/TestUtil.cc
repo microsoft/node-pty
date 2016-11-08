@@ -8,7 +8,7 @@
 #include <vector>
 #include <string>
 
-#include "../shared/DebugClient.h"
+#include "../src/shared/DebugClient.h"
 
 // Launch this test program again, in a new console that we will destroy.
 static void startChildProcess(const wchar_t *args) {

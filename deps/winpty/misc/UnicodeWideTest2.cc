@@ -8,7 +8,7 @@
 #include <stdio.h>
 
 #include "TestUtil.cc"
-#include "../shared/DebugClient.cc"
+#include "../src/shared/DebugClient.cc"
 
 static void writeChars(const wchar_t *text) {
     wcslen(text);

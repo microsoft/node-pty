@@ -20,10 +20,24 @@
 
 # Use make -n to see the actual command-lines make would run.
 
+# The default "make install" prefix is /usr/local.  Pass PREFIX=<path> on the
+# command-line to override the default.
+
+.SECONDEXPANSION :
+
+.PHONY : default
 default : all
 
-PREFIX ?= /usr/local
-UNIX_ADAPTER_EXE ?= console.exe
+PREFIX := /usr/local
+UNIX_ADAPTER_EXE := winpty.exe
+MINGW_ENABLE_CXX11_FLAG := -std=c++11
+USE_PCH := 1
+
+COMMON_CXXFLAGS :=
+UNIX_CXXFLAGS :=
+MINGW_CXXFLAGS :=
+MINGW_LDFLAGS :=
+UNIX_LDFLAGS :=
 
 # Include config.mk but complain if it hasn't been created yet.
 ifeq "$(wildcard config.mk)" ""
@@ -31,8 +45,9 @@ ifeq "$(wildcard config.mk)" ""
 endif
 include config.mk
 
+VERSION_TXT_CONTENT := $(shell cat VERSION.txt | tr -d '\r\n')
 COMMON_CXXFLAGS += \
-	-DWINPTY_VERSION=$$(cat VERSION.txt | tr -d '\r\n') \
+	-DWINPTY_VERSION=$(VERSION_TXT_CONTENT) \
 	-DWINPTY_VERSION_SUFFIX=$(VERSION_SUFFIX) \
 	-DWINPTY_COMMIT_HASH=$(COMMIT_HASH) \
 	-MMD -Wall \
@@ -45,44 +60,104 @@ UNIX_CXXFLAGS += \
 
 MINGW_CXXFLAGS += \
 	$(COMMON_CXXFLAGS) \
-	-fno-exceptions \
-	-fno-rtti \
-	-O2
+	-O2 \
+	$(MINGW_ENABLE_CXX11_FLAG)
 
 MINGW_LDFLAGS += -static -static-libgcc -static-libstdc++
 UNIX_LDFLAGS += $(UNIX_LDFLAGS_STATIC)
 
-include agent/subdir.mk
-include debugserver/subdir.mk
-include libwinpty/subdir.mk
-include tests/subdir.mk
-include unix-adapter/subdir.mk
+ifeq "$(USE_PCH)" "1"
+MINGW_CXXFLAGS += -include build/mingw/PrecompiledHeader.h
+PCH_DEP := build/mingw/PrecompiledHeader.h.gch
+else
+PCH_DEP :=
+endif
 
+build/mingw/PrecompiledHeader.h : src/shared/PrecompiledHeader.h | $$(@D)/.mkdir
+	$(info Copying $< to $@)
+	@cp $< $@
+
+build/mingw/PrecompiledHeader.h.gch : build/mingw/PrecompiledHeader.h | $$(@D)/.mkdir
+	$(info Compiling $<)
+	@$(MINGW_CXX) $(MINGW_CXXFLAGS) -c -o $@ $<
+
+-include build/mingw/PrecompiledHeader.h.d
+
+define def_unix_target
+build/$1/%.o : src/%.cc VERSION.txt | $$$$(@D)/.mkdir
+	$$(info Compiling $$<)
+	@$$(UNIX_CXX) $$(UNIX_CXXFLAGS) $2 -I src/include -c -o $$@ $$<
+endef
+
+define def_mingw_target
+build/$1/%.o : src/%.cc VERSION.txt $$(PCH_DEP) | $$$$(@D)/.mkdir
+	$$(info Compiling $$<)
+	@$$(MINGW_CXX) $$(MINGW_CXXFLAGS) $2 -I src/include -c -o $$@ $$<
+endef
+
+include src/subdir.mk
+
+.PHONY : all
 all : $(ALL_TARGETS)
 
+.PHONY : tests
 tests : $(TEST_PROGRAMS)
 
-install : all
+.PHONY : install-bin
+install-bin : all
 	mkdir -p $(PREFIX)/bin
 	install -m 755 -p -s build/$(UNIX_ADAPTER_EXE) $(PREFIX)/bin
 	install -m 755 -p -s build/winpty.dll $(PREFIX)/bin
 	install -m 755 -p -s build/winpty-agent.exe $(PREFIX)/bin
+
+.PHONY : install-debugserver
+install-debugserver : all
+	mkdir -p $(PREFIX)/bin
 	install -m 755 -p -s build/winpty-debugserver.exe $(PREFIX)/bin
 
+.PHONY : install-lib
+install-lib : all
+	mkdir -p $(PREFIX)/lib
+	install -m 644 -p build/winpty.lib $(PREFIX)/lib
+
+.PHONY : install-doc
+install-doc :
+	mkdir -p $(PREFIX)/share/doc/winpty
+	install -m 644 -p LICENSE $(PREFIX)/share/doc/winpty
+	install -m 644 -p README.md $(PREFIX)/share/doc/winpty
+	install -m 644 -p RELEASES*.md $(PREFIX)/share/doc/winpty
+
+.PHONY : install-include
+install-include :
+	mkdir -p $(PREFIX)/include/winpty
+	install -m 644 -p src/include/winpty.h $(PREFIX)/include/winpty
+
+.PHONY : install
+install : \
+	install-bin \
+	install-debugserver \
+	install-lib \
+	install-doc \
+	install-include
+
+.PHONY : clean
 clean :
 	rm -fr build
 
+.PHONY : clean-msvs
+clean-msvs :
+	rm -fr src/Default src/Release src/.vs
+	rm -f src/*.vcxproj src/*.vcxproj.filters src/*.sln src/*.sdf
+
+.PHONY : distclean
 distclean : clean
 	rm -f config.mk
 
-.PHONY : default all tests install clean distclean
+.PRECIOUS : %.mkdir
+%.mkdir :
+	$(info Creating directory $(dir $@))
+	@mkdir -p $(dir $@)
+	@touch $@
 
-build/mingw/%.o : %.cc
-	@echo Compiling $<
-	@mkdir -p $$(dirname $@)
-	@$(MINGW_CXX) $(MINGW_CXXFLAGS) -I include -c -o $@ $<
-
-build/unix/%.o : %.cc
-	@echo Compiling $<
-	@mkdir -p $$(dirname $@)
-	@$(UNIX_CXX) $(UNIX_CXXFLAGS) -I include -c -o $@ $<
+src/%.h :
+	@echo "Missing header file $@ (stale dependency file?)"

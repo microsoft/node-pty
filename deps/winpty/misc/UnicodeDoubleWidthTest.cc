@@ -16,7 +16,7 @@
 #include <string.h>
 
 #include "TestUtil.cc"
-#include "../shared/DebugClient.cc"
+#include "../src/shared/DebugClient.cc"
 
 #define COUNT_OF(x) (sizeof(x) / sizeof((x)[0]))
 

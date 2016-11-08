@@ -63,7 +63,7 @@
 #include <vector>
 
 #include "TestUtil.cc"
-#include "../shared/DebugClient.cc"
+#include "../src/shared/DebugClient.cc"
 
 int main(int argc, char *argv[]) {
     long long width = 9000;

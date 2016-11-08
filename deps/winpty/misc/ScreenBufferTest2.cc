@@ -1,7 +1,7 @@
 #include <windows.h>
 
 #include "TestUtil.cc"
-#include "../shared/DebugClient.cc"
+#include "../src/shared/DebugClient.cc"
 
 const char *g_prefix = "";
 

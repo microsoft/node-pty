@@ -1,5 +1,5 @@
 #define _WIN32_WINNT 0x0501
-#include "../shared/DebugClient.cc"
+#include "../src/shared/DebugClient.cc"
 #include <windows.h>
 #include <stdio.h>
 

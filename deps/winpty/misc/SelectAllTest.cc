@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <windows.h>
 
-#include "../shared/DebugClient.cc"
+#include "../src/shared/DebugClient.cc"
 
 const int SC_CONSOLE_MARK = 0xFFF2;
 const int SC_CONSOLE_SELECT_ALL = 0xFFF5;

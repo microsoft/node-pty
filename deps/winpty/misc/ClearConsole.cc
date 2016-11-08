@@ -15,7 +15,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "../shared/DebugClient.cc"
+#include "../src/shared/DebugClient.cc"
 #include "TestUtil.cc"
 
 int main(int argc, char *argv[]) {

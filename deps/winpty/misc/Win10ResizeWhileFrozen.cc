@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <wchar.h>
-#include "../shared/DebugClient.cc"
+#include "../src/shared/DebugClient.cc"
 #include "TestUtil.cc"
 
 const int SC_CONSOLE_MARK = 0xFFF2;

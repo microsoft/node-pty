@@ -188,7 +188,7 @@ static NAN_METHOD(PtyOpen) {
     return Nan::ThrowError("Usage: pty.open(dataPipe, cols, rows, debug)");
   }
 
-  std::wstring pipeName = to_wstring(String::Utf8Value(info[0]->ToString()));
+  //std::wstring pipeName = to_wstring(String::Utf8Value(info[0]->ToString()));
   int cols = info[1]->Int32Value();
   int rows = info[2]->Int32Value();
   bool debug = info[3]->ToBoolean()->IsTrue();
@@ -197,7 +197,7 @@ static NAN_METHOD(PtyOpen) {
   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
 
   // Open a new pty session.
-  winpty_t *pc = winpty_open_use_own_datapipe(pipeName.c_str(), cols, rows);
+  winpty_t *pc = winpty_open(cols, rows);
 
   // Error occured during startup of agent process.
   assert(pc != nullptr);
@@ -349,7 +349,7 @@ static NAN_METHOD(PtyKill) {
   winpty_t *pc = get_pipe_handle(handle);
 
   assert(pc != nullptr);
-  winpty_exit(pc);
+  winpty_close(pc);
   assert(true == remove_pipe_handle(handle));
 
   return info.GetReturnValue().SetUndefined();

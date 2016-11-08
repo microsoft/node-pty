@@ -30,7 +30,6 @@
 #
 
 import os
-import pefile
 import shutil
 import subprocess
 
@@ -47,28 +46,20 @@ if os.environ.get("SHELL") is not None:
     sys.exit("Error: ship.py should run outside a Cygwin environment.")
 
 def dllVersion(path):
-    pe = pefile.PE(path)
-    ret = None
-    for fi in pe.FileInfo:
-        if fi.Key != "StringFileInfo":
-            continue
-        for st in fi.StringTable:
-            ret = st.entries.get("FileVersion")
-            break
-    assert ret is not None
-    return ret
+    version = subprocess.check_output(
+        ["powershell.exe",
+        "[System.Diagnostics.FileVersionInfo]::GetVersionInfo(\"" + path + "\").FileVersion"])
+    return version.strip()
 
 # Determine other build parameters.
 print "Determining Cygwin/MSYS2 DLL versions..."
 COMMIT_HASH = subprocess.check_output(["git.exe", "rev-parse", "HEAD"]).decode().strip()
 BUILD_TARGETS = [
     {
-        "name": "cygwin-" + dllVersion("C:\\cygwin\\bin\\cygwin1.dll") + "-ia32",
-        "path": "C:\\cygwin\\bin",
-    },
-    {
-        "name": "cygwin-" + dllVersion("C:\\cygwin64\\bin\\cygwin1.dll") + "-x64",
-        "path": "C:\\cygwin64\\bin",
+        "name": "msys",
+        "path": "C:\\MinGW\\bin;C:\\MinGW\\msys\\1.0\\bin",
+        # The parallel make.exe in the original MSYS/MinGW project hangs.
+        "make_binary": "mingw32-make.exe",
     },
     {
         "name": "msys2-" + dllVersion("C:\\msys32\\usr\\bin\\msys-2.0.dll") + "-ia32",
@@ -79,10 +70,12 @@ BUILD_TARGETS = [
         "path": "C:\\msys64\\mingw64\\bin;C:\\msys64\\usr\\bin",
     },
     {
-        "name": "msys",
-        "path": "C:\\MinGW\\bin;C:\\MinGW\\msys\\1.0\\bin",
-        # The parallel make in the original MSYS/MinGW project hangs.
-        "allow_parallel_make": False,
+        "name": "cygwin-" + dllVersion("C:\\cygwin\\bin\\cygwin1.dll") + "-ia32",
+        "path": "C:\\cygwin\\bin",
+    },
+    {
+        "name": "cygwin-" + dllVersion("C:\\cygwin64\\bin\\cygwin1.dll") + "-x64",
+        "path": "C:\\cygwin64\\bin",
     },
 ]
 
@@ -97,12 +90,12 @@ def buildTarget(target):
     os.environ["PATH"] = target["path"] + ";" + oldPath
     subprocess.check_call(["sh.exe", "configure"])
     subprocess.check_call(["make.exe", "clean"])
-    buildArgs = ["make.exe", "all", "tests"]
-    if target.get("allow_parallel_make", True):
-        buildArgs += ["-j8"]
+    makeBinary = target.get("make_binary", "make.exe")
+    buildArgs = [makeBinary, "USE_PCH=0", "all", "tests"]
+    buildArgs += ["-j8"]
     subprocess.check_call(buildArgs)
     subprocess.check_call(["build\\trivial_test.exe"])
-    subprocess.check_call(["make.exe", "PREFIX=ship\\packages\\" + packageName, "install"])
+    subprocess.check_call([makeBinary, "USE_PCH=0", "PREFIX=ship/packages/" + packageName, "install"])
     subprocess.check_call(["tar.exe", "cvfz",
         packageName + ".tar.gz",
         packageName], cwd=os.path.join(os.getcwd(), "ship", "packages"))

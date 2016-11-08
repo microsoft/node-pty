@@ -1,7 +1,7 @@
 #include <windows.h>
 #include <cassert>
 
-#include "../shared/DebugClient.cc"
+#include "../src/shared/DebugClient.cc"
 #include "TestUtil.cc"
 
 void dumpInfoToTrace() {
