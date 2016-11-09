@@ -575,11 +575,11 @@ WINPTY_API winpty_t *winpty_open_use_own_datapipe(const wchar_t *dataPipe, int c
     restoreOriginalDesktop(desktop);
 
     // Check that the pipe clients are correct.
-    if (!verifyPipeClientPid(pc->controlPipe, agentPid)/* ||
-            !verifyPipeClientPid(pc->dataPipe, agentPid)*/) {
-        delete pc;
-        return NULL;
-    }
+    // if (!verifyPipeClientPid(pc->controlPipe, agentPid) ||
+    //         !verifyPipeClientPid(pc->dataPipe, agentPid)) {
+    //     delete pc;
+    //     return NULL;
+    // }
 
     // TODO: This comment is now out-of-date.  The named pipes now have a DACL
     // that should prevent arbitrary users from connecting, even just to read.
