@@ -558,11 +558,6 @@ WINPTY_API winpty_t *winpty_open_use_own_datapipe(const wchar_t *dataPipe, int c
         delete pc;
         return NULL;
     }
-    success = connectNamedPipe(pc->dataPipe, true);
-    if (!success) {
-        delete pc;
-        return NULL;
-    }
 
     // Close handles to the background desktop and restore the original window
     // station.  This must wait until we know the agent is running -- if we
