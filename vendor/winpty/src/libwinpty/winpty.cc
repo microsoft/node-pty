@@ -468,6 +468,77 @@ WINPTY_API winpty_t *winpty_open(int cols, int rows)
     return pc;
 }
 
+// Tyriar/pty.js start
+WINPTY_API winpty_t *winpty_open_use_own_datapipe(const wchar_t *dataPipe, int cols, int rows)
+{
+    dumpWindowsVersion();
+    dumpVersionToTrace();
+
+    winpty_t *pc = new winpty_t;
+
+    // Start pipes.
+    const auto basePipeName =
+        L"\\\\.\\pipe\\winpty-" + GenRandom().uniqueName();
+    const std::wstring controlPipeName = basePipeName + L"-control";
+    pc->controlPipe = createNamedPipe(controlPipeName, false);
+    if (pc->controlPipe == INVALID_HANDLE_VALUE) {
+        delete pc;
+        return NULL;
+    }
+    // The callee provides his own pipe implementation for handling sending/recieving
+	// data between the started child process.
+	const std::wstring dataPipeName(dataPipe);
+
+    // Setup a background desktop for the agent.
+    BackgroundDesktop desktop = setupBackgroundDesktop();
+
+    // Start the agent.
+    HANDLE agentProcess = NULL;
+    DWORD agentPid = INFINITE;
+    startAgentProcess(desktop, controlPipeName, dataPipeName, cols, rows,
+                      agentProcess, agentPid);
+    OwnedHandle autoClose(agentProcess);
+
+    // TODO: Frequently, I see the CreateProcess call return successfully,
+    // but the agent immediately dies.  The following pipe connect calls then
+    // hang.  These calls should probably timeout.  Maybe this code could also
+    // poll the agent process handle?
+
+    // Connect the pipes.
+    bool success;
+    success = connectNamedPipe(pc->controlPipe, false);
+    if (!success) {
+        delete pc;
+        return NULL;
+    }
+
+    // Close handles to the background desktop and restore the original window
+    // station.  This must wait until we know the agent is running -- if we
+    // close these handles too soon, then the desktop and windowstation will be
+    // destroyed before the agent can connect with them.
+    restoreOriginalDesktop(desktop);
+
+    // TODO: This comment is now out-of-date.  The named pipes now have a DACL
+    // that should prevent arbitrary users from connecting, even just to read.
+    //
+    // The default security descriptor for a named pipe allows anyone to connect
+    // to the pipe to read, but not to write.  Only the "creator owner" and
+    // various system accounts can write to the pipe.  By sending and receiving
+    // a dummy message on the control pipe, we should confirm that something
+    // trusted (i.e. the agent we just started) successfully connected and wrote
+    // to one of our pipes.
+    auto packet = newPacket();
+    packet.putInt32(AgentMsg::Ping);
+    writePacket(pc, packet);
+    if (readInt32(pc) != 0) {
+        delete pc;
+        return NULL;
+    }
+
+    return pc;
+}
+// Tyriar/pty.js finish
+
 // Return a std::wstring containing every character of the environment block.
 // Typically, the block is non-empty, so the std::wstring returned ends with
 // two NUL terminators.  (These two terminators are counted in size(), so
