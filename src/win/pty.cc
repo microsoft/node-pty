@@ -349,7 +349,7 @@ static NAN_METHOD(PtyKill) {
   winpty_t *pc = get_pipe_handle(handle);
 
   assert(pc != nullptr);
-  winpty_exit(pc);
+  winpty_close(pc);
   assert(true == remove_pipe_handle(handle));
 
   return info.GetReturnValue().SetUndefined();
