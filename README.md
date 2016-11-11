@@ -1,3 +1,6 @@
+**Warning:** The `prebuilt` branch is now deprecated, please use [`master`](https://github.com/Tyriar/pty.js/tree/master).
+
+---
 # pty.js
 
 `forkpty(3)` bindings for node.js. This allows you to fork processes with pseudo
