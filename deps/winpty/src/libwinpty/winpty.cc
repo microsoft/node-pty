@@ -526,6 +526,7 @@ WINPTY_API winpty_t *winpty_open_use_own_datapipe(const wchar_t *dataPipe, int c
     const auto basePipeName =
         L"\\\\.\\pipe\\winpty-" + GenRandom().uniqueName();
     const std::wstring controlPipeName = basePipeName + L"-control";
+    //const std::wstring dataPipeName = basePipeName + L"-data";
     pc->controlPipe = createNamedPipe(controlPipeName, false);
     if (pc->controlPipe == INVALID_HANDLE_VALUE) {
         delete pc;
@@ -533,12 +534,7 @@ WINPTY_API winpty_t *winpty_open_use_own_datapipe(const wchar_t *dataPipe, int c
     }
     // The callee provides his own pipe implementation for handling sending/recieving
 	// data between the started child process.
-	const std::wstring dataPipeName(to_wstring(to_utf8(dataPipe)));
-    pc->dataPipe = createNamedPipe(dataPipeName, true);
-    if (pc->dataPipe == INVALID_HANDLE_VALUE) {
-        delete pc;
-        return NULL;
-    }
+	const std::wstring dataPipeName(dataPipe);
 
     // Setup a background desktop for the agent.
     BackgroundDesktop desktop = setupBackgroundDesktop();
