@@ -1,3 +1,5 @@
+if (process.platform !== 'win32') return
+
 var argvToCommandLine = require('../').argvToCommandLine
 var assert = require("assert");
 
