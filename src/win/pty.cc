@@ -39,12 +39,14 @@ static volatile LONG ptyCounter;
 struct winpty_s {
   winpty_s();
   HANDLE controlPipe;
-  HANDLE dataPipe;
+  HANDLE coninPipeName;
+  HANDLE conoutPipeName;
 };
 
 winpty_s::winpty_s() :
   controlPipe(nullptr),
-  dataPipe(nullptr)
+  coninPipeName(nullptr),
+  conoutPipeName(nullptr)
 {
 }
 
@@ -188,7 +190,6 @@ static NAN_METHOD(PtyOpen) {
     return Nan::ThrowError("Usage: pty.open(dataPipe, cols, rows, debug)");
   }
 
-  std::wstring pipeName = to_wstring(String::Utf8Value(info[0]->ToString()));
   int cols = info[1]->Int32Value();
   int rows = info[2]->Int32Value();
   bool debug = info[3]->ToBoolean()->IsTrue();
@@ -197,20 +198,13 @@ static NAN_METHOD(PtyOpen) {
   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
 
   // Open a new pty session.
-  //winpty_t *pc = winpty_open(cols, rows);
-  winpty_t *pc = winpty_open_use_own_datapipe(pipeName.c_str(), cols, rows);
-
-
-
-  // If API changes back, need to get winpty_get_data_pipe to pass it back to the js, use where ever
-  // the old data pipe was used. Can I get the pipe name from the handle?
-
-  //winpty_get_data_pipe(pc);
-
-
+  // winpty_t *pc = winpty_open(cols, rows);
+  winpty_t *pc = winpty_open(winpty_config_new(0, nullptr), nullptr);
 
   // Error occured during startup of agent process.
   assert(pc != nullptr);
+
+  assert(0 == winpty_set_size(pc, cols, rows, nullptr));
 
   // Save pty struct fpr later use.
   ptyHandles.insert(ptyHandles.end(), pc);
@@ -232,31 +226,28 @@ static NAN_METHOD(PtyOpen) {
 static NAN_METHOD(PtyStartProcess) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 5
-    || !info[0]->IsNumber() // pid
-    || !info[1]->IsString() // file
-    || !info[2]->IsString() // cmdline
-    || !info[3]->IsArray() // env
-    || !info[4]->IsString()) // cwd
+  if (info.Length() != 7
+    || !info[0]->IsString() // file
+    || !info[1]->IsString() // cmdline
+    || !info[2]->IsArray() // env
+    || !info[3]->IsString() // cwd
+    || !info[4]->IsNumber() // cols
+    || !info[5]->IsNumber() // rows
+    || !info[6]->IsBoolean()) // debug
   {
     return Nan::ThrowError(
-        "Usage: pty.startProcess(pid, file, cmdline, env, cwd)");
+        "Usage: pty.startProcess(file, cmdline, env, cwd, cols, rows, debug)");
   }
 
   std::stringstream why;
 
-  // Get winpty_t by control pipe handle
-  int pid = info[0]->Int32Value();
-  winpty_t *pc = get_pipe_handle(pid);
-  assert(pc != nullptr);
-
-  const wchar_t *filename = to_wstring(String::Utf8Value(info[1]->ToString()));
-  const wchar_t *cmdline = to_wstring(String::Utf8Value(info[2]->ToString()));
-  const wchar_t *cwd = to_wstring(String::Utf8Value(info[4]->ToString()));
+  const wchar_t *filename = to_wstring(String::Utf8Value(info[0]->ToString()));
+  const wchar_t *cmdline = to_wstring(String::Utf8Value(info[1]->ToString()));
+  const wchar_t *cwd = to_wstring(String::Utf8Value(info[3]->ToString()));
 
   // create environment block
   wchar_t *env = NULL;
-  const Handle<Array> envValues = Handle<Array>::Cast(info[3]);
+  const Handle<Array> envValues = Handle<Array>::Cast(info[2]);
   if(!envValues.IsEmpty()) {
 
     std::wstringstream envBlock;
@@ -293,11 +284,55 @@ static NAN_METHOD(PtyStartProcess) {
   goto open;
 
 open:
-   int result = winpty_start_process(pc, shellpath.c_str(), cmdline, cwd, env);
+
+
+   // Below used to be PtyOpen
+   int cols = info[4]->Int32Value();
+   int rows = info[5]->Int32Value();
+   bool debug = info[6]->ToBoolean()->IsTrue();
+
+   // Enable/disable debugging
+   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
+
+   // Open a new pty session.
+   // winpty_t *pc = winpty_open(cols, rows);
+   winpty_error_ptr_t* error_ptr = nullptr;
+   winpty_config_t* winpty_config = winpty_config_new(0, error_ptr);
+   winpty_error_free(*error_ptr);
+   winpty_config_set_initial_size(winpty_config, cols, rows);
+
+   winpty_t *pc = winpty_open(winpty_config, error_ptr);
+   winpty_config_free(winpty_config);
+   winpty_error_free(*error_ptr);
+
+
+// TODO: Find out where it's crashing silently
+assert(false);
+
+
+   // Error occured during startup of agent process.
+   assert(pc != nullptr);
+
+   // Save pty struct fpr later use.
+   ptyHandles.insert(ptyHandles.end(), pc);
+
+   // Pty object values.
+   Local<Object> marshal = Nan::New<Object>();
+   marshal->Set(Nan::New<String>("pid").ToLocalChecked(), Nan::New<Number>((int)pc->controlPipe));
+   marshal->Set(Nan::New<String>("pty").ToLocalChecked(), Nan::New<Number>(InterlockedIncrement(&ptyCounter)));
+   marshal->Set(Nan::New<String>("fd").ToLocalChecked(), Nan::New<Number>(-1));
+
+
+
+   winpty_spawn_config_t* config = winpty_spawn_config_new(0, shellpath.c_str(), cmdline, cwd, env, nullptr);
+   HANDLE* handle = nullptr;
+   int result = winpty_spawn(pc, config, handle, nullptr, nullptr, nullptr);
+   winpty_spawn_config_free(config);
    if(result != 0) {
       why << "Unable to start terminal process. Win32 error code: " << result;
       Nan::ThrowError(why.str().c_str());
    }
+
    goto cleanup;
 
 invalid_filename:
@@ -311,7 +346,8 @@ cleanup:
   delete cwd;
   delete env;
 
-  return info.GetReturnValue().SetUndefined();
+  return info.GetReturnValue().Set(marshal);
+  // return info.GetReturnValue().Set(handle);
 }
 
 /*
@@ -334,9 +370,9 @@ static NAN_METHOD(PtyResize) {
   int rows = info[2]->Int32Value();
 
   winpty_t *pc = get_pipe_handle(handle);
-
+  
   assert(pc != nullptr);
-  assert(0 == winpty_set_size(pc, cols, rows));
+  assert(0 == winpty_set_size(pc, cols, rows, nullptr));
 
   return info.GetReturnValue().SetUndefined();
 }
@@ -359,10 +395,42 @@ static NAN_METHOD(PtyKill) {
   winpty_t *pc = get_pipe_handle(handle);
 
   assert(pc != nullptr);
-  winpty_close(pc);
+  // TODO: What should be called here in 0.4.0?
+  //winpty_close(pc);
   assert(true == remove_pipe_handle(handle));
 
   return info.GetReturnValue().SetUndefined();
+}
+
+// TODO: De-dupe pipein/out
+static NAN_METHOD(PtyGetDataPipeIn) {
+  Nan::HandleScope scope;
+
+  if (info.Length() != 1
+    || !info[0]->IsNumber()) // pid
+  {
+    return Nan::ThrowError("Usage: pty.getDataPipeIn(pid)");
+  }
+
+  int handle = info[0]->Int32Value();
+
+  winpty_t *pc = get_pipe_handle(handle);
+  info.GetReturnValue().Set((int)pc->coninPipeName);
+}
+
+static NAN_METHOD(PtyGetDataPipeOut) {
+  Nan::HandleScope scope;
+
+  if (info.Length() != 1
+    || !info[0]->IsNumber()) // pid
+  {
+    return Nan::ThrowError("Usage: pty.getDataPipeOut(pid)");
+  }
+
+  int handle = info[0]->Int32Value();
+
+  winpty_t *pc = get_pipe_handle(handle);
+  info.GetReturnValue().Set((int)pc->conoutPipeName);
 }
 
 /**
@@ -375,6 +443,8 @@ extern "C" void init(Handle<Object> target) {
   Nan::SetMethod(target, "startProcess", PtyStartProcess);
   Nan::SetMethod(target, "resize", PtyResize);
   Nan::SetMethod(target, "kill", PtyKill);
+  Nan::SetMethod(target, "getDataPipeIn", PtyGetDataPipeIn);
+  Nan::SetMethod(target, "getDataPipeOut", PtyGetDataPipeOut);
 };
 
 NODE_MODULE(pty, init);

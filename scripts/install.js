@@ -1,5 +1,5 @@
 require('child_process').exec(
-    'node-gyp rebuild',
+    'node-gyp rebuild --debug',
     {'cwd': require('path').join(__dirname, '..')},
     function(err, stdout, stderr){
       if (err) {
