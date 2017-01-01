@@ -677,6 +677,7 @@ winpty_open(const winpty_config_t *cfg,
         }
 
         // Get the CONIN/CONOUT pipe names.
+        // TODO: readPacket is throwing the subscript error
         auto packet = readPacket(*wp.get());
         wp->coninPipeName = packet.getWString();
         wp->conoutPipeName = packet.getWString();

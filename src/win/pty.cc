@@ -17,6 +17,7 @@
 #include <sstream>
 #include <iostream>
 #include <vector>
+#include <windows.h>
 
 using namespace v8;
 using namespace std;
@@ -248,23 +249,23 @@ static NAN_METHOD(PtyStartProcess) {
   // create environment block
   wchar_t *env = NULL;
   const Handle<Array> envValues = Handle<Array>::Cast(info[2]);
-  if(!envValues.IsEmpty()) {
+  // if(!envValues.IsEmpty()) {
 
-    std::wstringstream envBlock;
+  //   std::wstringstream envBlock;
 
-    for(uint32_t i = 0; i < envValues->Length(); i++) {
-      std::wstring envValue(to_wstring(String::Utf8Value(envValues->Get(i)->ToString())));
-      envBlock << envValue << L' ';
-    }
+  //   for(uint32_t i = 0; i < envValues->Length(); i++) {
+  //     std::wstring envValue(to_wstring(String::Utf8Value(envValues->Get(i)->ToString())));
+  //     envBlock << envValue << L' ';
+  //   }
 
-    std::wstring output = envBlock.str();
+  //   std::wstring output = envBlock.str();
 
-    size_t count = output.size();
-    env = new wchar_t[count + 2];
-    wcsncpy(env, output.c_str(), count);
+  //   size_t count = output.size();
+  //   env = new wchar_t[count + 2];
+  //   wcsncpy(env, output.c_str(), count);
 
-    wcscat(env, L"\0");
-  }
+  //   wcscat(env, L"\0");
+  // }
 
   // use environment 'Path' variable to determine location of
   // the relative path that we have recieved (e.g cmd.exe)
@@ -298,30 +299,56 @@ open:
    // winpty_t *pc = winpty_open(cols, rows);
    winpty_error_ptr_t error_ptr = nullptr;
    winpty_config_t* winpty_config = winpty_config_new(0, &error_ptr);
-
+   if (winpty_config == nullptr) {
+      std::wstring msg(winpty_error_msg(error_ptr));
+      std::string msg_(msg.begin(), msg.end());
+      why << "Error creating WinPTY config: " << msg_;
+      Nan::ThrowError(why.str().c_str());
+   }
    winpty_error_free(error_ptr);
    winpty_config_set_initial_size(winpty_config, cols, rows);
 
+   // TODO: winpty_open throws the subscript error
    winpty_t *pc = winpty_open(winpty_config, &error_ptr);
+
+
+
+   if (pc == nullptr) {
+      std::wstring msg(winpty_error_msg(error_ptr));
+      std::string msg_(msg.begin(), msg.end());
+      why << "Error launching WinPTY agent: " << msg_;
+      Nan::ThrowError(why.str().c_str());
+   }
+  //  if (pc->controlPipe == INVALID_HANDLE_VALUE) {
+  //     why << "WinPTY controlPipe is invalid: " << GetLastError();
+  //     Nan::ThrowError(why.str().c_str());
+  //  }
+
    winpty_config_free(winpty_config);
    winpty_error_free(error_ptr);
-
-
-   // Error occured during startup of agent process.
-   assert(pc != nullptr);
+      // why << "a: " << (int)pc->controlPipe;
+      // Nan::ThrowError(why.str().c_str());
 
    // Save pty struct fpr later use.
    ptyHandles.insert(ptyHandles.end(), pc);
+   HANDLE conin = CreateFileW(
+       winpty_conin_name(pc),
+       GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+   HANDLE conout = CreateFileW(
+       winpty_conout_name(pc),
+       GENERIC_READ, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+   assert(conin != INVALID_HANDLE_VALUE);
+   assert(conout != INVALID_HANDLE_VALUE);
 
    // Pty object values.
    Local<Object> marshal = Nan::New<Object>();
    marshal->Set(Nan::New<String>("pid").ToLocalChecked(), Nan::New<Number>((int)pc->controlPipe));
    marshal->Set(Nan::New<String>("pty").ToLocalChecked(), Nan::New<Number>(InterlockedIncrement(&ptyCounter)));
    marshal->Set(Nan::New<String>("fd").ToLocalChecked(), Nan::New<Number>(-1));
+   marshal->Set(Nan::New<String>("conin").ToLocalChecked(), Nan::New<Number>((int)conin));
+   marshal->Set(Nan::New<String>("conout").ToLocalChecked(),Nan::New<Number>((int)conout));
 
-
-
-   winpty_spawn_config_t* config = winpty_spawn_config_new(0, shellpath.c_str(), cmdline, cwd, env, nullptr);
+   winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, nullptr/*env*/, nullptr);
    HANDLE* handle = nullptr;
    int result = winpty_spawn(pc, config, handle, nullptr, nullptr, nullptr);
    winpty_spawn_config_free(config);
@@ -399,37 +426,6 @@ static NAN_METHOD(PtyKill) {
   return info.GetReturnValue().SetUndefined();
 }
 
-// TODO: De-dupe pipein/out
-static NAN_METHOD(PtyGetDataPipeIn) {
-  Nan::HandleScope scope;
-
-  if (info.Length() != 1
-    || !info[0]->IsNumber()) // pid
-  {
-    return Nan::ThrowError("Usage: pty.getDataPipeIn(pid)");
-  }
-
-  int handle = info[0]->Int32Value();
-
-  winpty_t *pc = get_pipe_handle(handle);
-  info.GetReturnValue().Set((int)pc->coninPipeName);
-}
-
-static NAN_METHOD(PtyGetDataPipeOut) {
-  Nan::HandleScope scope;
-
-  if (info.Length() != 1
-    || !info[0]->IsNumber()) // pid
-  {
-    return Nan::ThrowError("Usage: pty.getDataPipeOut(pid)");
-  }
-
-  int handle = info[0]->Int32Value();
-
-  winpty_t *pc = get_pipe_handle(handle);
-  info.GetReturnValue().Set((int)pc->conoutPipeName);
-}
-
 /**
 * Init
 */
@@ -440,8 +436,6 @@ extern "C" void init(Handle<Object> target) {
   Nan::SetMethod(target, "startProcess", PtyStartProcess);
   Nan::SetMethod(target, "resize", PtyResize);
   Nan::SetMethod(target, "kill", PtyKill);
-  Nan::SetMethod(target, "getDataPipeIn", PtyGetDataPipeIn);
-  Nan::SetMethod(target, "getDataPipeOut", PtyGetDataPipeOut);
 };
 
 NODE_MODULE(pty, init);
