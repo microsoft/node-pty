@@ -296,18 +296,15 @@ open:
 
    // Open a new pty session.
    // winpty_t *pc = winpty_open(cols, rows);
-   winpty_error_ptr_t* error_ptr = nullptr;
-   winpty_config_t* winpty_config = winpty_config_new(0, error_ptr);
-   winpty_error_free(*error_ptr);
+   winpty_error_ptr_t error_ptr = nullptr;
+   winpty_config_t* winpty_config = winpty_config_new(0, &error_ptr);
+
+   winpty_error_free(error_ptr);
    winpty_config_set_initial_size(winpty_config, cols, rows);
 
-   winpty_t *pc = winpty_open(winpty_config, error_ptr);
+   winpty_t *pc = winpty_open(winpty_config, &error_ptr);
    winpty_config_free(winpty_config);
-   winpty_error_free(*error_ptr);
-
-
-// TODO: Find out where it's crashing silently
-assert(false);
+   winpty_error_free(error_ptr);
 
 
    // Error occured during startup of agent process.
