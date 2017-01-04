@@ -350,10 +350,10 @@ open:
 
    winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, nullptr/*env*/, nullptr);
    HANDLE* handle = nullptr;
-   int result = winpty_spawn(pc, config, handle, nullptr, nullptr, nullptr);
+   BOOL spawnSuccess = winpty_spawn(pc, config, handle, nullptr, nullptr, nullptr);
    winpty_spawn_config_free(config);
-   if(result != 0) {
-      why << "Unable to start terminal process. Win32 error code: " << result;
+   if(!spawnSuccess) {
+      why << "Unable to start terminal process.";
       Nan::ThrowError(why.str().c_str());
    }
 

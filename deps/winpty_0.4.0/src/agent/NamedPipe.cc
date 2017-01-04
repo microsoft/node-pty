@@ -326,7 +326,7 @@ size_t NamedPipe::peek(void *data, size_t size)
     ASSERT(m_openMode & OpenMode::Reading);
     const auto out = reinterpret_cast<char*>(data);
     const size_t ret = std::min(size, m_inQueue.size());
-    std::copy(&m_inQueue[0], &m_inQueue[size], out);
+    std::copy(&m_inQueue[0], &m_inQueue[ret], out);
     return ret;
 }
 
