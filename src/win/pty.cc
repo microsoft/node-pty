@@ -67,7 +67,7 @@ const wchar_t* to_wstring(const String::Utf8Value& str)
 static winpty_t *get_pipe_handle(int handle) {
   for(size_t i = 0; i < ptyHandles.size(); ++i) {
     winpty_t *ptyHandle = ptyHandles[i];
-    int current = (int)ptyHandle->controlPipe;
+    int current = (int)winpty_agent_process(ptyHandle);
     if(current == handle) {
       return ptyHandle;
     }
@@ -78,7 +78,7 @@ static winpty_t *get_pipe_handle(int handle) {
 static bool remove_pipe_handle(int handle) {
   for(size_t i = 0; i < ptyHandles.size(); ++i) {
     winpty_t *ptyHandle = ptyHandles[i];
-    if((int)ptyHandle->controlPipe == handle) {
+    if((int)winpty_agent_process(ptyHandle) == handle) {
       delete ptyHandle;
       ptyHandle = nullptr;
       return true;
@@ -351,10 +351,16 @@ open:
   // Pty object values.
   Local<Object> marshal = Nan::New<Object>();
   
-  marshal->Set(Nan::New<String>("pid").ToLocalChecked(), Nan::New<Number>(GetProcessId(handle)));
+  marshal->Set(Nan::New<String>("pid").ToLocalChecked(), Nan::New<Number>((int)winpty_agent_process(pc)));
   marshal->Set(Nan::New<String>("pty").ToLocalChecked(), Nan::New<Number>(InterlockedIncrement(&ptyCounter)));
   marshal->Set(Nan::New<String>("fd").ToLocalChecked(), Nan::New<Number>(-1));
-   
+
+
+
+  //marshal->Set(Nan::New<String>("pid_agent").ToLocalChecked(), Nan::New<Number>((int)winpty_agent_process(pc)));
+
+
+
   {
     LPCWSTR coninPipeName = winpty_conin_name(pc);
     std::wstring coninPipeNameWStr(coninPipeName);
@@ -406,7 +412,8 @@ static NAN_METHOD(PtyResize) {
   winpty_t *pc = get_pipe_handle(handle);
   
   assert(pc != nullptr);
-  assert(0 == winpty_set_size(pc, cols, rows, nullptr));
+  BOOL success = winpty_set_size(pc, cols, rows, nullptr);
+  assert(success);
 
   return info.GetReturnValue().SetUndefined();
 }
