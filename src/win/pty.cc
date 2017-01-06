@@ -355,12 +355,6 @@ open:
   marshal->Set(Nan::New<String>("pty").ToLocalChecked(), Nan::New<Number>(InterlockedIncrement(&ptyCounter)));
   marshal->Set(Nan::New<String>("fd").ToLocalChecked(), Nan::New<Number>(-1));
 
-
-
-  //marshal->Set(Nan::New<String>("pid_agent").ToLocalChecked(), Nan::New<Number>((int)winpty_agent_process(pc)));
-
-
-
   {
     LPCWSTR coninPipeName = winpty_conin_name(pc);
     std::wstring coninPipeNameWStr(coninPipeName);
@@ -371,7 +365,6 @@ open:
     std::string conoutPipeNameStr(conoutPipeNameWStr.begin(), conoutPipeNameWStr.end());
     marshal->Set(Nan::New<String>("conout").ToLocalChecked(), Nan::New<String>(conoutPipeNameStr).ToLocalChecked());
   }
-  //CloseHandle(handle);
 
   goto cleanup;
 
@@ -387,7 +380,6 @@ cleanup:
   delete env;
 
   return info.GetReturnValue().Set(marshal);
-  // return info.GetReturnValue().Set(handle);
 }
 
 /*
