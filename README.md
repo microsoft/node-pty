@@ -44,7 +44,7 @@ ptyProcess.write('ls\r');
 > 
 Internal Windows PowerShell error.  Loading managed Windows PowerShell failed with error 8009001d.
 
-This is caused when environment variables critical to PowerShell are not provided in the `env` argument, such as `SystemRoot`.
+This happens when PowerShell is launched with no `SystemRoot` environment variable present.
 
 ## pty.js
 
