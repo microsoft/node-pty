@@ -141,85 +141,6 @@ static std::wstring get_shell_path(std::wstring filename)  {
 }
 
 /*
-* PtyOpen
-* pty.open(dataPipe, cols, rows)
-*
-* If you need to debug winpty-agent.exe do the following:
-* ======================================================
-*
-* 1) Install python 2.7
-* 2) Install win32pipe
-x86) http://sourceforge.net/projects/pywin32/files/pywin32/Build%20218/pywin32-218.win32-py2.7.exe/download
-x64) http://sourceforge.net/projects/pywin32/files/pywin32/Build%20218/pywin32-218.win-amd64-py2.7.exe/download
-* 3) Start deps/winpty/misc/DebugServer.py (Before you start node)
-*
-* Then you'll see output from winpty-agent.exe.
-*
-* Important part:
-* ===============
-* CreateProcess: success 8896 0 (Windows error code)
-*
-* Create test.js:
-* ===============
-*
-* var pty = require('./');
-*
-* var term = pty.fork('cmd.exe', [], {
-*   name: 'Windows Shell',
-*	  cols: 80,
-*	  rows: 30,
-*	  cwd: process.env.HOME,
-*	  env: process.env,
-*	  debug: true
-* });
-*
-* term.on('data', function(data) {
-* 	console.log(data);
-* });
-*
-*/
-
-// static NAN_METHOD(PtyOpen) {
-//   Nan::HandleScope scope;
-
-//   if (info.Length() != 4
-//     || !info[0]->IsString() // dataPipe
-//     || !info[1]->IsNumber() // cols
-//     || !info[2]->IsNumber() // rows
-//     || !info[3]->IsBoolean()) // debug
-//   {
-//     return Nan::ThrowError("Usage: pty.open(dataPipe, cols, rows, debug)");
-//   }
-
-//   int cols = info[1]->Int32Value();
-//   int rows = info[2]->Int32Value();
-//   bool debug = info[3]->ToBoolean()->IsTrue();
-
-//   // Enable/disable debugging
-//   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
-
-//   // Open a new pty session.
-//   // winpty_t *pc = winpty_open(cols, rows);
-//   winpty_t *pc = winpty_open(winpty_config_new(0, nullptr), nullptr);
-
-//   // Error occured during startup of agent process.
-//   assert(pc != nullptr);
-
-//   assert(0 == winpty_set_size(pc, cols, rows, nullptr));
-
-//   // Save pty struct fpr later use.
-//   ptyHandles.insert(ptyHandles.end(), pc);
-
-//   // Pty object values.
-//   Local<Object> marshal = Nan::New<Object>();
-//   marshal->Set(Nan::New<String>("pid").ToLocalChecked(), Nan::New<Number>((int)pc->controlPipe));
-//   marshal->Set(Nan::New<String>("pty").ToLocalChecked(), Nan::New<Number>(InterlockedIncrement(&ptyCounter)));
-//   marshal->Set(Nan::New<String>("fd").ToLocalChecked(), Nan::New<Number>(-1));
-
-//   return info.GetReturnValue().Set(marshal);
-// }
-
-/*
 * PtyStartProcess
 * pty.startProcess(pid, file, env, cwd);
 */
@@ -255,7 +176,7 @@ static NAN_METHOD(PtyStartProcess) {
 
   //   for(uint32_t i = 0; i < envValues->Length(); i++) {
   //     std::wstring envValue(to_wstring(String::Utf8Value(envValues->Get(i)->ToString())));
-  //     envBlock << envValue << L' ';
+  //     envBlock << envValue << L'\0';
   //   }
 
   //   std::wstring output = envBlock.str();
@@ -285,7 +206,6 @@ static NAN_METHOD(PtyStartProcess) {
   goto open;
 
 open:
-
   // Below used to be PtyOpen
   int cols = info[4]->Int32Value();
   int rows = info[5]->Int32Value();
@@ -295,7 +215,6 @@ open:
   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
 
   // Open a new pty session.
-  // winpty_t *pc = winpty_open(cols, rows);
   winpty_error_ptr_t error_ptr = nullptr;
   winpty_config_t* winpty_config = winpty_config_new(0, &error_ptr);
   if (winpty_config == nullptr) {
@@ -307,10 +226,7 @@ open:
   winpty_error_free(error_ptr);
   winpty_config_set_initial_size(winpty_config, cols, rows);
 
-  // TODO: winpty_open throws the subscript error
   winpty_t *pc = winpty_open(winpty_config, &error_ptr);
-
-
 
   if (pc == nullptr) {
     std::wstring msg(winpty_error_msg(error_ptr));
@@ -318,26 +234,12 @@ open:
     why << "Error launching WinPTY agent: " << msg_;
     Nan::ThrowError(why.str().c_str());
   }
-  //  if (pc->controlPipe == INVALID_HANDLE_VALUE) {
-  //     why << "WinPTY controlPipe is invalid: " << GetLastError();
-  //     Nan::ThrowError(why.str().c_str());
-  //  }
 
   winpty_config_free(winpty_config);
   winpty_error_free(error_ptr);
-  // why << "a: " << (int)pc->controlPipe;
-  // Nan::ThrowError(why.str().c_str());
 
   // Save pty struct fpr later use.
   ptyHandles.insert(ptyHandles.end(), pc);
-  //  HANDLE conin = CreateFileW(
-  //      winpty_conin_name(pc),
-  //      GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
-  //  HANDLE conout = CreateFileW(
-  //      winpty_conout_name(pc),
-  //      GENERIC_READ, 0, nullptr, OPEN_EXISTING, 0, nullptr);
-  //  assert(conin != INVALID_HANDLE_VALUE);
-  //  assert(conout != INVALID_HANDLE_VALUE);
 
   winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, /*env*/nullptr, nullptr);
   HANDLE handle = nullptr;
@@ -441,7 +343,6 @@ static NAN_METHOD(PtyKill) {
 
 extern "C" void init(Handle<Object> target) {
   Nan::HandleScope scope;
-  //Nan::SetMethod(target, "open", PtyOpen);
   Nan::SetMethod(target, "startProcess", PtyStartProcess);
   Nan::SetMethod(target, "resize", PtyResize);
   Nan::SetMethod(target, "kill", PtyKill);
