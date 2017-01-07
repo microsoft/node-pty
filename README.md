@@ -1,4 +1,4 @@
-# pty.js
+# node-pty
 
 `forkpty(3)` bindings for node.js. This allows you to fork processes with pseudo
 terminal file descriptors. It returns a terminal object which allows reads
@@ -13,7 +13,7 @@ This is useful for:
 ## Example Usage
 
 ``` js
-var pty = require('pty.js');
+var pty = require('node-pty');
 
 var term = pty.spawn('bash', [], {
   name: 'xterm-color',

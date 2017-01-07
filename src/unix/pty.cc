@@ -1,5 +1,4 @@
 /**
- * pty.js
  * Copyright (c) 2012-2015, Christopher Jeffrey (MIT License)
  *
  * pty.cc:
