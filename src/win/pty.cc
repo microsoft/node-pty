@@ -17,7 +17,6 @@
 #include <sstream>
 #include <iostream>
 #include <vector>
-#include <windows.h>
 
 using namespace v8;
 using namespace std;
