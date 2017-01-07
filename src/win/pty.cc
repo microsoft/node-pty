@@ -330,8 +330,7 @@ static NAN_METHOD(PtyKill) {
   winpty_t *pc = get_pipe_handle(handle);
 
   assert(pc != nullptr);
-  // TODO: What should be called here in 0.4.0?
-  //winpty_close(pc);
+  winpty_free(pc);
   assert(true == remove_pipe_handle(handle));
 
   return info.GetReturnValue().SetUndefined();
