@@ -1,4 +1,6 @@
-# pty.js
+# node-pty
+
+**⚠️ This project is currently under development to improve Windows support, see [this issue](https://github.com/Microsoft/vscode/issues/13625) for more details.**
 
 `forkpty(3)` bindings for node.js. This allows you to fork processes with pseudo
 terminal file descriptors. It returns a terminal object which allows reads
@@ -13,7 +15,7 @@ This is useful for:
 ## Example Usage
 
 ``` js
-var pty = require('pty.js');
+var pty = require('node-pty');
 
 var term = pty.spawn('bash', [], {
   name: 'xterm-color',
@@ -34,18 +36,7 @@ term.write('ls /\r');
 console.log(term.process);
 ```
 
-## Todo
-
-- Add tcsetattr(3), tcgetattr(3).
-- Add a way of determining the current foreground job for platforms other
-  than Linux and OSX/Darwin.
-
-## Contribution and License Agreement
-
-If you contribute code to this project, you are implicitly allowing your code
-to be distributed under the MIT license. You are also implicitly verifying that
-all code is your original work. `</legalese>`
-
 ## License
 
 Copyright (c) 2012-2015, Christopher Jeffrey (MIT License).
+Copyright (c) 2016, Daniel Imms (MIT License).
