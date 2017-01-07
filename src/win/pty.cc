@@ -168,25 +168,19 @@ static NAN_METHOD(PtyStartProcess) {
   const wchar_t *cwd = to_wstring(String::Utf8Value(info[3]->ToString()));
 
   // create environment block
-  // wchar_t *env = NULL;
-  // const Handle<Array> envValues = Handle<Array>::Cast(info[2]);
-  // if(!envValues.IsEmpty()) {
+  std::wstring env;
+  const Handle<Array> envValues = Handle<Array>::Cast(info[2]);
+  if(!envValues.IsEmpty()) {
 
-  //   std::wstringstream envBlock;
+    std::wstringstream envBlock;
 
-  //   for(uint32_t i = 0; i < envValues->Length(); i++) {
-  //     std::wstring envValue(to_wstring(String::Utf8Value(envValues->Get(i)->ToString())));
-  //     envBlock << envValue << L'\0';
-  //   }
+    for(uint32_t i = 0; i < envValues->Length(); i++) {
+      std::wstring envValue(to_wstring(String::Utf8Value(envValues->Get(i)->ToString())));
+      envBlock << envValue << L'\0';
+    }
 
-  //   std::wstring output = envBlock.str();
-
-  //   size_t count = output.size();
-  //   env = new wchar_t[count + 2];
-  //   wcsncpy(env, output.c_str(), count);
-
-  //   wcscat(env, L"\0");
-  // }
+    env = envBlock.str();
+  }
 
   // use environment 'Path' variable to determine location of
   // the relative path that we have recieved (e.g cmd.exe)
@@ -241,7 +235,7 @@ open:
   // Save pty struct fpr later use.
   ptyHandles.insert(ptyHandles.end(), pc);
 
-  winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, /*env*/nullptr, nullptr);
+  winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, env.c_str(), nullptr);
   HANDLE handle = nullptr;
   BOOL spawnSuccess = winpty_spawn(pc, config, &handle, nullptr, nullptr, nullptr);
   winpty_spawn_config_free(config);
@@ -279,7 +273,6 @@ cleanup:
   delete filename;
   delete cmdline;
   delete cwd;
-  //delete env;
 
   return info.GetReturnValue().Set(marshal);
 }
