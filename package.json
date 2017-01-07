@@ -1,19 +1,19 @@
 {
-  "name": "pty.js",
-  "description": "Pseudo terminals for node.",
+  "name": "node-pty",
+  "description": "Pseudo terminals for node",
   "author": {
-    "name": "Christopher Jeffrey"
+    "name": "Daniel Imms"
   },
-  "version": "0.3.0",
+  "version": "0.0.1",
   "license": "MIT",
   "main": "./index.js",
   "repository": {
     "type": "git",
-    "url": "git://github.com/chjj/pty.js.git"
+    "url": "git://github.com/Tyriar/node-pty.git"
   },
-  "homepage": "https://github.com/chjj/pty.js",
+  "homepage": "https://github.com/Tyriar/node-pty",
   "bugs": {
-    "url": "https://github.com/chjj/pty.js/issues"
+    "url": "https://github.com/Tyriar/node-pty/issues"
   },
   "keywords": [
     "pty",

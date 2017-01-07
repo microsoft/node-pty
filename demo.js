@@ -1,6 +1,6 @@
 var pty = require('.');
 
-var term = pty.spawn('cmd.exe', [], {
+var term = pty.spawn('powershell.exe', [], {
   name: 'xterm-color',
   cols: 80,
   rows: 30,
@@ -12,7 +12,7 @@ term.on('data', function(data) {
   console.log(data);
 });
 
-term.write('dir/w\r');
+term.write('ls\r');
 term.resize(100, 40);
 
 console.log(term.process);

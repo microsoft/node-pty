@@ -49,3 +49,4 @@ all code is your original work. `</legalese>`
 ## License
 
 Copyright (c) 2012-2015, Christopher Jeffrey (MIT License).
+Copyright (c) 2016, Daniel Imms (MIT License).
