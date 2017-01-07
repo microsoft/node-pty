@@ -247,25 +247,25 @@ static NAN_METHOD(PtyStartProcess) {
   const wchar_t *cwd = to_wstring(String::Utf8Value(info[3]->ToString()));
 
   // create environment block
-  wchar_t *env = NULL;
-  const Handle<Array> envValues = Handle<Array>::Cast(info[2]);
-  if(!envValues.IsEmpty()) {
+  // wchar_t *env = NULL;
+  // const Handle<Array> envValues = Handle<Array>::Cast(info[2]);
+  // if(!envValues.IsEmpty()) {
 
-    std::wstringstream envBlock;
+  //   std::wstringstream envBlock;
 
-    for(uint32_t i = 0; i < envValues->Length(); i++) {
-      std::wstring envValue(to_wstring(String::Utf8Value(envValues->Get(i)->ToString())));
-      envBlock << envValue << L' ';
-    }
+  //   for(uint32_t i = 0; i < envValues->Length(); i++) {
+  //     std::wstring envValue(to_wstring(String::Utf8Value(envValues->Get(i)->ToString())));
+  //     envBlock << envValue << L' ';
+  //   }
 
-    std::wstring output = envBlock.str();
+  //   std::wstring output = envBlock.str();
 
-    size_t count = output.size();
-    env = new wchar_t[count + 2];
-    wcsncpy(env, output.c_str(), count);
+  //   size_t count = output.size();
+  //   env = new wchar_t[count + 2];
+  //   wcsncpy(env, output.c_str(), count);
 
-    wcscat(env, L"\0");
-  }
+  //   wcscat(env, L"\0");
+  // }
 
   // use environment 'Path' variable to determine location of
   // the relative path that we have recieved (e.g cmd.exe)
@@ -339,7 +339,7 @@ open:
   //  assert(conin != INVALID_HANDLE_VALUE);
   //  assert(conout != INVALID_HANDLE_VALUE);
 
-  winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, env, nullptr);
+  winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, /*env*/nullptr, nullptr);
   HANDLE handle = nullptr;
   BOOL spawnSuccess = winpty_spawn(pc, config, &handle, nullptr, nullptr, nullptr);
   winpty_spawn_config_free(config);
@@ -377,7 +377,7 @@ cleanup:
   delete filename;
   delete cmdline;
   delete cwd;
-  delete env;
+  //delete env;
 
   return info.GetReturnValue().Set(marshal);
 }
