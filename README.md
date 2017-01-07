@@ -37,6 +37,15 @@ ptyProcess.resize(100, 40);
 ptyProcess.write('ls\r');
 ```
 
+## Troubleshooting
+
+**Powershell gives error 8009001d**
+
+> 
+Internal Windows PowerShell error.  Loading managed Windows PowerShell failed with error 8009001d.
+
+This is caused when environment variables critical to PowerShell are not provided in the `env` argument, such as `SystemRoot`.
+
 ## pty.js
 
 This project is forked from [chjj/pty.js](https://github.com/chjj/pty.js) with the primary goals being to provide better support for later Node.JS versions and Windows.
