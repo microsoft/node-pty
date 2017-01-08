@@ -8,6 +8,7 @@ import * as net from 'net';
 import * as path from 'path';
 import * as tty from 'tty';
 import { Terminal } from './terminal';
+import { IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 
 let pty;
 try {
@@ -33,7 +34,7 @@ export class UnixTerminal extends Terminal {
   private master: any;
   private slave: any;
 
-  constructor(file, args, opt) {
+  constructor(file?: string, args?: string[], opt?: IPtyForkOptions) {
     super();
 
     if (!(this instanceof UnixTerminal)) {
@@ -94,15 +95,13 @@ export class UnixTerminal extends Terminal {
 
     env = this._parseEnv(env);
 
-    function onexit(code, signal) {
+    function onexit(code: any, signal: any): void {
       // XXX Sometimes a data event is emitted
       // after exit. Wait til socket is destroyed.
       if (!self._emittedClose) {
         if (self._boundClose) return;
         self._boundClose = true;
-        self.once('close', function() {
-          self.emit('exit', code, signal);
-        });
+        self.once('close', () => self.emit('exit', code, signal));
         return;
       }
       self.emit('exit', code, signal);
@@ -116,7 +115,7 @@ export class UnixTerminal extends Terminal {
     this.socket.resume();
 
     // setup
-    this.socket.on('error', function(err: any) {
+    this.socket.on('error', (err: any) => {
       // NOTE: fs.ReadStream gets EAGAIN twice at first:
       if (err.code) {
         if (~err.code.indexOf('EAGAIN')) return;
@@ -155,11 +154,13 @@ export class UnixTerminal extends Terminal {
     this.readable = true;
     this.writable = true;
 
-    this.socket.on('close', function() {
-      if (self._emittedClose) return;
-      self._emittedClose = true;
-      self._close();
-      self.emit('close');
+    this.socket.on('close', () => {
+      if (this._emittedClose) {
+        return;
+      }
+      this._emittedClose = true;
+      this._close();
+      this.emit('close');
     });
 
     env = null;
@@ -171,7 +172,7 @@ export class UnixTerminal extends Terminal {
    * openpty
    */
 
-  public static open(opt) {
+  public static open(opt: IPtyOpenOptions): UnixTerminal {
     const self = Object.create(UnixTerminal.prototype);
     opt = opt || {};
 
@@ -208,14 +209,14 @@ export class UnixTerminal extends Terminal {
     self.readable = true;
     self.writable = true;
 
-    self.socket.on('error', function(err) {
+    self.socket.on('error', err => {
       self._close();
       if (self.listeners('error').length < 2) {
         throw err;
       }
     });
 
-    self.socket.on('close', function() {
+    self.socket.on('close', () => {
       self._close();
     });
 
@@ -227,16 +228,13 @@ export class UnixTerminal extends Terminal {
   }
 
   public destroy(): void {
-    const self = this;
-
-    // close
     this._close();
 
     // Need to close the read stream so
     // node stops reading a dead file descriptor.
     // Then we can safely SIGHUP the shell.
-    this.socket.once('close', function() {
-      self.kill('SIGHUP');
+    this.socket.once('close', () => {
+      this.kill('SIGHUP');
     });
 
     this.socket.destroy();
@@ -270,12 +268,10 @@ export class UnixTerminal extends Terminal {
  * See: https://github.com/chjj/pty.js/issues/103
  */
 class PipeSocket extends net.Socket {
-  constructor(fd) {
+  constructor(fd: any) {
     const tty = (<any>process).binding('tty_wrap');
     const guessHandleType = tty.guessHandleType;
-    tty.guessHandleType = function() {
-      return 'PIPE';
-    };
+    tty.guessHandleType = () => 'PIPE';
     super({ fd });
     tty.guessHandleType = guessHandleType;
   }

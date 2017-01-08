@@ -9,7 +9,7 @@ import * as extend from 'extend';
 import { inherits } from 'util';
 import { Terminal } from './terminal';
 import { WindowsPtyAgent } from './windowsPtyAgent';
-import { IPtyOpenOptions } from './interfaces';
+import { IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 
 let pty;
 try {
@@ -24,11 +24,11 @@ export class WindowsTerminal extends Terminal {
   private agent: any;
   private dataPipe: any;
 
-  constructor(file, args, opt) {
+  constructor(file?: string, args?: string[], opt?: IPtyForkOptions) {
     super();
 
     const self = this;
-    let env, cwd, name, cols, rows, term, agent, debug;
+    let env, cwd, name, cols, rows, term, agent;
 
     // Arguments.
     args = args || [];
@@ -42,7 +42,6 @@ export class WindowsTerminal extends Terminal {
     rows = opt.rows || Terminal.DEFAULT_ROWS;
     cwd = opt.cwd || process.cwd();
     name = opt.name || env.TERM || 'Windows Shell';
-    debug = opt.debug || false;
 
     env.TERM = name;
 
@@ -56,7 +55,7 @@ export class WindowsTerminal extends Terminal {
     this.deferreds = [];
 
     // Create new termal.
-    this.agent = new WindowsPtyAgent(file, args, env, cwd, cols, rows, debug);
+    this.agent = new WindowsPtyAgent(file, args, env, cwd, cols, rows, false);
 
     // The dummy socket is used so that we can defer everything
     // until its available.
@@ -72,11 +71,11 @@ export class WindowsTerminal extends Terminal {
 
     // The forked windows terminal is not available
     // until `ready` event is emitted.
-    this.socket.on('ready_datapipe', function () {
+    this.socket.on('ready_datapipe', () => {
 
       // These events needs to be forwarded.
-      ['connect', 'data', 'end', 'timeout', 'drain'].forEach(function(event) {
-        self.socket.on(event, function(data) {
+      ['connect', 'data', 'end', 'timeout', 'drain'].forEach(event => {
+        self.socket.on(event, data => {
 
           // Wait until the first data event is fired
           // then we can run deferreds.
@@ -87,7 +86,7 @@ export class WindowsTerminal extends Terminal {
             self.isReady = true;
 
             // Execute all deferred methods
-            self.deferreds.forEach(function(fn) {
+            self.deferreds.forEach(fn => {
               // NB! In order to ensure that `this` has all
               // its references updated any variable that
               // need to be available in `this` before
@@ -107,7 +106,7 @@ export class WindowsTerminal extends Terminal {
       self.socket.resume();
 
       // Shutdown if `error` event is emitted.
-      self.socket.on('error', function (err) {
+      self.socket.on('error', err => {
 
         // Close terminal session.
         self._close();
@@ -128,7 +127,7 @@ export class WindowsTerminal extends Terminal {
       });
 
       // Cleanup after the socket is closed.
-      self.socket.on('close', function () {
+      self.socket.on('close', () => {
         self.emit('exit', null);
         self._close();
       });
@@ -203,10 +202,7 @@ export class WindowsTerminal extends Terminal {
 
     // Queue until terminal is ready.
     this.deferreds.push({
-      run: function() {
-        // Run deffered.
-        deferredFn.apply(this, null);
-      }
+      run: () => deferredFn.apply(this, null)
     });
   }
 

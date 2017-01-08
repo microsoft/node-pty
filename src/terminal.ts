@@ -8,8 +8,8 @@ import { EventEmitter } from 'events';
 import { ITerminal } from './interfaces';
 
 export abstract class Terminal implements ITerminal {
-  protected static readonly DEFAULT_COLS = 80;
-  protected static readonly DEFAULT_ROWS = 24;
+  protected static readonly DEFAULT_COLS: number = 80;
+  protected static readonly DEFAULT_ROWS: number = 24;
 
   protected socket: any;
   protected pid: number;
@@ -32,22 +32,24 @@ export abstract class Terminal implements ITerminal {
   }
 
   /** See net.Socket.end */
-  public end(data: string) {
-    return this.socket.end(data);
+  public end(data: string): void{
+    this.socket.end(data);
   }
 
   /** See stream.Readable.pipe */
-  public pipe(dest: any, options: any) {
+  public pipe(dest: any, options: any): any {
     return this.socket.pipe(dest, options);
   }
 
   /** See net.Socket.pause */
-  public pause(): void {
+  public pause(): any {
+    // TODO: Type with Socket
     return this.socket.pause();
   }
 
   /** See net.Socket.resume */
-  public resume(): void {
+  public resume(): any {
+    // TODO: Type with Socket
     return this.socket.resume();
   }
 
@@ -77,7 +79,7 @@ export abstract class Terminal implements ITerminal {
     return this.socket.emit.apply(this.socket, arguments);
   }
 
-  public listeners(type: string) {
+  public listeners(type: string): Function[] {
     return this.socket.listeners(type);
   }
 
@@ -89,7 +91,7 @@ export abstract class Terminal implements ITerminal {
     this.socket.removeAllListeners(type);
   }
 
-  public once(type: string, listener: (...args: any[])): void {
+  public once(type: string, listener: (...args: any[]) => any): void {
     this.socket.once(type, listener);
   }
 
@@ -104,7 +106,7 @@ export abstract class Terminal implements ITerminal {
   public abstract get process(): string;
 
   // TODO: Should this be in the API?
-  public redraw() {
+  public redraw(): void {
     let self = this;
     let cols = this.cols;
     let rows = this.rows;
@@ -114,21 +116,19 @@ export abstract class Terminal implements ITerminal {
 
     this.resize(cols + 1, rows + 1);
 
-    setTimeout(function() {
-      self.resize(cols, rows);
-    }, 30);
+    setTimeout(() => self.resize(cols, rows), 30);
   }
 
-  protected _close() {
+  protected _close(): void {
     this.socket.writable = false;
     this.socket.readable = false;
-    this.write = function() {};
-    this.end = function() {};
+    this.write = () => {};
+    this.end = () => {};
     this.writable = false;
     this.readable = false;
   }
 
-  protected _parseEnv(env: {[key: string]: string}) {
+  protected _parseEnv(env: {[key: string]: string}): string[] {
     const keys = Object.keys(env || {});
     const pairs = [];
 

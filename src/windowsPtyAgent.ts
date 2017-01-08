@@ -21,7 +21,7 @@ try {
  * available named pipes (control and data socket).
  */
 
-export function WindowsPtyAgent(file: string, args: string[], env: string[], cwd: string, cols: number, rows: number, debug: boolean) {
+export function WindowsPtyAgent(file: string, args: string[], env: string[], cwd: string, cols: number, rows: number, debug: boolean): any {
   const self = this;
 
   // Unique identifier per pipe created.
@@ -54,7 +54,7 @@ export function WindowsPtyAgent(file: string, args: string[], env: string[], cwd
   // Create terminal pipe IPC channel and forward to a local unix socket.
   this.ptyOutSocket = new net.Socket();
   this.ptyOutSocket.setEncoding('utf8');
-  this.ptyOutSocket.connect(this.dataPipeOut, function () {
+  this.ptyOutSocket.connect(this.dataPipeOut, () => {
     // TODO: Emit event on agent instead of socket?
 
     // Emit ready event.

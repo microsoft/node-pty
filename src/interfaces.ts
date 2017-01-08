@@ -20,6 +20,8 @@ export interface IPtyForkOptions {
   rows?: number;
   cwd?: string;
   env?: {[key: string]: string};
+  uid?: number;
+  gid?: number;
 }
 
 export interface IPtyOpenOptions {
