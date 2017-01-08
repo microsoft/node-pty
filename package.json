@@ -21,6 +21,7 @@
     "terminal"
   ],
   "scripts": {
+    "tsc": "tsc",
     "install": "node scripts/install.js",
     "postinstall": "node scripts/post-install.js",
     "test": "cross-env NODE_ENV=test mocha -R spec test"
@@ -35,7 +36,9 @@
     "nan": "2.2.1"
   },
   "devDependencies": {
+    "@types/node": "^6.0.58",
     "cross-env": "^3.1.3",
-    "mocha": "^3.1.2"
+    "mocha": "^3.1.2",
+    "typescript": "^2.1.4"
   }
 }

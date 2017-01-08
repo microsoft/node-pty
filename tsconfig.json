@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es5",
+    "rootDir": "src",
+    "allowJs": true,
+    "outDir": "lib",
+    "sourceMap": true
+  },
+  "exclude": [
+    "node_modules",
+    "scripts",
+    "index.js",
+    "demo.js",
+    "lib",
+    "test"
+  ]
+}
