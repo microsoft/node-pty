@@ -12,10 +12,11 @@
     "url": "git://github.com/Tyriar/node-pty.git"
   },
   "files": [
+    "binding.gyp",
     "lib/",
     "scripts/",
-    "src",
-    "deps"
+    "src/",
+    "deps/"
   ],
   "homepage": "https://github.com/Tyriar/node-pty",
   "bugs": {
