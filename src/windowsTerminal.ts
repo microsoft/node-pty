@@ -106,7 +106,6 @@ export class WindowsTerminal extends Terminal {
 
       // Shutdown if `error` event is emitted.
       this.socket.on('error', err => {
-
         // Close terminal session.
         this._close();
 
@@ -114,15 +113,14 @@ export class WindowsTerminal extends Terminal {
         // process: the only process in the terminal.
         // node < 0.6.14: errno 5
         // node >= 0.6.14: read EIO
-        if (err.code) {
-          if (~err.code.indexOf('errno 5') || ~err.code.indexOf('EIO')) return;
+        if ((<any>err).code) {
+          if (~(<any>err).code.indexOf('errno 5') || ~(<any>err).code.indexOf('EIO')) return;
         }
 
         // Throw anything else.
         if (this.listeners('error').length < 2) {
           throw err;
         }
-
       });
 
       // Cleanup after the socket is closed.

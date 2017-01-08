@@ -18,7 +18,6 @@ try {
 };
 
 export class UnixTerminal extends Terminal {
-  protected socket: PipeSocket;
   protected pid: number;
   protected fd: number;
   protected pty: any;

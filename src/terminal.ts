@@ -4,6 +4,7 @@
  */
 
 import * as path from 'path';
+import { Socket } from 'net';
 import { EventEmitter } from 'events';
 import { ITerminal } from './interfaces';
 
@@ -11,7 +12,7 @@ export abstract class Terminal implements ITerminal {
   protected static readonly DEFAULT_COLS: number = 80;
   protected static readonly DEFAULT_ROWS: number = 24;
 
-  protected socket: any;
+  protected socket: Socket;
   protected pid: number;
   protected fd: number;
   protected pty: any;
@@ -55,8 +56,8 @@ export abstract class Terminal implements ITerminal {
 
   /** See net.Socket.setEncoding */
   public setEncoding(encoding: string): void {
-    if (this.socket._decoder) {
-      delete this.socket._decoder;
+    if ((<any>this.socket)._decoder) {
+      delete (<any>this.socket)._decoder;
     }
     if (encoding) {
       this.socket.setEncoding(encoding);
