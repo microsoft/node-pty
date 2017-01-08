@@ -74,7 +74,7 @@ export function WindowsTerminal(file, args, opt) {
   env.TERM = name;
 
   // Initialize environment variables.
-  env = environ(env);
+  env = this._parseEnv(env);
 
   // If the terminal is ready
   this.isReady = false;

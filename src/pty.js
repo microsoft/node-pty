@@ -112,7 +112,7 @@ function Terminal(file, args, opt) {
   // env.LINES = rows + '';
   // env.COLUMNS = cols + '';
 
-  env = environ(env);
+  env = this._parseEnv(env);
 
   function onexit(code, signal) {
     // XXX Sometimes a data event is emitted
@@ -449,17 +449,11 @@ function Socket(options) {
 
 Socket.prototype.__proto__ = net.Socket.prototype;
 
-/**
- * Helpers
- */
+Terminal.prototype._parseEnv(env) = function () {
+  const keys = Object.keys(env || {});
+  const pairs = [];
 
-function environ(env) {
-  var keys = Object.keys(env || {})
-    , l = keys.length
-    , i = 0
-    , pairs = [];
-
-  for (; i < l; i++) {
+  for (let i = 0; i < keys.length; i++) {
     pairs.push(keys[i] + '=' + env[keys[i]]);
   }
 

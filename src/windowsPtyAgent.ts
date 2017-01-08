@@ -21,7 +21,7 @@ try {
  * available named pipes (control and data socket).
  */
 
-export function WindowsPtyAgent(file: string, args: string[], env: {[key: string]: string}, cwd: string, cols: number, rows: number, debug: boolean) {
+export function WindowsPtyAgent(file: string, args: string[], env: string[], cwd: string, cols: number, rows: number, debug: boolean) {
   const self = this;
 
   // Unique identifier per pipe created.
@@ -37,7 +37,7 @@ export function WindowsPtyAgent(file: string, args: string[], env: {[key: string
   const cmdlineFlat = argvToCommandLine(cmdline);
 
   // Open pty session.
-  const term = pty.startProcess(file, cmdlineFlat, parseEnv(env), cwd, cols, rows, debug);
+  const term = pty.startProcess(file, cmdlineFlat, env, cwd, cols, rows, debug);
   this.dataPipeIn = term.conin;
   this.dataPipeOut = term.conout;
 
@@ -65,17 +65,6 @@ export function WindowsPtyAgent(file: string, args: string[], env: {[key: string
   this.ptyInSocket.setEncoding('utf8');
   this.ptyInSocket.connect(this.dataPipeIn);
   // TODO: Wait for ready event?
-}
-
-function parseEnv(env: {[key: string]: string}): string[] {
-  const keys = Object.keys(env || {});
-  const pairs = [];
-
-  for (let i = 0; i < keys.length; i++) {
-    pairs.push(keys[i] + '=' + env[keys[i]]);
-  }
-
-  return pairs;
 }
 
 // Convert argc/argv into a Win32 command-line following the escaping convention
