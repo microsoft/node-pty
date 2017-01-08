@@ -132,8 +132,8 @@ function argvToCommandLine(argv: string[]): string {
 }
 
 function repeatText(text: string, count: number): string {
-  let result = text;
-  for (let i = 1; i < count; i++) {
+  let result = '';
+  for (let i = 0; i < count; i++) {
     result += text;
   }
   return result;
