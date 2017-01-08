@@ -24,6 +24,9 @@ var DEFAULT_COLS = 80;
 var DEFAULT_ROWS = 30;
 
 
+// Keep track of the total number of terminals for the process.
+var terminalCount = 0;
+
 /**
  * Agent. Internal class.
  *
@@ -48,10 +51,10 @@ function Agent(file, args, env, cwd, cols, rows, debug) {
   // Compose command line
   var cmdline = [file];
   Array.prototype.push.apply(cmdline, args);
-  cmdline = argvToCommandLine(cmdline);
+  var cmdlineFlat = argvToCommandLine(cmdline);
 
   // Open pty session.
-  var term = pty.startProcess(file, cmdline, env, cwd, cols, rows, debug);
+  var term = pty.startProcess(file, cmdlineFlat, env, cwd, cols, rows, debug);
   this.dataPipeIn = term.conin;
   this.dataPipeOut = term.conout;
 
@@ -217,7 +220,7 @@ function Terminal(file, args, opt) {
 
     // Cleanup after the socket is closed.
     self.socket.on('close', function () {
-      Terminal.total--;
+      terminalCount--;
       self.emit('exit', null);
       self._close();
     });
@@ -232,22 +235,17 @@ function Terminal(file, args, opt) {
   this.readable = true;
   this.writable = true;
 
-  Terminal.total++;
+  terminalCount++;
 }
 
-Terminal.fork =
-Terminal.spawn =
-Terminal.createTerminal = function (file, args, opt) {
+export function fork(file, args, opt) { return createTerminal(file, args, opt); }
+export function spawn(file, args, opt) { return createTerminal(file, args, opt); }
+export function createTerminal(file, args, opt) {
   return new Terminal(file, args, opt);
 };
 
 // Inherit from pty.js
 inherits(Terminal, BaseTerminal);
-
-// Keep track of the total
-// number of terminals for
-// the process.
-Terminal.total = 0;
 
 /**
  * Events
@@ -257,7 +255,7 @@ Terminal.total = 0;
  * openpty
  */
 
-Terminal.open = function () {
+Terminal.prototype.open = function () {
   throw new Error("open() not supported on windows, use Fork() instead.");
 };
 
@@ -370,33 +368,29 @@ function argvToCommandLine(argv) {
       if (p == '\\') {
         bsCount++;
       } else if (p == '"') {
-        result += '\\'.repeat(bsCount * 2 + 1);
+        result += repeatText('\\', bsCount * 2 + 1);
         result += '"';
         bsCount = 0;
       } else {
-        result += '\\'.repeat(bsCount);
+        result += repeatText('\\', bsCount);
         bsCount = 0;
         result += p;
       }
     }
     if (quote) {
-      result += '\\'.repeat(bsCount * 2);
+      result += repeatText('\\', bsCount * 2);
       result += '\"';
     } else {
-      result += '\\'.repeat(bsCount);
+      result += repeatText('\\', bsCount);
     }
   }
   return result;
 }
 
-/**
- * Expose
- */
-
-module.exports = exports = Terminal;
-exports.Terminal = Terminal;
-exports.native = pty;
-
-if (process.env.NODE_ENV == 'test') {
-  exports.argvToCommandLine = argvToCommandLine;
+function repeatText(text: string, count: number): string {
+  let result = text;
+  for (let i = 1; i < count; i++) {
+    result += text;
+  }
+  return result;
 }
