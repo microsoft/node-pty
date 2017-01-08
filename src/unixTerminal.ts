@@ -36,32 +36,17 @@ export class UnixTerminal extends Terminal {
   constructor(file?: string, args?: string[], opt?: IPtyForkOptions) {
     super();
 
-    if (!(this instanceof UnixTerminal)) {
-      return new UnixTerminal(file, args, opt);
-    }
-
-    let env
-      , cwd
-      , name
-      , cols
-      , rows
-      , uid
-      , gid
-      , term;
-
-    // arguments
+    // Initialize arguments
     args = args || [];
     file = file || 'sh';
     opt = opt || {};
-
-    cols = opt.cols || Terminal.DEFAULT_COLS;
-    rows = opt.rows || Terminal.DEFAULT_ROWS;
-
-    uid = opt.uid != null ? opt.uid : -1;
-    gid = opt.gid != null ? opt.gid : -1;
-
     opt.env = opt.env || process.env;
-    env = extend({}, opt.env);
+
+    const cols = opt.cols || Terminal.DEFAULT_COLS;
+    const rows = opt.rows || Terminal.DEFAULT_ROWS;
+    const uid = opt.uid != null ? opt.uid : -1;
+    const gid = opt.gid != null ? opt.gid : -1;
+    const env = extend({}, opt.env);
 
     if (opt.env === process.env) {
       // Make sure we didn't start our
@@ -87,11 +72,10 @@ export class UnixTerminal extends Terminal {
     // here, if they do not exist:
     // USER, SHELL, HOME, LOGNAME, WINDOWID
 
-    cwd = opt.cwd || process.cwd();
-    name = opt.name || env.TERM || 'xterm';
+    const cwd = opt.cwd || process.cwd();
+    const name = opt.name || env.TERM || 'xterm';
     env.TERM = name;
-
-    env = this._parseEnv(env);
+    const parsedEnv = this._parseEnv(env);
 
     const onexit = (code: any, signal: any) => {
       // XXX Sometimes a data event is emitted
@@ -106,7 +90,7 @@ export class UnixTerminal extends Terminal {
     };
 
     // fork
-    term = pty.fork(file, args, env, cwd, cols, rows, uid, gid, onexit);
+    const term = pty.fork(file, args, parsedEnv, cwd, cols, rows, uid, gid, onexit);
 
     this.socket = new PipeSocket(term.fd);
     this.socket.setEncoding('utf8');
@@ -160,8 +144,6 @@ export class UnixTerminal extends Terminal {
       this._close();
       this.emit('close');
     });
-
-    env = null;
   }
 
   // public fork() {}

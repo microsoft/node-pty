@@ -20,25 +20,19 @@ export class WindowsTerminal extends Terminal {
   constructor(file?: string, args?: string[], opt?: IPtyForkOptions) {
     super();
 
-    let env, cwd, name, cols, rows, term, agent;
-
-    // Arguments.
+    // Initialize arguments
     args = args || [];
     file = file || 'cmd.exe';
     opt = opt || {};
-
     opt.env = opt.env || process.env;
-    env = extend({}, opt.env);
 
-    cols = opt.cols || Terminal.DEFAULT_COLS;
-    rows = opt.rows || Terminal.DEFAULT_ROWS;
-    cwd = opt.cwd || process.cwd();
-    name = opt.name || env.TERM || 'Windows Shell';
-
+    const env = extend({}, opt.env);
+    const cols = opt.cols || Terminal.DEFAULT_COLS;
+    const rows = opt.rows || Terminal.DEFAULT_ROWS;
+    const cwd = opt.cwd || process.cwd();
+    const name = opt.name || env.TERM || 'Windows Shell';
     env.TERM = name;
-
-    // Initialize environment variables.
-    env = this._parseEnv(env);
+    const parsedEnv = this._parseEnv(env);
 
     // If the terminal is ready
     this.isReady = false;
@@ -47,7 +41,7 @@ export class WindowsTerminal extends Terminal {
     this.deferreds = [];
 
     // Create new termal.
-    this.agent = new WindowsPtyAgent(file, args, env, cwd, cols, rows, false);
+    this.agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, cols, rows, false);
 
     // The dummy socket is used so that we can defer everything
     // until its available.
