@@ -131,7 +131,7 @@ export class UnixTerminal extends Terminal {
     // fork
     term = pty.fork(file, args, env, cwd, cols, rows, uid, gid, onexit);
 
-    this.socket = TTYStream(term.fd);
+    this.socket = new PipeSocket(term.fd);
     this.socket.setEncoding('utf8');
     this.socket.resume();
 
@@ -209,11 +209,11 @@ export class UnixTerminal extends Terminal {
     // open
     term = pty.open(cols, rows);
 
-    self.master = TTYStream(term.master);
+    self.master = new PipeSocket(term.master);
     self.master.setEncoding('utf8');
     self.master.resume();
 
-    self.slave = TTYStream(term.slave);
+    self.slave = new PipeSocket(term.slave);
     self.slave.setEncoding('utf8');
     self.slave.resume();
 
@@ -290,38 +290,18 @@ export class UnixTerminal extends Terminal {
 }
 
 /**
- * TTY Stream
+ * Wraps net.Socket to force the handle type "PIPE" by temporarily overwriting
+ * tty_wrap.guessHandleType.
+ * See: https://github.com/chjj/pty.js/issues/103
  */
-
-function TTYStream(fd) {
-  // Could use: if (!require('tty').ReadStream)
-  if (version[0] === 0 && version[1] < 7) {
-    return new net.Socket(fd);
+class PipeSocket extends net.Socket {
+  constructor(fd) {
+    const tty = (<any>process).binding('tty_wrap');
+    const guessHandleType = tty.guessHandleType;
+    tty.guessHandleType = function() {
+      return 'PIPE';
+    };
+    super({ fd });
+    tty.guessHandleType = guessHandleType;
   }
-
-  if (version[0] === 0 && version[1] < 12) {
-    return new (<any>tty).ReadStream(fd);
-  }
-
-  return new Socket(fd);
 }
-
-/**
- * Wrap net.Socket for a workaround
- */
-
-function Socket(options): void {
-  if (!(this instanceof Socket)) {
-    return new Socket(options);
-  }
-  // TODO: Why doesn't binding exist according to TS?
-  const tty = (<any>process).binding('tty_wrap');
-  const guessHandleType = tty.guessHandleType;
-  tty.guessHandleType = function() {
-    return 'PIPE';
-  };
-  net.Socket.call(this, options);
-  tty.guessHandleType = guessHandleType;
-}
-
-Socket.prototype.__proto__ = net.Socket.prototype;
