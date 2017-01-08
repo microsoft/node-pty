@@ -21,9 +21,7 @@ try {
  * available named pipes (control and data socket).
  */
 
-export function WindowsPtyAgent(file: string, args: string[], env: string[], cwd: string, cols: number, rows: number, debug: boolean): any {
-  const self = this;
-
+export function WindowsPtyAgent(file: string, args: string[], env: string[], cwd: string, cols: number, rows: number, debug: boolean): void {
   // Unique identifier per pipe created.
   const timestamp = Date.now();
 
@@ -58,7 +56,7 @@ export function WindowsPtyAgent(file: string, args: string[], env: string[], cwd
     // TODO: Emit event on agent instead of socket?
 
     // Emit ready event.
-    self.ptyOutSocket.emit('ready_datapipe');
+    this.ptyOutSocket.emit('ready_datapipe');
   });
 
   this.ptyInSocket = new net.Socket();

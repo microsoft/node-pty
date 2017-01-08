@@ -41,7 +41,6 @@ export class UnixTerminal extends Terminal {
       return new UnixTerminal(file, args, opt);
     }
 
-    const self = this;
     let env
       , cwd
       , name
@@ -98,13 +97,13 @@ export class UnixTerminal extends Terminal {
     function onexit(code: any, signal: any): void {
       // XXX Sometimes a data event is emitted
       // after exit. Wait til socket is destroyed.
-      if (!self._emittedClose) {
-        if (self._boundClose) return;
-        self._boundClose = true;
-        self.once('close', () => self.emit('exit', code, signal));
+      if (!this._emittedClose) {
+        if (this._boundClose) return;
+        this._boundClose = true;
+        this.once('close', () => this.emit('exit', code, signal));
         return;
       }
-      self.emit('exit', code, signal);
+      this.emit('exit', code, signal);
     }
 
     // fork
@@ -122,11 +121,11 @@ export class UnixTerminal extends Terminal {
       }
 
       // close
-      self._close();
+      this._close();
       // EIO on exit from fs.ReadStream:
-      if (!self._emittedClose) {
-        self._emittedClose = true;
-        self.emit('close');
+      if (!this._emittedClose) {
+        this._emittedClose = true;
+        this.emit('close');
       }
 
       // EIO, happens when someone closes our child
@@ -139,7 +138,7 @@ export class UnixTerminal extends Terminal {
       }
 
       // throw anything else
-      if (self.listeners('error').length < 2) {
+      if (this.listeners('error').length < 2) {
         throw err;
       }
     });

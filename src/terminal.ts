@@ -107,7 +107,6 @@ export abstract class Terminal implements ITerminal {
 
   // TODO: Should this be in the API?
   public redraw(): void {
-    let self = this;
     let cols = this.cols;
     let rows = this.rows;
 
@@ -116,7 +115,7 @@ export abstract class Terminal implements ITerminal {
 
     this.resize(cols + 1, rows + 1);
 
-    setTimeout(() => self.resize(cols, rows), 30);
+    setTimeout(() => this.resize(cols, rows), 30);
   }
 
   protected _close(): void {

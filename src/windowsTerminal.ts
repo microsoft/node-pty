@@ -27,7 +27,6 @@ export class WindowsTerminal extends Terminal {
   constructor(file?: string, args?: string[], opt?: IPtyForkOptions) {
     super();
 
-    const self = this;
     let env, cwd, name, cols, rows, term, agent;
 
     // Arguments.
@@ -75,18 +74,18 @@ export class WindowsTerminal extends Terminal {
 
       // These events needs to be forwarded.
       ['connect', 'data', 'end', 'timeout', 'drain'].forEach(event => {
-        self.socket.on(event, data => {
+        this.socket.on(event, data => {
 
           // Wait until the first data event is fired
           // then we can run deferreds.
-          if (!self.isReady && event === 'data') {
+          if (!this.isReady && event === 'data') {
 
             // Terminal is now ready and we can
             // avoid having to defer method calls.
-            self.isReady = true;
+            this.isReady = true;
 
             // Execute all deferred methods
-            self.deferreds.forEach(fn => {
+            this.deferreds.forEach(fn => {
               // NB! In order to ensure that `this` has all
               // its references updated any variable that
               // need to be available in `this` before
@@ -96,20 +95,20 @@ export class WindowsTerminal extends Terminal {
             });
 
             // Reset
-            self.deferreds = [];
+            this.deferreds = [];
 
           }
         });
       });
 
       // Resume socket.
-      self.socket.resume();
+      this.socket.resume();
 
       // Shutdown if `error` event is emitted.
-      self.socket.on('error', err => {
+      this.socket.on('error', err => {
 
         // Close terminal session.
-        self._close();
+        this._close();
 
         // EIO, happens when someone closes our child
         // process: the only process in the terminal.
@@ -120,16 +119,16 @@ export class WindowsTerminal extends Terminal {
         }
 
         // Throw anything else.
-        if (self.listeners('error').length < 2) {
+        if (this.listeners('error').length < 2) {
           throw err;
         }
 
       });
 
       // Cleanup after the socket is closed.
-      self.socket.on('close', () => {
-        self.emit('exit', null);
-        self._close();
+      this.socket.on('close', () => {
+        this.emit('exit', null);
+        this._close();
       });
 
     });
