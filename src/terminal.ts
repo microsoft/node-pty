@@ -93,10 +93,6 @@ export abstract class Terminal implements ITerminal {
     this.socket.once(type, listener);
   }
 
-  public get stdin() { return this; }
-  public get stdout() { return this; }
-  public get stderr() { throw new Error('No stderr.'); }
-
   public abstract write(data: string): void;
   public abstract resize(cols: number, rows: number): void;
   public abstract destroy(): void;
