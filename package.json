@@ -4,13 +4,16 @@
   "author": {
     "name": "Daniel Imms"
   },
-  "version": "0.4.1",
+  "version": "0.5.0",
   "license": "MIT",
   "main": "./lib/index.js",
   "repository": {
     "type": "git",
     "url": "git://github.com/Tyriar/node-pty.git"
   },
+  "files": [
+    "lib/"
+  ],
   "homepage": "https://github.com/Tyriar/node-pty",
   "bugs": {
     "url": "https://github.com/Tyriar/node-pty/issues"
