@@ -21,48 +21,68 @@ try {
  * available named pipes (control and data socket).
  */
 
-export function WindowsPtyAgent(file: string, args: string[], env: string[], cwd: string, cols: number, rows: number, debug: boolean): void {
-  // Unique identifier per pipe created.
-  const timestamp = Date.now();
+export class WindowsPtyAgent {
+  private _inSocket: net.Socket;
+  private _outSocket: net.Socket;
+  private _pid: number;
+  private _fd: any;
+  private _pty: number;
 
-  // Sanitize input variable.
-  file = file;
-  cwd = path.resolve(cwd);
+  public get inSocket(): net.Socket { return this._inSocket; }
+  public get outSocket(): net.Socket { return this._outSocket; }
+  public get pid(): number { return this._pid; }
+  public get fd(): any { return this._fd; }
+  public get pty(): number { return this._pty; }
 
-  // Compose command line
-  const cmdline = [file];
-  Array.prototype.push.apply(cmdline, args);
-  const cmdlineFlat = argvToCommandLine(cmdline);
+  constructor(
+    file: string,
+    args: string[],
+    env: string[],
+    cwd: string,
+    cols: number,
+    rows: number,
+    debug: boolean
+  ) {
+    // Unique identifier per pipe created.
+    const timestamp = Date.now();
 
-  // Open pty session.
-  const term = pty.startProcess(file, cmdlineFlat, env, cwd, cols, rows, debug);
-  this.dataPipeIn = term.conin;
-  this.dataPipeOut = term.conout;
+    // Sanitize input variable.
+    file = file;
+    cwd = path.resolve(cwd);
 
-  // Terminal pid.
-  this.pid = term.pid;
+    // Compose command line
+    const cmdline = [file];
+    Array.prototype.push.apply(cmdline, args);
+    const cmdlineFlat = argvToCommandLine(cmdline);
 
-  // Not available on windows.
-  this.fd = term.fd;
+    // Open pty session.
+    const term = pty.startProcess(file, cmdlineFlat, env, cwd, cols, rows, debug);
 
-  // Generated incremental number that has no real purpose besides
-  // using it as a terminal id.
-  this.pty = term.pty;
+    // Terminal pid.
+    this._pid = term.pid;
 
-  // Create terminal pipe IPC channel and forward to a local unix socket.
-  this.ptyOutSocket = new net.Socket();
-  this.ptyOutSocket.setEncoding('utf8');
-  this.ptyOutSocket.connect(this.dataPipeOut, () => {
-    // TODO: Emit event on agent instead of socket?
+    // Not available on windows.
+    this._fd = term.fd;
 
-    // Emit ready event.
-    this.ptyOutSocket.emit('ready_datapipe');
-  });
+    // Generated incremental number that has no real purpose besides
+    // using it as a terminal id.
+    this._pty = term.pty;
 
-  this.ptyInSocket = new net.Socket();
-  this.ptyInSocket.setEncoding('utf8');
-  this.ptyInSocket.connect(this.dataPipeIn);
-  // TODO: Wait for ready event?
+    // Create terminal pipe IPC channel and forward to a local unix socket.
+    this._outSocket = new net.Socket();
+    this._outSocket.setEncoding('utf8');
+    this._outSocket.connect(term.conout, () => {
+      // TODO: Emit event on agent instead of socket?
+
+      // Emit ready event.
+      this._outSocket.emit('ready_datapipe');
+    });
+
+    this._inSocket = new net.Socket();
+    this._inSocket.setEncoding('utf8');
+    this._inSocket.connect(term.conin);
+    // TODO: Wait for ready event?
+  }
 }
 
 // Convert argc/argv into a Win32 command-line following the escaping convention
