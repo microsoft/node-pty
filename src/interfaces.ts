@@ -2,11 +2,16 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
-export interface IPty {
-  createTerminal(file?: string, args?: string[], opt?: IPtyForkOptions);
-  fork(file?: string, args?: string[], opt?: IPtyForkOptions);
-  spawn(file?: string, args?: string[], opt?: IPtyForkOptions);
-  open(opt?: IPtyOpenOptions);
+export interface ITerminal {
+  process: string;
+
+  write(data: string): void;
+  resize(cols: number, rows: number): void;
+  destroy(): void;
+  kill(signal?: string): void;
+  setEncoding(encoding: string): void;
+  resume(): void;
+  pause(): void;
 }
 
 export interface IPtyForkOptions {

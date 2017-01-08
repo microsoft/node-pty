@@ -5,27 +5,27 @@
 
 import * as os from 'os';
 import { Terminal as BaseTerminal } from './terminal';
-import { IPtyOpenOptions } from './interfaces';
+import { ITerminal, IPtyOpenOptions, IPtyForkOptions } from './interfaces';
 
-let Terminal;
+let Terminal: any;
 if (os.platform() === 'win32') {
   Terminal = require('./windowsTerminal').WindowsTerminal;
 } else {
   Terminal = require('./unixTerminal').UnixTerminal;
 }
 
-export function fork(file, args, opt): BaseTerminal {
+export function fork(file?: string, args?: string[], opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
 };
 
-export function spawn(file, args, opt): BaseTerminal {
+export function spawn(file?: string, args?: string[], opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
 };
 
-export function createTerminal(file, args, opt): BaseTerminal {
+export function createTerminal(file?: string, args?: string[], opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
 };
 
-export function open(opt: IPtyOpenOptions): BaseTerminal {
+export function open(opt: IPtyOpenOptions): ITerminal {
   return Terminal.open(opt);
 }

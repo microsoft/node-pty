@@ -27,6 +27,14 @@
       true,
       "allow-null-check"
     ],
+    "typedef": [
+      true,
+      "call-signature",
+      "parameter",
+      "property-declaration",
+      "variable-declaration",
+      "member-variable-declaration"
+    ],
     "typedef-whitespace": [
       true,
       {

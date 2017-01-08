@@ -5,8 +5,9 @@
 
 import * as path from 'path';
 import { EventEmitter } from 'events';
+import { ITerminal } from './interfaces';
 
-export abstract class Terminal {
+export abstract class Terminal implements ITerminal {
   protected static readonly DEFAULT_COLS = 80;
   protected static readonly DEFAULT_ROWS = 24;
 
@@ -30,65 +31,66 @@ export abstract class Terminal {
     this._internalee = new EventEmitter();
   }
 
-  public end(data) {
+  /** See net.Socket.end */
+  public end(data: string) {
     return this.socket.end(data);
   }
 
-  public pipe(dest, options) {
+  /** See stream.Readable.pipe */
+  public pipe(dest: any, options: any) {
     return this.socket.pipe(dest, options);
   }
 
-  public pause() {
+  /** See net.Socket.pause */
+  public pause(): void {
     return this.socket.pause();
   }
 
-  public resume() {
+  /** See net.Socket.resume */
+  public resume(): void {
     return this.socket.resume();
   }
 
-  public setEncoding(enc) {
+  /** See net.Socket.setEncoding */
+  public setEncoding(encoding: string): void {
     if (this.socket._decoder) {
       delete this.socket._decoder;
     }
-    if (enc) {
-      this.socket.setEncoding(enc);
+    if (encoding) {
+      this.socket.setEncoding(encoding);
     }
   }
 
-  public addListener(type, func) { return this.on(type, func); }
-  public on(type, func) {
+  public addListener(type: string, listener: (...args: any[]) => any): void { this.on(type, listener); }
+  public on(type: string, listener: (...args: any[]) => any): void {
     if (type === 'close') {
-      this._internalee.on('close', func);
-      return this;
+      this._internalee.on('close', listener);
+      return;
     }
-    this.socket.on(type, func);
-    return this;
+    this.socket.on(type, listener);
   }
 
-  public emit(evt, ...args) {
-    if (evt === 'close') {
+  public emit(event: string, ...args: any[]): any {
+    if (event === 'close') {
       return this._internalee.emit.apply(this._internalee, arguments);
     }
     return this.socket.emit.apply(this.socket, arguments);
   }
 
-  public listeners(type) {
+  public listeners(type: string) {
     return this.socket.listeners(type);
   }
 
-  public removeListener(type, func) {
-    this.socket.removeListener(type, func);
-    return this;
+  public removeListener(type: string, listener: (...args: any[]) => any): void {
+    this.socket.removeListener(type, listener);
   }
 
-  public removeAllListeners(type) {
+  public removeAllListeners(type: string): void {
     this.socket.removeAllListeners(type);
-    return this;
   }
 
-  public once(type, func) {
-    this.socket.once(type, func);
-    return this;
+  public once(type: string, listener: (...args: any[])): void {
+    this.socket.once(type, listener);
   }
 
   public get stdin() { return this; }
@@ -97,15 +99,15 @@ export abstract class Terminal {
 
   public abstract write(data: string): void;
   public abstract resize(cols: number, rows: number): void;
-  // public abstract open(opt);
   public abstract destroy(): void;
-  public abstract kill(signal?: number): void;
+  public abstract kill(signal?: string): void;
 
   /**
    * Gets the name of the process.
    */
   public abstract get process(): string;
 
+  // TODO: Should this be in the API?
   public redraw() {
     let self = this;
     let cols = this.cols;
