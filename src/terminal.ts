@@ -59,10 +59,6 @@ export abstract class Terminal {
     this._internalee = new EventEmitter();
   }
 
-  public write(data) {
-    return this.socket.write(data);
-  }
-
   public end(data) {
     return this.socket.end(data);
   }
@@ -128,32 +124,12 @@ export abstract class Terminal {
   public get stdout() { return this; }
   public get stderr() { throw new Error('No stderr.'); }
 
+  public abstract write(data);
   public abstract resize(cols, rows);
   public abstract open(opt);
-
-  public destroy() {
-    var self = this;
-
-    // close
-    this._close();
-
-    // Need to close the read stream so
-    // node stops reading a dead file descriptor.
-    // Then we can safely SIGHUP the shell.
-    this.socket.once('close', function() {
-      self.kill('SIGHUP');
-    });
-
-    this.socket.destroy();
-  }
-
-  public kill(sig) {
-    try {
-      process.kill(this.pid, sig || 'SIGHUP');
-    } catch(e) {
-      ;
-    }
-  }
+  public abstract destroy();
+  public abstract kill(sig);
+  public abstract get process();
 
   public redraw() {
     var self = this
@@ -168,10 +144,6 @@ export abstract class Terminal {
     setTimeout(function() {
       self.resize(cols, rows);
     }, 30);
-  }
-
-  public get process() {
-    return pty.process(this.fd, this.pty) || this.file;
   }
 
   protected _close() {

@@ -264,6 +264,38 @@ export class UnixTerminal extends Terminal {
     return self;
   };
 
+  public write(data) {
+    return this.socket.write(data);
+  }
+
+  public destroy() {
+    var self = this;
+
+    // close
+    this._close();
+
+    // Need to close the read stream so
+    // node stops reading a dead file descriptor.
+    // Then we can safely SIGHUP the shell.
+    this.socket.once('close', function() {
+      self.kill('SIGHUP');
+    });
+
+    this.socket.destroy();
+  }
+
+  public kill(sig) {
+    try {
+      process.kill(this.pid, sig || 'SIGHUP');
+    } catch(e) {
+      ;
+    }
+  }
+
+  public get process() {
+    return pty.process(this.fd, this.pty) || this.file;
+  }
+
   /**
    * TTY
    */
