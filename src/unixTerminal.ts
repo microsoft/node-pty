@@ -93,7 +93,7 @@ export class UnixTerminal extends Terminal {
 
     env = this._parseEnv(env);
 
-    function onexit(code: any, signal: any): void {
+    const onexit = (code: any, signal: any) => {
       // XXX Sometimes a data event is emitted
       // after exit. Wait til socket is destroyed.
       if (!this._emittedClose) {
@@ -103,7 +103,7 @@ export class UnixTerminal extends Terminal {
         return;
       }
       this.emit('exit', code, signal);
-    }
+    };
 
     // fork
     term = pty.fork(file, args, env, cwd, cols, rows, uid, gid, onexit);

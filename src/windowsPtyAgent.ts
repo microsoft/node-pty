@@ -83,6 +83,14 @@ export class WindowsPtyAgent {
     this._inSocket.connect(term.conin);
     // TODO: Wait for ready event?
   }
+
+  public resize(cols: number, rows: number): void {
+    pty.resize(this.pid, cols, rows);
+  }
+
+  public kill(): void {
+    pty.kill(this.pid);
+  }
 }
 
 // Convert argc/argv into a Win32 command-line following the escaping convention

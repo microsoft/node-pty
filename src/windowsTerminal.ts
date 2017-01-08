@@ -11,17 +11,10 @@ import { Terminal } from './terminal';
 import { WindowsPtyAgent } from './windowsPtyAgent';
 import { IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 
-let pty;
-try {
-  pty = require(path.join('..', 'build', 'Release', 'pty.node'));
-} catch (e) {
-  pty = require(path.join('..', 'build', 'Debug', 'pty.node'));
-};
-
 export class WindowsTerminal extends Terminal {
   private isReady: boolean;
   private deferreds: any[];
-  private agent: any;
+  private agent: WindowsPtyAgent;
   private dataPipe: any;
 
   constructor(file?: string, args?: string[], opt?: IPtyForkOptions) {
@@ -58,7 +51,7 @@ export class WindowsTerminal extends Terminal {
 
     // The dummy socket is used so that we can defer everything
     // until its available.
-    this.socket = this.agent.ptyOutSocket;
+    this.socket = this.agent.outSocket;
 
     // The terminal socket when its available
     this.dataPipe = null;
@@ -152,7 +145,7 @@ export class WindowsTerminal extends Terminal {
 
   public write(data: string): void {
     this._defer(() => {
-      this.agent.ptyInSocket.write(data);
+      this.agent.inSocket.write(data);
     });
   }
 
@@ -162,8 +155,7 @@ export class WindowsTerminal extends Terminal {
 
   public resize(cols: number, rows: number): void {
     this._defer(() => {
-      // TODO: Call this within WindowsPtyAgent
-      pty.resize(this.pid, cols, rows);
+      this.agent.resize(cols, rows);
     });
   }
 
@@ -179,8 +171,7 @@ export class WindowsTerminal extends Terminal {
         throw new Error('Signals not supported on windows.');
       }
       this._close();
-      // TODO: Call this within WindowsPtyAgent
-      pty.kill(this.pid);
+      this.agent.kill();
     });
   }
 
