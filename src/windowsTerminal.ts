@@ -7,7 +7,7 @@ import * as net from 'net';
 import * as path from 'path';
 import * as extend from 'extend';
 import { inherits } from 'util';
-import * as Terminal from './pty';
+import { Terminal } from './terminal';
 import { WindowsPtyAgent } from './windowsPtyAgent';
 
 let pty;
@@ -20,243 +20,217 @@ try {
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 30;
 
-/**
- * Terminal
- */
+export class WindowsTerminal extends Terminal {
+  private isReady: boolean;
+  private deferreds: any[];
+  private agent: any;
+  private dataPipe: any;
 
-/*
-var pty = require('./');
+  constructor(file, args, opt) {
+    super();
 
-var term = pty.fork('cmd.exe', [], {
-  name: 'Windows Shell',
-  cols: 80,
-  rows: 30,
-  cwd: process.env.HOME,
-  env: process.env,
-  debug: true
-});
+    const self = this;
+    let env, cwd, name, cols, rows, term, agent, debug;
 
-term.on('data', function(data) {
-  console.log(data);
-});
-*/
+    // Backward compatibility.
+    if (typeof args === 'string') {
+      opt = {
+        name: arguments[1],
+        cols: arguments[2],
+        rows: arguments[3],
+        cwd: process.env.HOME
+      };
+      args = [];
+    }
 
-export function WindowsTerminal(file, args, opt) {
+    // Arguments.
+    args = args || [];
+    file = file || 'cmd.exe';
+    opt = opt || {};
 
-  const self = this;
-  let env, cwd, name, cols, rows, term, agent, debug;
+    opt.env = opt.env || process.env;
+    env = extend({}, opt.env);
 
-  // Backward compatibility.
-  if (typeof args === 'string') {
-    opt = {
-      name: arguments[1],
-      cols: arguments[2],
-      rows: arguments[3],
-      cwd: process.env.HOME
-    };
-    args = [];
-  }
+    cols = opt.cols || DEFAULT_COLS;
+    rows = opt.rows || DEFAULT_ROWS;
+    cwd = opt.cwd || process.cwd();
+    name = opt.name || env.TERM || 'Windows Shell';
+    debug = opt.debug || false;
 
-  // Arguments.
-  args = args || [];
-  file = file || 'cmd.exe';
-  opt = opt || {};
+    env.TERM = name;
 
-  opt.env = opt.env || process.env;
-  env = extend({}, opt.env);
+    // Initialize environment variables.
+    env = this._parseEnv(env);
 
-  cols = opt.cols || DEFAULT_COLS;
-  rows = opt.rows || DEFAULT_ROWS;
-  cwd = opt.cwd || process.cwd();
-  name = opt.name || env.TERM || 'Windows Shell';
-  debug = opt.debug || false;
+    // If the terminal is ready
+    this.isReady = false;
 
-  env.TERM = name;
+    // Functions that need to run after `ready` event is emitted.
+    this.deferreds = [];
 
-  // Initialize environment variables.
-  env = this._parseEnv(env);
+    // Create new termal.
+    this.agent = new WindowsPtyAgent(file, args, env, cwd, cols, rows, debug);
 
-  // If the terminal is ready
-  this.isReady = false;
+    // The dummy socket is used so that we can defer everything
+    // until its available.
+    this.socket = this.agent.ptyOutSocket;
 
-  // Functions that need to run after `ready` event is emitted.
-  this.deferreds = [];
+    // The terminal socket when its available
+    this.dataPipe = null;
 
-  // Create new termal.
-  this.agent = new WindowsPtyAgent(file, args, env, cwd, cols, rows, debug);
+    // Not available until `ready` event emitted.
+    this.pid = this.agent.pid;
+    this.fd = this.agent.fd;
+    this.pty = this.agent.pty;
 
-  // The dummy socket is used so that we can defer everything
-  // until its available.
-  this.socket = this.agent.ptyOutSocket;
+    // The forked windows terminal is not available
+    // until `ready` event is emitted.
+    this.socket.on('ready_datapipe', function () {
 
-  // The terminal socket when its available
-  this.dataPipe = null;
+      // These events needs to be forwarded.
+      ['connect', 'data', 'end', 'timeout', 'drain'].forEach(function(event) {
+        self.socket.on(event, function(data) {
 
-  // Not available until `ready` event emitted.
-  this.pid = this.agent.pid;
-  this.fd = this.agent.fd;
-  this.pty = this.agent.pty;
+          // Wait until the first data event is fired
+          // then we can run deferreds.
+          if (!self.isReady && event === 'data') {
 
-  // The forked windows terminal is not available
-  // until `ready` event is emitted.
-  this.socket.on('ready_datapipe', function () {
+            // Terminal is now ready and we can
+            // avoid having to defer method calls.
+            self.isReady = true;
 
-    // These events needs to be forwarded.
-    ['connect', 'data', 'end', 'timeout', 'drain'].forEach(function(event) {
-      self.socket.on(event, function(data) {
+            // Execute all deferred methods
+            self.deferreds.forEach(function(fn) {
+              // NB! In order to ensure that `this` has all
+              // its references updated any variable that
+              // need to be available in `this` before
+              // the deferred is run has to be declared
+              // above this forEach statement.
+              fn.run();
+            });
 
-        // Wait until the first data event is fired
-        // then we can run deferreds.
-        if (!self.isReady && event === 'data') {
+            // Reset
+            self.deferreds = [];
 
-          // Terminal is now ready and we can
-          // avoid having to defer method calls.
-          self.isReady = true;
-
-          // Execute all deferred methods
-          self.deferreds.forEach(function(fn) {
-            // NB! In order to ensure that `this` has all
-            // its references updated any variable that
-            // need to be available in `this` before
-            // the deferred is run has to be declared
-            // above this forEach statement.
-            fn.run();
-          });
-
-          // Reset
-          self.deferreds = [];
-
-        }
+          }
+        });
       });
+
+      // Resume socket.
+      self.socket.resume();
+
+      // Shutdown if `error` event is emitted.
+      self.socket.on('error', function (err) {
+
+        // Close terminal session.
+        self._close();
+
+        // EIO, happens when someone closes our child
+        // process: the only process in the terminal.
+        // node < 0.6.14: errno 5
+        // node >= 0.6.14: read EIO
+        if (err.code) {
+          if (~err.code.indexOf('errno 5') || ~err.code.indexOf('EIO')) return;
+        }
+
+        // Throw anything else.
+        if (self.listeners('error').length < 2) {
+          throw err;
+        }
+
+      });
+
+      // Cleanup after the socket is closed.
+      self.socket.on('close', function () {
+        self.emit('exit', null);
+        self._close();
+      });
+
     });
 
-    // Resume socket.
-    self.socket.resume();
-
-    // Shutdown if `error` event is emitted.
-    self.socket.on('error', function (err) {
-
-      // Close terminal session.
-      self._close();
-
-      // EIO, happens when someone closes our child
-      // process: the only process in the terminal.
-      // node < 0.6.14: errno 5
-      // node >= 0.6.14: read EIO
-      if (err.code) {
-        if (~err.code.indexOf('errno 5') || ~err.code.indexOf('EIO')) return;
-      }
-
-      // Throw anything else.
-      if (self.listeners('error').length < 2) {
-        throw err;
-      }
-
-    });
-
-    // Cleanup after the socket is closed.
-    self.socket.on('close', function () {
-      self.emit('exit', null);
-      self._close();
-    });
-
-  });
-
-  this.file = file;
-  this.name = name;
-  this.cols = cols;
-  this.rows = rows;
-
-  this.readable = true;
-  this.writable = true;
-}
-
-// Inherit from pty.js
-inherits(WindowsTerminal, Terminal);
-
-/**
- * Events
- */
-
-/**
- * openpty
- */
-
-WindowsTerminal.prototype.open = function () {
-  throw new Error('open() not supported on windows, use Fork() instead.');
-};
-
-/**
- * Events
- */
-
-WindowsTerminal.prototype.write = function(data) {
-  defer(this, function() {
-    this.agent.ptyInSocket.write(data);
-  });
-};
-
-/**
- * TTY
- */
-
-WindowsTerminal.prototype.resize = function (cols, rows) {
-  defer(this, function() {
-
-    cols = cols || DEFAULT_COLS;
-    rows = rows || DEFAULT_ROWS;
-
+    this.file = file;
+    this.name = name;
     this.cols = cols;
     this.rows = rows;
 
-    // TODO: Call this within WindowsPtyAgent
-    pty.resize(this.pid, cols, rows);
-  });
-};
+    this.readable = true;
+    this.writable = true;
+  }
 
-WindowsTerminal.prototype.destroy = function () {
-  defer(this, function() {
-    this.kill();
-  });
-};
+  /**
+   * openpty
+   */
 
-WindowsTerminal.prototype.kill = function (sig) {
-  defer(this, function() {
-    if (sig !== undefined) {
-      throw new Error('Signals not supported on windows.');
+  public open(opt) {
+    throw new Error('open() not supported on windows, use Fork() instead.');
+  }
+
+  /**
+   * Events
+   */
+
+  public write(data) {
+    this._defer(this, function() {
+      this.agent.ptyInSocket.write(data);
+    });
+  }
+
+  /**
+   * TTY
+   */
+
+  public resize(cols, rows) {
+    this._defer(this, function() {
+
+      cols = cols || DEFAULT_COLS;
+      rows = rows || DEFAULT_ROWS;
+
+      this.cols = cols;
+      this.rows = rows;
+
+      // TODO: Call this within WindowsPtyAgent
+      pty.resize(this.pid, cols, rows);
+    });
+  }
+
+  public destroy() {
+    this._defer(this, function() {
+      this.kill();
+    });
+  }
+
+  public kill(sig) {
+    this._defer(this, function() {
+      if (sig !== undefined) {
+        throw new Error('Signals not supported on windows.');
+      }
+      this._close();
+      // TODO: Call this within WindowsPtyAgent
+      pty.kill(this.pid);
+    });
+  }
+
+  private _defer(terminal, deferredFn) {
+
+    // Ensure that this method is only used within Terminal class.
+    if (!(terminal instanceof WindowsTerminal)) {
+      throw new Error('Must be instanceof WindowsTerminal');
     }
-    this._close();
-    // TODO: Call this within WindowsPtyAgent
-    pty.kill(this.pid);
-  });
-};
 
-WindowsTerminal.prototype.__defineGetter__('process', function () {
-  return this.name;
-});
-
-/**
- * Helpers
- */
-
-function defer(terminal, deferredFn) {
-
-  // Ensure that this method is only used within Terminal class.
-  if (!(terminal instanceof WindowsTerminal)) {
-    throw new Error('Must be instanceof WindowsTerminal');
-  }
-
-  // If the terminal is ready, execute.
-  if (terminal.isReady) {
-    deferredFn.apply(terminal, null);
-    return;
-  }
-
-  // Queue until terminal is ready.
-  terminal.deferreds.push({
-    run: function() {
-      // Run deffered.
+    // If the terminal is ready, execute.
+    if (terminal.isReady) {
       deferredFn.apply(terminal, null);
+      return;
     }
-  });
+
+    // Queue until terminal is ready.
+    terminal.deferreds.push({
+      run: function() {
+        // Run deffered.
+        deferredFn.apply(terminal, null);
+      }
+    });
+  }
+
+  public get process() { return this.name; }
 }
