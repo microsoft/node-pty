@@ -17,15 +17,8 @@ try {
   pty = require(path.join('..', 'build', 'Debug', 'pty.node'));
 };
 
-// Counter of number of "pipes" created so far.
-var pipeIncr = 0;
-
 var DEFAULT_COLS = 80;
 var DEFAULT_ROWS = 30;
-
-
-// Keep track of the total number of terminals for the process.
-var terminalCount = 0;
 
 /**
  * Agent. Internal class.
@@ -37,9 +30,6 @@ var terminalCount = 0;
 
 function Agent(file, args, env, cwd, cols, rows, debug) {
   var self = this;
-
-  // Increment the number of pipes created.
-  pipeIncr++;
 
   // Unique identifier per pipe created.
   var timestamp = Date.now();
@@ -220,7 +210,6 @@ function Terminal(file, args, opt) {
 
     // Cleanup after the socket is closed.
     self.socket.on('close', function () {
-      terminalCount--;
       self.emit('exit', null);
       self._close();
     });
@@ -234,8 +223,6 @@ function Terminal(file, args, opt) {
 
   this.readable = true;
   this.writable = true;
-
-  terminalCount++;
 }
 
 export function fork(file, args, opt) { return createTerminal(file, args, opt); }
