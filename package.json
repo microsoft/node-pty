@@ -6,7 +6,7 @@
   },
   "version": "0.4.1",
   "license": "MIT",
-  "main": "./index.js",
+  "main": "./lib/index.js",
   "repository": {
     "type": "git",
     "url": "git://github.com/Tyriar/node-pty.git"
