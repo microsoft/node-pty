@@ -17,7 +17,7 @@ try {
 };
 
 export class UnixTerminal extends Terminal {
-  protected socket: any;
+  protected socket: PipeSocket;
   protected pid: number;
   protected fd: number;
   protected pty: any;
@@ -49,17 +49,6 @@ export class UnixTerminal extends Terminal {
       , uid
       , gid
       , term;
-
-    // backward compatibility
-    if (typeof args === 'string') {
-      opt = {
-        name: arguments[1],
-        cols: arguments[2],
-        rows: arguments[3],
-        cwd: process.env.HOME
-      };
-      args = [];
-    }
 
     // arguments
     args = args || [];
@@ -127,7 +116,7 @@ export class UnixTerminal extends Terminal {
     this.socket.resume();
 
     // setup
-    this.socket.on('error', function(err) {
+    this.socket.on('error', function(err: any) {
       // NOTE: fs.ReadStream gets EAGAIN twice at first:
       if (err.code) {
         if (~err.code.indexOf('EAGAIN')) return;
@@ -176,12 +165,14 @@ export class UnixTerminal extends Terminal {
     env = null;
   }
 
+  // public fork() {}
+
   /**
    * openpty
    */
 
-  public open(opt) {
-    const self = this;
+  public static open(opt) {
+    const self = Object.create(UnixTerminal.prototype);
     opt = opt || {};
 
     if (arguments.length > 1) {
@@ -231,11 +222,11 @@ export class UnixTerminal extends Terminal {
     return self;
   };
 
-  public write(data) {
-    return this.socket.write(data);
+  public write(data: string): void {
+    this.socket.write(data);
   }
 
-  public destroy() {
+  public destroy(): void {
     const self = this;
 
     // close
@@ -251,13 +242,16 @@ export class UnixTerminal extends Terminal {
     this.socket.destroy();
   }
 
-  public kill(sig) {
+  public kill(signal?: string): void {
     try {
-      process.kill(this.pid, sig || 'SIGHUP');
+      process.kill(this.pid, signal || 'SIGHUP');
     } catch (e) { /* swallow */ }
   }
 
-  public get process() {
+  /**
+   * Gets the name of the process.
+   */
+  public get process(): string {
     return pty.process(this.fd, this.pty) || this.file;
   }
 
@@ -265,7 +259,7 @@ export class UnixTerminal extends Terminal {
    * TTY
    */
 
-  public resize(cols: number, rows: number) {
+  public resize(cols: number, rows: number): void {
     pty.resize(this.fd, cols, rows);
   }
 }

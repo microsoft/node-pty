@@ -2,16 +2,22 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
-interface IPty {
-  createTerminal(file: string, args: string[], opt: IPtyOptions);
-  fork(file: string, args: string[], opt: IPtyOptions);
-  spawn(file: string, args: string[], opt: IPtyOptions);
+export interface IPty {
+  createTerminal(file?: string, args?: string[], opt?: IPtyForkOptions);
+  fork(file?: string, args?: string[], opt?: IPtyForkOptions);
+  spawn(file?: string, args?: string[], opt?: IPtyForkOptions);
+  open(opt?: IPtyOpenOptions);
 }
 
-interface IPtyOptions {
+export interface IPtyForkOptions {
   name?: string;
   cols?: number;
-  rows?: 30;
+  rows?: number;
   cwd?: string;
   env?: {[key: string]: string};
+}
+
+export interface IPtyOpenOptions {
+  cols?: number;
+  rows?: number;
 }

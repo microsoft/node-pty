@@ -9,6 +9,7 @@ import * as extend from 'extend';
 import { inherits } from 'util';
 import { Terminal } from './terminal';
 import { WindowsPtyAgent } from './windowsPtyAgent';
+import { IPtyOpenOptions } from './interfaces';
 
 let pty;
 try {
@@ -28,17 +29,6 @@ export class WindowsTerminal extends Terminal {
 
     const self = this;
     let env, cwd, name, cols, rows, term, agent, debug;
-
-    // Backward compatibility.
-    if (typeof args === 'string') {
-      opt = {
-        name: arguments[1],
-        cols: arguments[2],
-        rows: arguments[3],
-        cwd: process.env.HOME
-      };
-      args = [];
-    }
 
     // Arguments.
     args = args || [];
@@ -156,7 +146,7 @@ export class WindowsTerminal extends Terminal {
    * openpty
    */
 
-  public open(opt) {
+  public static open(options?: IPtyOpenOptions): void {
     throw new Error('open() not supported on windows, use Fork() instead.');
   }
 
@@ -164,8 +154,8 @@ export class WindowsTerminal extends Terminal {
    * Events
    */
 
-  public write(data) {
-    this._defer(this, function() {
+  public write(data: string): void {
+    this._defer(() => {
       this.agent.ptyInSocket.write(data);
     });
   }
@@ -174,22 +164,22 @@ export class WindowsTerminal extends Terminal {
    * TTY
    */
 
-  public resize(cols: number, rows: number) {
-    this._defer(this, function() {
+  public resize(cols: number, rows: number): void {
+    this._defer(() => {
       // TODO: Call this within WindowsPtyAgent
       pty.resize(this.pid, cols, rows);
     });
   }
 
-  public destroy() {
-    this._defer(this, function() {
+  public destroy(): void {
+    this._defer(() => {
       this.kill();
     });
   }
 
-  public kill(sig) {
-    this._defer(this, function() {
-      if (sig !== undefined) {
+  public kill(signal?: number): void {
+    this._defer(() => {
+      if (signal) {
         throw new Error('Signals not supported on windows.');
       }
       this._close();
@@ -198,27 +188,30 @@ export class WindowsTerminal extends Terminal {
     });
   }
 
-  private _defer(terminal, deferredFn) {
+  private _defer(deferredFn: Function): void {
 
     // Ensure that this method is only used within Terminal class.
-    if (!(terminal instanceof WindowsTerminal)) {
+    if (!(this instanceof WindowsTerminal)) {
       throw new Error('Must be instanceof WindowsTerminal');
     }
 
     // If the terminal is ready, execute.
-    if (terminal.isReady) {
-      deferredFn.apply(terminal, null);
+    if (this.isReady) {
+      deferredFn.apply(this, null);
       return;
     }
 
     // Queue until terminal is ready.
-    terminal.deferreds.push({
+    this.deferreds.push({
       run: function() {
         // Run deffered.
-        deferredFn.apply(terminal, null);
+        deferredFn.apply(this, null);
       }
     });
   }
 
-  public get process() { return this.name; }
+  /**
+   * Gets the name of the process.
+   */
+  public get process(): string { return this.name; }
 }

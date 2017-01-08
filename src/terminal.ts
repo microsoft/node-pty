@@ -95,12 +95,16 @@ export abstract class Terminal {
   public get stdout() { return this; }
   public get stderr() { throw new Error('No stderr.'); }
 
-  public abstract write(data);
-  public abstract resize(cols, rows);
-  public abstract open(opt);
-  public abstract destroy();
-  public abstract kill(sig);
-  public abstract get process();
+  public abstract write(data: string): void;
+  public abstract resize(cols: number, rows: number): void;
+  // public abstract open(opt);
+  public abstract destroy(): void;
+  public abstract kill(signal?: number): void;
+
+  /**
+   * Gets the name of the process.
+   */
+  public abstract get process(): string;
 
   public redraw() {
     let self = this;
