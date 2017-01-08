@@ -28,8 +28,6 @@ export class UnixTerminal extends Terminal {
 
   protected file: string;
   protected name: string;
-  protected cols: number;
-  protected rows: number;
 
   protected readable: boolean;
   protected writable: boolean;
@@ -108,9 +106,6 @@ export class UnixTerminal extends Terminal {
     cwd = opt.cwd || process.cwd();
     name = opt.name || env.TERM || 'xterm';
     env.TERM = name;
-    // XXX Shouldn't be necessary:
-    // env.LINES = rows + '';
-    // env.COLUMNS = cols + '';
 
     env = this._parseEnv(env);
 
@@ -171,8 +166,6 @@ export class UnixTerminal extends Terminal {
 
     this.file = file;
     this.name = name;
-    this.cols = cols;
-    this.rows = rows;
 
     this.readable = true;
     this.writable = true;
@@ -224,8 +217,6 @@ export class UnixTerminal extends Terminal {
 
     self.file = process.argv[0] || 'node';
     self.name = process.env.TERM || '';
-    self.cols = cols;
-    self.rows = rows;
 
     self.readable = true;
     self.writable = true;
@@ -278,13 +269,7 @@ export class UnixTerminal extends Terminal {
    * TTY
    */
 
-  public resize(cols, rows) {
-    cols = cols || Terminal.DEFAULT_COLS;
-    rows = rows || Terminal.DEFAULT_ROWS;
-
-    this.cols = cols;
-    this.rows = rows;
-
+  public resize(cols: number, rows: number) {
     pty.resize(this.fd, cols, rows);
   }
 }

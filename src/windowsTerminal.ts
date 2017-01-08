@@ -147,8 +147,6 @@ export class WindowsTerminal extends Terminal {
 
     this.file = file;
     this.name = name;
-    this.cols = cols;
-    this.rows = rows;
 
     this.readable = true;
     this.writable = true;
@@ -176,15 +174,8 @@ export class WindowsTerminal extends Terminal {
    * TTY
    */
 
-  public resize(cols, rows) {
+  public resize(cols: number, rows: number) {
     this._defer(this, function() {
-
-      cols = cols || Terminal.DEFAULT_COLS;
-      rows = rows || Terminal.DEFAULT_ROWS;
-
-      this.cols = cols;
-      this.rows = rows;
-
       // TODO: Call this within WindowsPtyAgent
       pty.resize(this.pid, cols, rows);
     });
