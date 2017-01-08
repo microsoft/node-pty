@@ -260,14 +260,3 @@ function defer(terminal, deferredFn) {
     }
   });
 }
-
-function environ(env) {
-  const keys = Object.keys(env || {});
-  const pairs = [];
-
-  for (let i = 0; i < keys.length; i++) {
-    pairs.push(keys[i] + '=' + env[keys[i]]);
-  }
-
-  return pairs;
-}
