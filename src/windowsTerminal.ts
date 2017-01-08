@@ -3,21 +3,21 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
-var net = require('net');
-var path = require('path');
-var extend = require('extend');
-var inherits = require('util').inherits;
-var BaseTerminal = require('./pty').Terminal;
-var pty;
+import * as net from 'net';
+import * as path from 'path';
+import * as extend from 'extend';
+import { inherits } from 'util';
+import * as Terminal from './pty';
 
+let pty;
 try {
   pty = require(path.join('..', 'build', 'Release', 'pty.node'));
-} catch(e) {
+} catch (e) {
   pty = require(path.join('..', 'build', 'Debug', 'pty.node'));
 };
 
-var DEFAULT_COLS = 80;
-var DEFAULT_ROWS = 30;
+const DEFAULT_COLS = 80;
+const DEFAULT_ROWS = 30;
 
 /**
  * Agent. Internal class.
@@ -28,22 +28,22 @@ var DEFAULT_ROWS = 30;
  */
 
 function Agent(file, args, env, cwd, cols, rows, debug) {
-  var self = this;
+  const self = this;
 
   // Unique identifier per pipe created.
-  var timestamp = Date.now();
-  
+  const timestamp = Date.now();
+
   // Sanitize input variable.
   file = file;
   cwd = path.resolve(cwd);
 
   // Compose command line
-  var cmdline = [file];
+  const cmdline = [file];
   Array.prototype.push.apply(cmdline, args);
-  var cmdlineFlat = argvToCommandLine(cmdline);
+  const cmdlineFlat = argvToCommandLine(cmdline);
 
   // Open pty session.
-  var term = pty.startProcess(file, cmdlineFlat, env, cwd, cols, rows, debug);
+  const term = pty.startProcess(file, cmdlineFlat, env, cwd, cols, rows, debug);
   this.dataPipeIn = term.conin;
   this.dataPipeOut = term.conout;
 
@@ -96,8 +96,8 @@ term.on('data', function(data) {
 
 export function WindowsTerminal(file, args, opt) {
 
-  var self = this,
-      env, cwd, name, cols, rows, term, agent, debug;
+  const self = this;
+  let env, cwd, name, cols, rows, term, agent, debug;
 
   // Backward compatibility.
   if (typeof args === 'string') {
@@ -160,7 +160,7 @@ export function WindowsTerminal(file, args, opt) {
 
         // Wait until the first data event is fired
         // then we can run deferreds.
-        if(!self.isReady && event == 'data') {
+        if (!self.isReady && event === 'data') {
 
           // Terminal is now ready and we can
           // avoid having to defer method calls.
@@ -225,7 +225,7 @@ export function WindowsTerminal(file, args, opt) {
 }
 
 // Inherit from pty.js
-inherits(WindowsTerminal, BaseTerminal);
+inherits(WindowsTerminal, Terminal);
 
 /**
  * Events
@@ -236,7 +236,7 @@ inherits(WindowsTerminal, BaseTerminal);
  */
 
 WindowsTerminal.prototype.open = function () {
-  throw new Error("open() not supported on windows, use Fork() instead.");
+  throw new Error('open() not supported on windows, use Fork() instead.');
 };
 
 /**
@@ -275,7 +275,7 @@ WindowsTerminal.prototype.destroy = function () {
 WindowsTerminal.prototype.kill = function (sig) {
   defer(this, function() {
     if (sig !== undefined) {
-      throw new Error("Signals not supported on windows.");
+      throw new Error('Signals not supported on windows.');
     }
     this._close();
     pty.kill(this.pid);
@@ -294,7 +294,7 @@ function defer(terminal, deferredFn) {
 
   // Ensure that this method is only used within Terminal class.
   if (!(terminal instanceof WindowsTerminal)) {
-    throw new Error("Must be instanceof WindowsTerminal");
+    throw new Error('Must be instanceof WindowsTerminal');
   }
 
   // If the terminal is ready, execute.
@@ -313,12 +313,10 @@ function defer(terminal, deferredFn) {
 }
 
 function environ(env) {
-  var keys = Object.keys(env || {})
-    , l = keys.length
-    , i = 0
-    , pairs = [];
+  const keys = Object.keys(env || {});
+  const pairs = [];
 
-  for (; i < l; i++) {
+  for (let i = 0; i < keys.length; i++) {
     pairs.push(keys[i] + '=' + env[keys[i]]);
   }
 
@@ -329,25 +327,25 @@ function environ(env) {
 // documented on MSDN.  (e.g. see CommandLineToArgvW documentation)
 // Copied from winpty project.
 function argvToCommandLine(argv) {
-  var result = '';
-  for (var argIndex = 0; argIndex < argv.length; argIndex++) {
+  let result = '';
+  for (let argIndex = 0; argIndex < argv.length; argIndex++) {
     if (argIndex > 0) {
       result += ' ';
     }
-    var arg = argv[argIndex];
-    var quote =
-      arg.indexOf(' ') != -1 ||
-      arg.indexOf('\t') != -1 ||
-      arg == '';
+    const arg = argv[argIndex];
+    const quote =
+      arg.indexOf(' ') !== -1 ||
+      arg.indexOf('\t') !== -1 ||
+      arg === '';
     if (quote) {
       result += '\"';
     }
-    var bsCount = 0;
-    for (var i = 0; i < arg.length; i++) {
-      var p = arg[i];
-      if (p == '\\') {
+    let bsCount = 0;
+    for (let i = 0; i < arg.length; i++) {
+      const p = arg[i];
+      if (p === '\\') {
         bsCount++;
-      } else if (p == '"') {
+      } else if (p === '"') {
         result += repeatText('\\', bsCount * 2 + 1);
         result += '"';
         bsCount = 0;

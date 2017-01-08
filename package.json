@@ -22,6 +22,7 @@
   ],
   "scripts": {
     "tsc": "tsc",
+    "tslint": "tslint src/**/*.ts",
     "install": "node scripts/install.js",
     "postinstall": "node scripts/post-install.js",
     "test": "cross-env NODE_ENV=test mocha -R spec test"
@@ -39,6 +40,7 @@
     "@types/node": "^6.0.58",
     "cross-env": "^3.1.3",
     "mocha": "^3.1.2",
+    "tslint": "^4.3.1",
     "typescript": "^2.1.4"
   }
 }
