@@ -2,6 +2,8 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
+export type ProcessEnv = {[key: string]: string};
+
 export interface ITerminal {
   process: string;
 
@@ -19,7 +21,7 @@ export interface IPtyForkOptions {
   cols?: number;
   rows?: number;
   cwd?: string;
-  env?: {[key: string]: string};
+  env?: ProcessEnv;
   uid?: number;
   gid?: number;
 }

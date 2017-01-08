@@ -10,6 +10,7 @@
       "spaces"
     ],
     "eofline": true,
+    "one-variable-per-declaration": [true, "ignore-for-loop"],
     "no-eval": true,
     "no-internal-module": true,
     "no-trailing-whitespace": true,

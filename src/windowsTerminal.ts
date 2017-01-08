@@ -15,7 +15,6 @@ export class WindowsTerminal extends Terminal {
   private isReady: boolean;
   private deferreds: any[];
   private agent: WindowsPtyAgent;
-  private dataPipe: any;
 
   constructor(file?: string, args?: string[], opt?: IPtyForkOptions) {
     super();
@@ -42,42 +41,34 @@ export class WindowsTerminal extends Terminal {
 
     // Create new termal.
     this.agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, cols, rows, false);
-
-    // The dummy socket is used so that we can defer everything
-    // until its available.
     this.socket = this.agent.outSocket;
-
-    // The terminal socket when its available
-    this.dataPipe = null;
 
     // Not available until `ready` event emitted.
     this.pid = this.agent.pid;
     this.fd = this.agent.fd;
     this.pty = this.agent.pty;
 
-    // The forked windows terminal is not available
-    // until `ready` event is emitted.
+    // The forked windows terminal is not available until `ready` event is
+    // emitted.
     this.socket.on('ready_datapipe', () => {
 
       // These events needs to be forwarded.
       ['connect', 'data', 'end', 'timeout', 'drain'].forEach(event => {
         this.socket.on(event, data => {
 
-          // Wait until the first data event is fired
-          // then we can run deferreds.
+          // Wait until the first data event is fired then we can run deferreds.
           if (!this.isReady && event === 'data') {
 
-            // Terminal is now ready and we can
-            // avoid having to defer method calls.
+            // Terminal is now ready and we can avoid having to defer method
+            // calls.
             this.isReady = true;
 
             // Execute all deferred methods
             this.deferreds.forEach(fn => {
-              // NB! In order to ensure that `this` has all
-              // its references updated any variable that
-              // need to be available in `this` before
-              // the deferred is run has to be declared
-              // above this forEach statement.
+              // NB! In order to ensure that `this` has all its references
+              // updated any variable that need to be available in `this` before
+              // the deferred is run has to be declared above this forEach
+              // statement.
               fn.run();
             });
 
@@ -96,8 +87,8 @@ export class WindowsTerminal extends Terminal {
         // Close terminal session.
         this._close();
 
-        // EIO, happens when someone closes our child
-        // process: the only process in the terminal.
+        // EIO, happens when someone closes our child process: the only process
+        // in the terminal.
         // node < 0.6.14: errno 5
         // node >= 0.6.14: read EIO
         if ((<any>err).code) {

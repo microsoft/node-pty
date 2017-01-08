@@ -8,7 +8,7 @@ import * as net from 'net';
 import * as path from 'path';
 import * as tty from 'tty';
 import { Terminal } from './terminal';
-import { IPtyForkOptions, IPtyOpenOptions } from './interfaces';
+import { ProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 
 let pty;
 try {
@@ -49,28 +49,8 @@ export class UnixTerminal extends Terminal {
     const env = extend({}, opt.env);
 
     if (opt.env === process.env) {
-      // Make sure we didn't start our
-      // server from inside tmux.
-      delete env.TMUX;
-      delete env.TMUX_PANE;
-
-      // Make sure we didn't start
-      // our server from inside screen.
-      // http://web.mit.edu/gnu/doc/html/screen_20.html
-      delete env.STY;
-      delete env.WINDOW;
-
-      // Delete some variables that
-      // might confuse our terminal.
-      delete env.WINDOWID;
-      delete env.TERMCAP;
-      delete env.COLUMNS;
-      delete env.LINES;
+      this._sanitizeEnv(env);
     }
-
-    // Could set some basic env vars
-    // here, if they do not exist:
-    // USER, SHELL, HOME, LOGNAME, WINDOWID
 
     const cwd = opt.cwd || process.cwd();
     const name = opt.name || env.TERM || 'xterm';
@@ -78,8 +58,8 @@ export class UnixTerminal extends Terminal {
     const parsedEnv = this._parseEnv(env);
 
     const onexit = (code: any, signal: any) => {
-      // XXX Sometimes a data event is emitted
-      // after exit. Wait til socket is destroyed.
+      // XXX Sometimes a data event is emitted after exit. Wait til socket is
+      // destroyed.
       if (!this._emittedClose) {
         if (this._boundClose) return;
         this._boundClose = true;
@@ -100,7 +80,9 @@ export class UnixTerminal extends Terminal {
     this.socket.on('error', (err: any) => {
       // NOTE: fs.ReadStream gets EAGAIN twice at first:
       if (err.code) {
-        if (~err.code.indexOf('EAGAIN')) return;
+        if (~err.code.indexOf('EAGAIN')) {
+          return;
+        }
       }
 
       // close
@@ -111,13 +93,14 @@ export class UnixTerminal extends Terminal {
         this.emit('close');
       }
 
-      // EIO, happens when someone closes our child
-      // process: the only process in the terminal.
+      // EIO, happens when someone closes our child process: the only process in
+      // the terminal.
       // node < 0.6.14: errno 5
       // node >= 0.6.14: read EIO
       if (err.code) {
-        if (~err.code.indexOf('errno 5')
-            || ~err.code.indexOf('EIO')) return;
+        if (~err.code.indexOf('errno 5') || ~err.code.indexOf('EIO')) {
+          return;
+        }
       }
 
       // throw anything else
@@ -146,8 +129,6 @@ export class UnixTerminal extends Terminal {
     });
   }
 
-  // public fork() {}
-
   /**
    * openpty
    */
@@ -163,12 +144,11 @@ export class UnixTerminal extends Terminal {
       };
     }
 
-    let cols = opt.cols || Terminal.DEFAULT_COLS
-      , rows = opt.rows || Terminal.DEFAULT_ROWS
-      , term;
+    const cols = opt.cols || Terminal.DEFAULT_COLS;
+    const rows = opt.rows || Terminal.DEFAULT_ROWS;
 
     // open
-    term = pty.open(cols, rows);
+    const term = pty.open(cols, rows);
 
     self.master = new PipeSocket(term.master);
     self.master.setEncoding('utf8');
@@ -210,9 +190,8 @@ export class UnixTerminal extends Terminal {
   public destroy(): void {
     this._close();
 
-    // Need to close the read stream so
-    // node stops reading a dead file descriptor.
-    // Then we can safely SIGHUP the shell.
+    // Need to close the read stream so node stops reading a dead file
+    // descriptor. Then we can safely SIGHUP the shell.
     this.socket.once('close', () => {
       this.kill('SIGHUP');
     });
@@ -239,6 +218,23 @@ export class UnixTerminal extends Terminal {
 
   public resize(cols: number, rows: number): void {
     pty.resize(this.fd, cols, rows);
+  }
+
+  private _sanitizeEnv(env: ProcessEnv): void {
+      // Make sure we didn't start our server from inside tmux.
+      delete env['TMUX'];
+      delete env['TMUX_PANE'];
+
+      // Make sure we didn't start our server from inside screen.
+      // http://web.mit.edu/gnu/doc/html/screen_20.html
+      delete env['STY'];
+      delete env['WINDOW'];
+
+      // Delete some variables that might confuse our terminal.
+      delete env['WINDOWID'];
+      delete env['TERMCAP'];
+      delete env['COLUMNS'];
+      delete env['LINES'];
   }
 }
 

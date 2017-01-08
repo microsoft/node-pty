@@ -43,11 +43,7 @@ export class WindowsPtyAgent {
     rows: number,
     debug: boolean
   ) {
-    // Unique identifier per pipe created.
-    const timestamp = Date.now();
-
     // Sanitize input variable.
-    file = file;
     cwd = path.resolve(cwd);
 
     // Compose command line
@@ -64,8 +60,8 @@ export class WindowsPtyAgent {
     // Not available on windows.
     this._fd = term.fd;
 
-    // Generated incremental number that has no real purpose besides
-    // using it as a terminal id.
+    // Generated incremental number that has no real purpose besides  using it
+    // as a terminal id.
     this._pty = term.pty;
 
     // Create terminal pipe IPC channel and forward to a local unix socket.
@@ -94,8 +90,8 @@ export class WindowsPtyAgent {
 }
 
 // Convert argc/argv into a Win32 command-line following the escaping convention
-// documented on MSDN.  (e.g. see CommandLineToArgvW documentation)
-// Copied from winpty project.
+// documented on MSDN (e.g. see CommandLineToArgvW documentation). Copied from
+// winpty project.
 function argvToCommandLine(argv: string[]): string {
   let result = '';
   for (let argIndex = 0; argIndex < argv.length; argIndex++) {

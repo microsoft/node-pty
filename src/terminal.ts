@@ -43,13 +43,12 @@ export abstract class Terminal implements ITerminal {
   }
 
   /** See net.Socket.pause */
-  public pause(): any {
-    // TODO: Type with Socket
+  public pause(): Socket {
     return this.socket.pause();
   }
 
   /** See net.Socket.resume */
-  public resume(): any {
+  public resume(): Socket {
     // TODO: Type with Socket
     return this.socket.resume();
   }
@@ -111,8 +110,8 @@ export abstract class Terminal implements ITerminal {
     let cols = this.cols;
     let rows = this.rows;
 
-    // We could just send SIGWINCH, but most programs will
-    // ignore it if the size hasn't actually changed.
+    // We could just send SIGWINCH, but most programs will  ignore it if the
+    // size hasn't actually changed.
 
     this.resize(cols + 1, rows + 1);
 
