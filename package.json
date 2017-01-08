@@ -12,7 +12,8 @@
     "url": "git://github.com/Tyriar/node-pty.git"
   },
   "files": [
-    "lib/"
+    "lib/",
+    "scripts/"
   ],
   "homepage": "https://github.com/Tyriar/node-pty",
   "bugs": {
