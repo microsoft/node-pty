@@ -16,10 +16,6 @@ try {
   pty = require(path.join('..', 'build', 'Debug', 'pty.node'));
 };
 
-const version = process.versions.node.split('.').map(function(n) {
-  return +(n + '').split('-')[0];
-});
-
 export class UnixTerminal extends Terminal {
   protected socket: any;
   protected pid: number;
