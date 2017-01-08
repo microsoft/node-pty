@@ -17,9 +17,6 @@ try {
   pty = require(path.join('..', 'build', 'Debug', 'pty.node'));
 };
 
-const DEFAULT_COLS = 80;
-const DEFAULT_ROWS = 30;
-
 export class WindowsTerminal extends Terminal {
   private isReady: boolean;
   private deferreds: any[];
@@ -51,8 +48,8 @@ export class WindowsTerminal extends Terminal {
     opt.env = opt.env || process.env;
     env = extend({}, opt.env);
 
-    cols = opt.cols || DEFAULT_COLS;
-    rows = opt.rows || DEFAULT_ROWS;
+    cols = opt.cols || Terminal.DEFAULT_COLS;
+    rows = opt.rows || Terminal.DEFAULT_ROWS;
     cwd = opt.cwd || process.cwd();
     name = opt.name || env.TERM || 'Windows Shell';
     debug = opt.debug || false;
@@ -182,8 +179,8 @@ export class WindowsTerminal extends Terminal {
   public resize(cols, rows) {
     this._defer(this, function() {
 
-      cols = cols || DEFAULT_COLS;
-      rows = rows || DEFAULT_ROWS;
+      cols = cols || Terminal.DEFAULT_COLS;
+      rows = rows || Terminal.DEFAULT_ROWS;
 
       this.cols = cols;
       this.rows = rows;

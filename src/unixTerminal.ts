@@ -1,44 +1,24 @@
 /**
  * Copyright (c) 2012-2015, Christopher Jeffrey (MIT License)
- * Binding to the pseudo terminals.
+ * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
+import * as extend from 'extend';
+import * as net from 'net';
+import * as path from 'path';
+import * as tty from 'tty';
 import { Terminal } from './terminal';
 
-var extend = require('extend');
-var EventEmitter = require('events').EventEmitter;
-var net = require('net');
-var tty = require('tty');
-var path = require('path');
-var nextTick = global.setImmediate || process.nextTick;
-var pty;
+let pty;
 try {
   pty = require(path.join('..', 'build', 'Release', 'pty.node'));
-} catch(e) {
-  console.warn('Using debug version');
+} catch (e) {
   pty = require(path.join('..', 'build', 'Debug', 'pty.node'));
 };
 
-var version = process.versions.node.split('.').map(function(n) {
+const version = process.versions.node.split('.').map(function(n) {
   return +(n + '').split('-')[0];
 });
-
-var DEFAULT_COLS = 80;
-var DEFAULT_ROWS = 24;
-
-
-/**
- * Terminal
- */
-
-// Example:
-//  var term = new Terminal('bash', [], {
-//    name: 'xterm-color',
-//    cols: 80,
-//    rows: 24,
-//    cwd: process.env.HOME,
-//    env: process.env
-//  });
 
 export class UnixTerminal extends Terminal {
   protected socket: any;
@@ -66,8 +46,8 @@ export class UnixTerminal extends Terminal {
       return new UnixTerminal(file, args, opt);
     }
 
-    var self = this
-      , env
+    const self = this;
+    let env
       , cwd
       , name
       , cols
@@ -92,8 +72,8 @@ export class UnixTerminal extends Terminal {
     file = file || 'sh';
     opt = opt || {};
 
-    cols = opt.cols || DEFAULT_COLS;
-    rows = opt.rows || DEFAULT_ROWS;
+    cols = opt.cols || Terminal.DEFAULT_COLS;
+    rows = opt.rows || Terminal.DEFAULT_ROWS;
 
     uid = opt.uid != null ? opt.uid : -1;
     gid = opt.gid != null ? opt.gid : -1;
@@ -212,7 +192,7 @@ export class UnixTerminal extends Terminal {
    */
 
   public open(opt) {
-    var self = this;
+    const self = this;
     opt = opt || {};
 
     if (arguments.length > 1) {
@@ -222,8 +202,8 @@ export class UnixTerminal extends Terminal {
       };
     }
 
-    var cols = opt.cols || DEFAULT_COLS
-      , rows = opt.rows || DEFAULT_ROWS
+    let cols = opt.cols || Terminal.DEFAULT_COLS
+      , rows = opt.rows || Terminal.DEFAULT_ROWS
       , term;
 
     // open
@@ -269,7 +249,7 @@ export class UnixTerminal extends Terminal {
   }
 
   public destroy() {
-    var self = this;
+    const self = this;
 
     // close
     this._close();
@@ -287,9 +267,7 @@ export class UnixTerminal extends Terminal {
   public kill(sig) {
     try {
       process.kill(this.pid, sig || 'SIGHUP');
-    } catch(e) {
-      ;
-    }
+    } catch (e) { /* swallow */ }
   }
 
   public get process() {
@@ -301,8 +279,8 @@ export class UnixTerminal extends Terminal {
    */
 
   public resize(cols, rows) {
-    cols = cols || DEFAULT_COLS;
-    rows = rows || DEFAULT_ROWS;
+    cols = cols || Terminal.DEFAULT_COLS;
+    rows = rows || Terminal.DEFAULT_ROWS;
 
     this.cols = cols;
     this.rows = rows;
@@ -322,7 +300,7 @@ function TTYStream(fd) {
   }
 
   if (version[0] === 0 && version[1] < 12) {
-    return new tty.ReadStream(fd);
+    return new (<any>tty).ReadStream(fd);
   }
 
   return new Socket(fd);
@@ -337,8 +315,8 @@ function Socket(options): void {
     return new Socket(options);
   }
   // TODO: Why doesn't binding exist according to TS?
-  var tty = (<any>process).binding('tty_wrap');
-  var guessHandleType = tty.guessHandleType;
+  const tty = (<any>process).binding('tty_wrap');
+  const guessHandleType = tty.guessHandleType;
   tty.guessHandleType = function() {
     return 'PIPE';
   };

@@ -1,44 +1,15 @@
 /**
  * Copyright (c) 2012-2015, Christopher Jeffrey (MIT License)
- * Binding to the pseudo terminals.
+ * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
-var extend = require('extend');
-var EventEmitter = require('events').EventEmitter;
-var net = require('net');
-var tty = require('tty');
-var path = require('path');
-var nextTick = global.setImmediate || process.nextTick;
-var pty;
-try {
-  pty = require(path.join('..', 'build', 'Release', 'pty.node'));
-} catch(e) {
-  console.warn('Using debug version');
-  pty = require(path.join('..', 'build', 'Debug', 'pty.node'));
-};
-
-var version = process.versions.node.split('.').map(function(n) {
-  return +(n + '').split('-')[0];
-});
-
-var DEFAULT_COLS = 80;
-var DEFAULT_ROWS = 24;
-
-
-/**
- * Terminal
- */
-
-// Example:
-//  var term = new Terminal('bash', [], {
-//    name: 'xterm-color',
-//    cols: 80,
-//    rows: 24,
-//    cwd: process.env.HOME,
-//    env: process.env
-//  });
+import * as path from 'path';
+import { EventEmitter } from 'events';
 
 export abstract class Terminal {
+  protected static readonly DEFAULT_COLS = 80;
+  protected static readonly DEFAULT_ROWS = 24;
+
   protected socket: any;
   protected pid: number;
   protected fd: number;
@@ -132,9 +103,9 @@ export abstract class Terminal {
   public abstract get process();
 
   public redraw() {
-    var self = this
-      , cols = this.cols
-      , rows = this.rows;
+    let self = this;
+    let cols = this.cols;
+    let rows = this.rows;
 
     // We could just send SIGWINCH, but most programs will
     // ignore it if the size hasn't actually changed.
