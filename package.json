@@ -1,6 +1,6 @@
 {
   "name": "node-pty",
-  "description": "Pseudo terminals for node",
+  "description": "Fork pseudoterminals in Node.JS",
   "author": {
     "name": "Daniel Imms"
   },
@@ -28,7 +28,10 @@
   "tags": [
     "pty",
     "tty",
-    "terminal"
+    "terminal",
+    "pseudoterminal",
+    "forkpty",
+    "openpty"
   ],
   "dependencies": {
     "extend": "~1.2.1",
