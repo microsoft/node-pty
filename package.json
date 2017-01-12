@@ -18,21 +18,16 @@
   "keywords": [
     "pty",
     "tty",
-    "terminal"
+    "terminal",
+    "pseudoterminal",
+    "forkpty",
+    "openpty"
   ],
   "scripts": {
     "install": "node scripts/install.js",
     "postinstall": "node scripts/post-install.js",
     "test": "cross-env NODE_ENV=test mocha -R spec test"
   },
-  "tags": [
-    "pty",
-    "tty",
-    "terminal",
-    "pseudoterminal",
-    "forkpty",
-    "openpty"
-  ],
   "dependencies": {
     "extend": "~1.2.1",
     "nan": "2.2.1"
