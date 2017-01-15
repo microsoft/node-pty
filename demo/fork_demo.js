@@ -1,5 +1,5 @@
 var os = require('os');
-var pty = require('.');
+var pty = require('..');
 
 var shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
 
@@ -19,4 +19,4 @@ ptyProcess.write('ls\r');
 ptyProcess.resize(100, 40);
 ptyProcess.write('ls\r');
 
-setTimeout(() => ptyProcess.kill(), 1000);
+setTimeout(ptyProcess.kill.bind(ptyProcess), 5000);
