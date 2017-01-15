@@ -34,7 +34,7 @@
     "tsc": "tsc",
     "tslint": "tslint src/**/*.ts",
     "install": "node scripts/install.js",
-    "postinstall": "node scripts/post-install.js",
+    "postinstall": "node scripts/post-install.js && npm run tsc",
     "test": "cross-env NODE_ENV=test mocha -R spec test"
   },
   "dependencies": {
