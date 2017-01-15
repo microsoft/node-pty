@@ -36,6 +36,15 @@ ptyProcess.resize(100, 40);
 ptyProcess.write('ls\r');
 ```
 
+## Building
+
+```bash
+# Install dependencies and build C++
+npm install
+# Compile TypeScript -> JavaScript
+npm run tsc
+```
+
 ## Debugging
 
 On Windows, you can show the winpty agent console window by adding the environment variable `WINPTY_SHOW_CONSOLE=1` to the pty's environment. See https://github.com/rprichard/winpty#debugging-winpty for more information.
