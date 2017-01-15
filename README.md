@@ -2,15 +2,14 @@
 
 [![Build Status](https://travis-ci.org/Tyriar/node-pty.svg?branch=master)](https://travis-ci.org/Tyriar/node-pty)
 
-`forkpty(3)` bindings for node.js. This allows you to fork processes with pseudo
-terminal file descriptors. It returns a terminal object which allows reads
-and writes.
+`forkpty(3)` bindings for node.js. This allows you to fork processes with pseudoterminal file descriptors. It returns a terminal object which allows reads and writes.
 
 This is useful for:
 
 - Writing a terminal emulator.
-- Getting certain programs to *think* you're a terminal. This is useful if
-  you need a program to send you control sequences.
+- Getting certain programs to *think* you're a terminal, such as when you need a program to send you control sequences.
+
+`node-pty` supports Linux, macOS and Windows. Windows support is possible by utilizing the [winpty](https://github.com/rprichard/winpty) library.
 
 ## Example Usage
 
