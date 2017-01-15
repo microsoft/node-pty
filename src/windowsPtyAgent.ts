@@ -92,7 +92,7 @@ export class WindowsPtyAgent {
 // Convert argc/argv into a Win32 command-line following the escaping convention
 // documented on MSDN (e.g. see CommandLineToArgvW documentation). Copied from
 // winpty project.
-function argvToCommandLine(argv: string[]): string {
+export function argvToCommandLine(argv: string[]): string {
   let result = '';
   for (let argIndex = 0; argIndex < argv.length; argIndex++) {
     if (argIndex > 0) {
