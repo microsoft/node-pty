@@ -30,7 +30,6 @@ export class WindowsTerminal extends Terminal {
     const rows = opt.rows || Terminal.DEFAULT_ROWS;
     const cwd = opt.cwd || process.cwd();
     const name = opt.name || env.TERM || 'Windows Shell';
-    env.TERM = name;
     const parsedEnv = this._parseEnv(env);
 
     // If the terminal is ready
