@@ -35,6 +35,10 @@ ptyProcess.resize(100, 40);
 ptyProcess.write('ls\r');
 ```
 
+## Debugging
+
+On Windows, you can show the winpty agent console window by adding the environment variable `WINPTY_SHOW_CONSOLE=1` to the pty's environment. See https://github.com/rprichard/winpty#debugging-winpty for more information.
+
 ## Troubleshooting
 
 **Powershell gives error 8009001d**
