@@ -245,7 +245,7 @@ open:
 
   // Pty object values.
   Local<Object> marshal = Nan::New<Object>();
-  
+
   marshal->Set(Nan::New<String>("pid").ToLocalChecked(), Nan::New<Number>((int)winpty_agent_process(pc)));
   marshal->Set(Nan::New<String>("pty").ToLocalChecked(), Nan::New<Number>(InterlockedIncrement(&ptyCounter)));
   marshal->Set(Nan::New<String>("fd").ToLocalChecked(), Nan::New<Number>(-1));
@@ -296,7 +296,7 @@ static NAN_METHOD(PtyResize) {
   int rows = info[2]->Int32Value();
 
   winpty_t *pc = get_pipe_handle(handle);
-  
+
   assert(pc != nullptr);
   BOOL success = winpty_set_size(pc, cols, rows, nullptr);
   assert(success);

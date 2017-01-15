@@ -1,6 +1,6 @@
 if (process.platform !== 'win32') return
 
-var argvToCommandLine = require('../').argvToCommandLine
+var argvToCommandLine = require('../lib/windowsPtyAgent').argvToCommandLine
 var assert = require("assert");
 
 function check(input, expected) {
