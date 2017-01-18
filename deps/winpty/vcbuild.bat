@@ -43,12 +43,8 @@ if "%1" == "--toolset" (
     shift && shift
     goto :ParamLoop
 )
-if "%1" == "--version-suffix" (
-    if x%2 == x"" (
-        set GYP_ARGS=%GYP_ARGS% -D VERSION_SUFFIX=__none__
-    ) else (
-        set GYP_ARGS=%GYP_ARGS% -D VERSION_SUFFIX=%2
-    )
+if "%1" == "--commit-hash" (
+    set GYP_ARGS=%GYP_ARGS% -D WINPTY_COMMIT_HASH=%2
     shift && shift
     goto :ParamLoop
 )

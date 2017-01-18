@@ -32,6 +32,8 @@ UNIX_ADAPTER_OBJECTS = \
 	build/unix-adapter/shared/WinptyAssert.o \
 	build/unix-adapter/shared/WinptyVersion.o
 
+build/unix-adapter/shared/WinptyVersion.o : build/gen/GenVersion.h
+
 build/$(UNIX_ADAPTER_EXE) : $(UNIX_ADAPTER_OBJECTS) build/winpty.dll
 	$(info Linking $@)
 	@$(UNIX_CXX) $(UNIX_LDFLAGS) -o $@ $^

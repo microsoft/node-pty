@@ -375,6 +375,51 @@ void Scraper::syncConsoleContentAndSize(
     }
 }
 
+// Try to match Windows' behavior w.r.t. to the LVB attribute flags.  In some
+// situations, Windows ignores the LVB flags on a character cell because of
+// backwards compatibility -- apparently some programs set the flags without
+// intending to enable reverse-video or underscores.
+//
+// [rprichard 2017-01-15] I haven't actually noticed any old programs that need
+// this treatment -- the motivation for this function comes from the MSDN
+// documentation for SetConsoleMode and ENABLE_LVB_GRID_WORLDWIDE.
+WORD Scraper::attributesMask()
+{
+    const auto WINPTY_ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x4u;
+    const auto WINPTY_ENABLE_LVB_GRID_WORLDWIDE          = 0x10u;
+    const auto WINPTY_COMMON_LVB_REVERSE_VIDEO           = 0x4000u;
+    const auto WINPTY_COMMON_LVB_UNDERSCORE              = 0x8000u;
+
+    const auto cp = GetConsoleOutputCP();
+    const auto isCjk = (cp == 932 || cp == 936 || cp == 949 || cp == 950);
+
+    const DWORD outputMode = [this]{
+        ASSERT(this->m_consoleBuffer != nullptr);
+        DWORD mode = 0;
+        if (!GetConsoleMode(this->m_consoleBuffer->conout(), &mode)) {
+            mode = 0;
+        }
+        return mode;
+    }();
+    const bool hasEnableLvbGridWorldwide =
+        (outputMode & WINPTY_ENABLE_LVB_GRID_WORLDWIDE) != 0;
+    const bool hasEnableVtProcessing =
+        (outputMode & WINPTY_ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0;
+
+    // The new Windows 10 console (as of 14393) seems to respect
+    // COMMON_LVB_REVERSE_VIDEO even in CP437 w/o the other enabling modes, so
+    // try to match that behavior.
+    const auto isReverseSupported =
+        isCjk || hasEnableLvbGridWorldwide || hasEnableVtProcessing || m_console.isNewW10();
+    const auto isUnderscoreSupported =
+        isCjk || hasEnableLvbGridWorldwide || hasEnableVtProcessing;
+
+    WORD mask = ~0;
+    if (!isReverseSupported)    { mask &= ~WINPTY_COMMON_LVB_REVERSE_VIDEO; }
+    if (!isUnderscoreSupported) { mask &= ~WINPTY_COMMON_LVB_UNDERSCORE; }
+    return mask;
+}
+
 void Scraper::directScrapeOutput(const ConsoleScreenBufferInfo &info,
                                  bool cursorVisible)
 {
@@ -398,7 +443,7 @@ void Scraper::directScrapeOutput(const ConsoleScreenBufferInfo &info,
         m_terminal->hideTerminalCursor();
     }
 
-    largeConsoleRead(m_readBuffer, *m_consoleBuffer, scrapeRect);
+    largeConsoleRead(m_readBuffer, *m_consoleBuffer, scrapeRect, attributesMask());
 
     bool sawModifiedLine = false;
     for (int line = 0; line < h; ++line) {
@@ -516,7 +561,8 @@ bool Scraper::scrollingScrapeOutput(const ConsoleScreenBufferInfo &info,
                      SmallRect(0, firstReadLine,
                                std::min<SHORT>(info.bufferSize().X,
                                                MAX_CONSOLE_WIDTH),
-                               stopReadLine - firstReadLine));
+                               stopReadLine - firstReadLine),
+                     attributesMask());
 
     // If we're scraping the buffer without freezing it, we have to query the
     // buffer position data separately from the buffer content, so the two

@@ -208,7 +208,8 @@ Agent::Agent(LPCWSTR controlPipeName,
     m_console.setTitle(m_currentTitle);
 
     const HANDLE conin = GetStdHandle(STD_INPUT_HANDLE);
-    m_consoleInput.reset(new ConsoleInput(conin, m_mouseMode, *this));
+    m_consoleInput.reset(
+        new ConsoleInput(conin, m_mouseMode, *this, m_console));
 
     // Setup Ctrl-C handling.  First restore default handling of Ctrl-C.  This
     // attribute is inherited by child processes.  Then register a custom

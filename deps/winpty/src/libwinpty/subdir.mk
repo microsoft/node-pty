@@ -37,6 +37,8 @@ LIBWINPTY_OBJECTS = \
 	build/libwinpty/shared/WinptyException.o \
 	build/libwinpty/shared/WinptyVersion.o
 
+build/libwinpty/shared/WinptyVersion.o : build/gen/GenVersion.h
+
 build/winpty.dll : $(LIBWINPTY_OBJECTS)
 	$(info Linking $@)
 	@$(MINGW_CXX) $(MINGW_LDFLAGS) -shared -o $@ $^ -Wl,--out-implib,build/winpty.lib

@@ -33,7 +33,8 @@ LargeConsoleReadBuffer::LargeConsoleReadBuffer() :
 
 void largeConsoleRead(LargeConsoleReadBuffer &out,
                       Win32ConsoleBuffer &buffer,
-                      const SmallRect &readArea) {
+                      const SmallRect &readArea,
+                      WORD attributesMask) {
     ASSERT(readArea.Left >= 0 &&
            readArea.Top >= 0 &&
            readArea.Right >= readArea.Left &&
@@ -60,6 +61,11 @@ void largeConsoleRead(LargeConsoleReadBuffer &out,
                 std::min(maxReadLines, readArea.Bottom + 1 - curLine));
             buffer.read(subReadArea, out.lineDataMut(curLine));
             curLine = subReadArea.Bottom + 1;
+        }
+    }
+    if (attributesMask != static_cast<WORD>(~0)) {
+        for (size_t i = 0; i < count; ++i) {
+            out.m_data[i].Attributes &= attributesMask;
         }
     }
 }

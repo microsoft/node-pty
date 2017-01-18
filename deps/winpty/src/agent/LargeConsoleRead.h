@@ -61,7 +61,8 @@ private:
 
     friend void largeConsoleRead(LargeConsoleReadBuffer &out,
                                  Win32ConsoleBuffer &buffer,
-                                 const SmallRect &readArea);
+                                 const SmallRect &readArea,
+                                 WORD attributesMask);
 };
 
 #endif // LARGE_CONSOLE_READ_H

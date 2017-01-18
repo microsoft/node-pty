@@ -74,36 +74,35 @@ BUILD_TARGETS = [
 
 def buildTarget(target):
     packageName = "winpty-" + common_ship.winptyVersion + "-" + target["name"]
+    if os.path.exists("ship\\packages\\" + packageName):
+        shutil.rmtree("ship\\packages\\" + packageName)
     oldPath = os.environ["PATH"]
     os.environ["PATH"] = target["path"] + ";" + common_ship.defaultPathEnviron
     subprocess.check_call(["sh.exe", "configure"])
-    subprocess.check_call(["make.exe", "clean"])
     makeBinary = target.get("make_binary", "make.exe")
-    buildArgs = [makeBinary, "USE_PCH=0", "all", "tests"]
-    buildArgs += ["-j%d" % multiprocessing.cpu_count()]
-    subprocess.check_call(buildArgs)
+    subprocess.check_call([makeBinary, "clean"])
+    makeBaseCmd = [
+        makeBinary,
+        "USE_PCH=0",
+        "COMMIT_HASH=" + common_ship.commitHash,
+        "PREFIX=ship/packages/" + packageName
+    ]
+    subprocess.check_call(makeBaseCmd + ["all", "tests", "-j%d" % multiprocessing.cpu_count()])
     subprocess.check_call(["build\\trivial_test.exe"])
-    subprocess.check_call([makeBinary, "USE_PCH=0", "PREFIX=ship/packages/" + packageName, "install"])
+    subprocess.check_call(makeBaseCmd + ["install"])
     subprocess.check_call(["tar.exe", "cvfz",
         packageName + ".tar.gz",
         packageName], cwd=os.path.join(os.getcwd(), "ship", "packages"))
-    shutil.rmtree("ship\\packages\\" + packageName)
     os.environ["PATH"] = oldPath
 
 def main():
-    try:
-        common_ship.writeBuildInfo()
-        if os.path.exists("ship\\packages"):
-            shutil.rmtree("ship\\packages")
-        oldPath = os.environ["PATH"]
-        for t in BUILD_TARGETS:
-            os.environ["PATH"] = t["path"] + ";" + common_ship.defaultPathEnviron
-            subprocess.check_output(["tar.exe", "--help"])
-            subprocess.check_output(["make.exe", "--help"])
-        for t in BUILD_TARGETS:
-            buildTarget(t)
-    finally:
-        os.remove("BUILD_INFO.txt")
+    oldPath = os.environ["PATH"]
+    for t in BUILD_TARGETS:
+        os.environ["PATH"] = t["path"] + ";" + common_ship.defaultPathEnviron
+        subprocess.check_output(["tar.exe", "--help"])
+        subprocess.check_output(["make.exe", "--help"])
+    for t in BUILD_TARGETS:
+        buildTarget(t)
 
 if __name__ == "__main__":
     main()

@@ -20,7 +20,7 @@
 
 build/%.exe : src/tests/%.cc build/winpty.dll
 	$(info Building $@)
-	@$(MINGW_CXX) $(MINGW_CXXFLAGS) $(MINGW_LDFLAGS) -std=c++11 -o $@ $^
+	@$(MINGW_CXX) $(MINGW_CXXFLAGS) $(MINGW_LDFLAGS) -o $@ $^
 
 TEST_PROGRAMS = \
         build/trivial_test.exe

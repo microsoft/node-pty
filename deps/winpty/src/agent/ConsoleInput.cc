@@ -191,7 +191,9 @@ static int matchMouseRecord(const char *input, int inputSize, MouseRecord &out)
 
 } // anonymous namespace
 
-ConsoleInput::ConsoleInput(HANDLE conin, int mouseMode, DsrSender &dsrSender) :
+ConsoleInput::ConsoleInput(HANDLE conin, int mouseMode, DsrSender &dsrSender,
+                           Win32Console &console) :
+    m_console(console),
     m_conin(conin),
     m_mouseMode(mouseMode),
     m_dsrSender(dsrSender)
@@ -594,13 +596,37 @@ void ConsoleInput::appendKeyPress(std::vector<INPUT_RECORD> &records,
     const bool ctrl = (keyState & LEFT_CTRL_PRESSED) != 0;
     const bool alt = (keyState & LEFT_ALT_PRESSED) != 0;
     const bool shift = (keyState & SHIFT_PRESSED) != 0;
+    bool hasDebugInput = false;
 
     if (isTracingEnabled()) {
         static bool debugInput = hasDebugFlag("input");
         if (debugInput) {
+            hasDebugInput = true;
             InputMap::Key key = { virtualKey, codePoint, keyState };
             trace("keypress: %s", key.toString().c_str());
         }
+    }
+
+    if (m_escapeInputEnabled &&
+            (virtualKey == VK_UP ||
+                virtualKey == VK_DOWN ||
+                virtualKey == VK_LEFT ||
+                virtualKey == VK_RIGHT ||
+                virtualKey == VK_HOME ||
+                virtualKey == VK_END) &&
+            !ctrl && !alt && !shift) {
+        if (hasDebugInput) {
+            trace("sending keypress to console HWND");
+        }
+        uint32_t scanCode = MapVirtualKey(virtualKey, MAPVK_VK_TO_VSC);
+        if (scanCode > 255) {
+            scanCode = 0;
+        }
+        SendMessage(m_console.hwnd(), WM_KEYDOWN, virtualKey,
+            (scanCode << 16) | 1u);
+        SendMessage(m_console.hwnd(), WM_KEYUP, virtualKey,
+            (scanCode << 16) | (1u | (1u << 30) | (1u << 31)));
+        return;
     }
 
     uint16_t stepKeyState = 0;

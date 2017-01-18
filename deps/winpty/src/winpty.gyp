@@ -1,8 +1,4 @@
 {
-    # Pass -D VERSION_SUFFIX=<something> to gyp to override the suffix.
-    #
-    # The winpty.gyp file ignores the BUILD_INFO.txt file, if it exists.
-    #
     # The MSVC generator is the default.  Select the compiler version by
     # passing -G msvs_version=<ver> to gyp.  <ver> is a string like 2013e.
     # See gyp\pylib\gyp\MSVSVersion.py for sample version strings.  You
@@ -13,8 +9,8 @@
     # can be configured by passing variables to make, e.g.:
     #    make -j4 CXX=i686-w64-mingw32-g++ LDFLAGS="-static -static-libgcc -static-libstdc++"
 
-    'variables' : {
-        'VERSION_SUFFIX%' : '-dev',
+    'variables': {
+        'WINPTY_COMMIT_HASH%': '<!(cmd /c "cd shared && GetCommitHash.bat")',
     },
     'target_defaults' : {
         'defines' : [
@@ -22,9 +18,11 @@
             '_UNICODE',
             '_WIN32_WINNT=0x0501',
             'NOMINMAX',
-            'WINPTY_VERSION=<!(cmd /c "cd .. && type VERSION.txt")',
-            'WINPTY_VERSION_SUFFIX=<(VERSION_SUFFIX)',
-            'WINPTY_COMMIT_HASH=<!(cmd /c "cd shared && GetCommitHash.cmd")',
+        ],
+        'include_dirs': [
+            # Add the 'src/gen' directory to the include path and force gyp to
+            # run the script (re)generating the version header.
+            '<!(cmd /c "cd shared && UpdateGenVersion.bat <(WINPTY_COMMIT_HASH)")',
         ],
     },
     'targets' : [

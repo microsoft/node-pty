@@ -88,7 +88,7 @@ def checkoutGyp():
 
 def cleanMsvc():
     common_ship.rmrf("""
-        src/Release src/.vs
+        src/Release src/.vs src/gen
         src/*.vcxproj src/*.vcxproj.filters src/*.sln src/*.sdf
     """.split())
 
@@ -106,8 +106,8 @@ def build(arch, packageDir, xp=False):
         '"' + devCmdPath + '" && '
         " vcbuild.bat" +
         " --gyp-msvs-version " + versionInfo["gyp_version"] +
-        " --version-suffix __none__" +
-        " --msvc-platform " + archInfo["msvc_platform"]
+        " --msvc-platform " + archInfo["msvc_platform"] +
+        " --commit-hash " + common_ship.commitHash
     )
 
     subprocess.check_call(commandLine, shell=True, env=newEnv)
@@ -160,8 +160,6 @@ def buildPackage():
     shutil.copy(topDir + "/RELEASES.md",                        packageDir)
 
     subprocess.check_call([ZIP_TOOL, "a", packageFile, "."], cwd=packageDir)
-
-    common_ship.rmrf([packageDir])
 
 if __name__ == "__main__":
     buildPackage()

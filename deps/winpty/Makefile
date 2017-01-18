@@ -45,15 +45,12 @@ ifeq "$(wildcard config.mk)" ""
 endif
 include config.mk
 
-VERSION_TXT_CONTENT := $(shell cat VERSION.txt | tr -d '\r\n')
 COMMON_CXXFLAGS += \
-	-DWINPTY_VERSION=$(VERSION_TXT_CONTENT) \
-	-DWINPTY_VERSION_SUFFIX=$(VERSION_SUFFIX) \
-	-DWINPTY_COMMIT_HASH=$(COMMIT_HASH) \
 	-MMD -Wall \
 	-DUNICODE \
 	-D_UNICODE \
-	-D_WIN32_WINNT=0x0501
+	-D_WIN32_WINNT=0x0501 \
+	-Ibuild/gen
 
 UNIX_CXXFLAGS += \
 	$(COMMON_CXXFLAGS)
@@ -73,6 +70,11 @@ else
 PCH_DEP :=
 endif
 
+build/gen/GenVersion.h : VERSION.txt $(COMMIT_HASH_DEP) | $$(@D)/.mkdir
+	$(info Updating build/gen/GenVersion.h)
+	@echo "const char GenVersion_Version[] = \"$(shell cat VERSION.txt | tr -d '\r\n')\";" > build/gen/GenVersion.h
+	@echo "const char GenVersion_Commit[] = \"$(COMMIT_HASH)\";" >> build/gen/GenVersion.h
+
 build/mingw/PrecompiledHeader.h : src/shared/PrecompiledHeader.h | $$(@D)/.mkdir
 	$(info Copying $< to $@)
 	@cp $< $@
@@ -84,13 +86,13 @@ build/mingw/PrecompiledHeader.h.gch : build/mingw/PrecompiledHeader.h | $$(@D)/.
 -include build/mingw/PrecompiledHeader.h.d
 
 define def_unix_target
-build/$1/%.o : src/%.cc VERSION.txt | $$$$(@D)/.mkdir
+build/$1/%.o : src/%.cc | $$$$(@D)/.mkdir
 	$$(info Compiling $$<)
 	@$$(UNIX_CXX) $$(UNIX_CXXFLAGS) $2 -I src/include -c -o $$@ $$<
 endef
 
 define def_mingw_target
-build/$1/%.o : src/%.cc VERSION.txt $$(PCH_DEP) | $$$$(@D)/.mkdir
+build/$1/%.o : src/%.cc $$(PCH_DEP) | $$$$(@D)/.mkdir
 	$$(info Compiling $$<)
 	@$$(MINGW_CXX) $$(MINGW_CXXFLAGS) $2 -I src/include -c -o $$@ $$<
 endef
@@ -147,7 +149,7 @@ clean :
 
 .PHONY : clean-msvc
 clean-msvc :
-	rm -fr src/Default src/Release src/.vs
+	rm -fr src/Default src/Release src/.vs src/gen
 	rm -f src/*.vcxproj src/*.vcxproj.filters src/*.sln src/*.sdf
 
 .PHONY : distclean
