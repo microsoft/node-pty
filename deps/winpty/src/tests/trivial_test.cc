@@ -77,8 +77,32 @@ static void parentTest() {
     wchar_t program[1024];
     wchar_t cmdline[1024];
     GetModuleFileNameW(nullptr, program, 1024);
-    snwprintf(cmdline, sizeof(cmdline) / sizeof(cmdline[0]),
-              L"\"%s\" CHILD", program);
+
+    {
+        // XXX: We'd like to use swprintf, which is part of C99 and takes a
+        // size_t maxlen argument.  MinGW-w64 has this function, as does MSVC.
+        // The old MinGW doesn't, though -- instead, it apparently provides an
+        // swprintf taking no maxlen argument.  This *might* be a regression?
+        // (There is also no swnprintf, but that function is obsolescent with a
+        // correct swprintf, and it isn't in POSIX or ISO C.)
+        //
+        // Visual C++ 6 also provided this non-conformant swprintf, and I'm
+        // guessing MSVCRT.DLL does too.  (My impression is that the old MinGW
+        // prefers to rely on MSVCRT.DLL for convenience?)
+        //
+        // I could compile differently for old MinGW, but what if it fixes its
+        // function later?  Instead, use a workaround.  It's starting to make
+        // sense to drop MinGW support in favor of MinGW-w64.  This is too
+        // annoying.
+        //
+        // grepbait: OLD-MINGW / WINPTY_TARGET_MSYS1
+        cmdline[0] = L'\0';
+        wcscat(cmdline, L"\"");
+        wcscat(cmdline, program);
+        wcscat(cmdline, L"\" CHILD");
+    }
+    // swnprintf(cmdline, sizeof(cmdline) / sizeof(cmdline[0]),
+    //           L"\"%ls\" CHILD", program);
 
     auto agentCfg = winpty_config_new(0, nullptr);
     assert(agentCfg != nullptr);

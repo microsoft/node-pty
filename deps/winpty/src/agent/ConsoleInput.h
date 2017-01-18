@@ -38,7 +38,8 @@ class DsrSender;
 class ConsoleInput
 {
 public:
-    ConsoleInput(HANDLE conin, int mouseMode, DsrSender &dsrSender);
+    ConsoleInput(HANDLE conin, int mouseMode, DsrSender &dsrSender,
+                 Win32Console &console);
     void writeInput(const std::string &input);
     void flushIncompleteEscapeCode();
     void setMouseWindowRect(SmallRect val) { m_mouseWindowRect = val; }
@@ -79,6 +80,7 @@ private:
     DWORD inputConsoleMode();
 
 private:
+    Win32Console &m_console;
     HANDLE m_conin = nullptr;
     int m_mouseMode = 0;
     DsrSender &m_dsrSender;

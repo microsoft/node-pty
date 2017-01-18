@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <utility>
 #include <vector>
+#include <string>
 
 #include "WinptyException.h"
 

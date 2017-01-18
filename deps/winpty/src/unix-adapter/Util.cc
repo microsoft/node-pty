@@ -72,10 +72,6 @@ void selectWrapper(const char *diagName, int nfds, fd_set *readfds) {
         // the mingw.org project.  select is not supposed to fail with EAGAIN,
         // and EAGAIN does not make much sense as an error code.  (The whole
         // point of select is to block.)
-        //
-        // Try to detect old MSYS by noticing that CYGWIN_VERSION_CYGWIN_CONV
-        // is undefined.  I'm making this code conditional so it's easier to
-        // remove someday.
         if (errno == EAGAIN) {
             trace("%s select returned EAGAIN: interpreting like EINTR",
                 diagName);

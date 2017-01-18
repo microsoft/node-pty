@@ -52,6 +52,8 @@ AGENT_OBJECTS = \
 	build/agent/shared/WinptyException.o \
 	build/agent/shared/WinptyVersion.o
 
+build/agent/shared/WinptyVersion.o : build/gen/GenVersion.h
+
 build/winpty-agent.exe : $(AGENT_OBJECTS)
 	$(info Linking $@)
 	@$(MINGW_CXX) $(MINGW_LDFLAGS) -o $@ $^

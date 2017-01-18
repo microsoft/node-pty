@@ -156,22 +156,12 @@ if test $IS_MSYS1 = 1; then
     echo MINGW_ENABLE_CXX11_FLAG := -std=gnu++11 >> config.mk
 fi
 
-# Figure out how to embed build info (e.g. git commit) into the binary.
-if test -f BUILD_INFO.txt; then
-    echo "Build info: source package"
-    eval $(grep '^VERSION_SUFFIX=' BUILD_INFO.txt | tr -d '\r')
-    eval $(grep '^COMMIT_HASH=' BUILD_INFO.txt | tr -d '\r')
-    echo "VERSION_SUFFIX := ${VERSION_SUFFIX}" >> config.mk
-    echo "COMMIT_HASH := ${COMMIT_HASH}" >> config.mk
-    echo "BUILD_INFO_DEP := config.mk" >> config.mk
-elif test -d .git && git rev-parse HEAD >&/dev/null; then
-    echo "Build info: git"
-    echo 'VERSION_SUFFIX := -dev' >> config.mk
-    echo 'COMMIT_HASH := $(shell git rev-parse HEAD)' >> config.mk
-    echo 'BUILD_INFO_DEP := config.mk .git/HEAD' >> config.mk
+if test -d .git -a -f .git/HEAD -a -f .git/index && git rev-parse HEAD >&/dev/null; then
+    echo "Commit info: git"
+    echo 'COMMIT_HASH = $(shell git rev-parse HEAD)' >> config.mk
+    echo 'COMMIT_HASH_DEP := config.mk .git/HEAD .git/index' >> config.mk
 else
-    echo "Build info: none"
-    echo 'VERSION_SUFFIX := -dev' >> config.mk
+    echo "Commit info: none"
     echo 'COMMIT_HASH := none' >> config.mk
-    echo 'BUILD_INFO_DEP := config.mk' >> config.mk
+    echo 'COMMIT_HASH_DEP := config.mk' >> config.mk
 fi

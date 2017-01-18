@@ -71,6 +71,7 @@ private:
     void resizeImpl(const ConsoleScreenBufferInfo &origInfo);
     void syncConsoleContentAndSize(bool forceResize,
                                    ConsoleScreenBufferInfo &finalInfoOut);
+    WORD attributesMask();
     void directScrapeOutput(const ConsoleScreenBufferInfo &info,
                             bool cursorVisible);
     bool scrollingScrapeOutput(const ConsoleScreenBufferInfo &info,

@@ -34,6 +34,13 @@
 
 #define CSI "\x1b["
 
+// Work around the old MinGW, which lacks COMMON_LVB_LEADING_BYTE and
+// COMMON_LVB_TRAILING_BYTE.
+const int WINPTY_COMMON_LVB_LEADING_BYTE  = 0x100;
+const int WINPTY_COMMON_LVB_TRAILING_BYTE = 0x200;
+const int WINPTY_COMMON_LVB_REVERSE_VIDEO = 0x4000;
+const int WINPTY_COMMON_LVB_UNDERSCORE    = 0x8000;
+
 const int COLOR_ATTRIBUTE_MASK =
         FOREGROUND_BLUE |
         FOREGROUND_GREEN |
@@ -42,7 +49,9 @@ const int COLOR_ATTRIBUTE_MASK =
         BACKGROUND_BLUE |
         BACKGROUND_GREEN |
         BACKGROUND_RED |
-        BACKGROUND_INTENSITY;
+        BACKGROUND_INTENSITY |
+        WINPTY_COMMON_LVB_REVERSE_VIDEO |
+        WINPTY_COMMON_LVB_UNDERSCORE;
 
 const int FLAG_RED    = 1;
 const int FLAG_GREEN  = 2;
@@ -59,11 +68,6 @@ const int SGR_FORE = 30;
 const int SGR_FORE_HI = 90;
 const int SGR_BACK = 40;
 const int SGR_BACK_HI = 100;
-
-// Work around the old MinGW, which lacks COMMON_LVB_LEADING_BYTE and
-// COMMON_LVB_TRAILING_BYTE.
-const int WINPTY_COMMON_LVB_LEADING_BYTE = 0x100;
-const int WINPTY_COMMON_LVB_TRAILING_BYTE = 0x200;
 
 namespace {
 
@@ -110,6 +114,13 @@ static void outputSetColor(std::string &out, int color)
     if (color & BACKGROUND_GREEN)     back |= FLAG_GREEN;
     if (color & BACKGROUND_BLUE)      back |= FLAG_BLUE;
     if (color & BACKGROUND_INTENSITY) back |= FLAG_BRIGHT;
+
+    if (color & WINPTY_COMMON_LVB_REVERSE_VIDEO) {
+        // n.b.: The COMMON_LVB_REVERSE_VIDEO flag also swaps
+        // FOREGROUND_INTENSITY and BACKGROUND_INTENSITY.  Tested on
+        // Windows 10 v14393.
+        std::swap(fore, back);
+    }
 
     // Translate the fore/back colors into terminal escape codes using
     // a heuristic that works OK with common white-on-black or
@@ -193,6 +204,9 @@ static void outputSetColor(std::string &out, int color)
         // attempt to hide the text using the Conceal SGR parameter,
         // which some terminals support.
         out.append(";8");
+    }
+    if (color & WINPTY_COMMON_LVB_UNDERSCORE) {
+        out.append(";4");
     }
     out.push_back('m');
 }

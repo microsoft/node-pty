@@ -32,6 +32,8 @@ DEBUGSERVER_OBJECTS = \
 	build/debugserver/shared/WinptyAssert.o \
 	build/debugserver/shared/WinptyException.o
 
+build/debugserver/shared/WindowsVersion.o : build/gen/GenVersion.h
+
 build/winpty-debugserver.exe : $(DEBUGSERVER_OBJECTS)
 	$(info Linking $@)
 	@$(MINGW_CXX) $(MINGW_LDFLAGS) -o $@ $^

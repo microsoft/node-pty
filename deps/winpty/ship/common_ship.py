@@ -16,11 +16,6 @@ topDir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 with open(topDir + "/VERSION.txt", "rt") as f:
     winptyVersion = f.read().strip()
 
-def writeBuildInfo():
-    with open(topDir + "/BUILD_INFO.txt", "w") as f:
-        f.write("VERSION_SUFFIX=__none__\n")
-        f.write("COMMIT_HASH=" + commitHash + "\n")
-
 def rmrf(patterns):
     for pattern in patterns:
         for path in glob.glob(pattern):
