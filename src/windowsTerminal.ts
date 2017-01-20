@@ -5,11 +5,11 @@
 
 import * as net from 'net';
 import * as path from 'path';
-import * as extend from 'extend';
 import { inherits } from 'util';
 import { Terminal } from './terminal';
 import { WindowsPtyAgent } from './windowsPtyAgent';
 import { IPtyForkOptions, IPtyOpenOptions } from './interfaces';
+import { assign } from './utils';
 
 export class WindowsTerminal extends Terminal {
   private isReady: boolean;
@@ -25,7 +25,7 @@ export class WindowsTerminal extends Terminal {
     opt = opt || {};
     opt.env = opt.env || process.env;
 
-    const env = extend({}, opt.env);
+    const env = assign({}, opt.env);
     const cols = opt.cols || Terminal.DEFAULT_COLS;
     const rows = opt.rows || Terminal.DEFAULT_ROWS;
     const cwd = opt.cwd || process.cwd();
