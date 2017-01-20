@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "extend": "~1.2.1",
-    "nan": "2.2.1"
+    "nan": "2.5.0"
   },
   "devDependencies": {
     "@types/node": "^6.0.58",
