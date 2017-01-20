@@ -10,12 +10,7 @@ import { Terminal } from './terminal';
 import { ProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { assign } from './utils';
 
-let pty;
-try {
-  pty = require(path.join('..', 'build', 'Release', 'pty.node'));
-} catch (e) {
-  pty = require(path.join('..', 'build', 'Debug', 'pty.node'));
-};
+const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
 
 export class UnixTerminal extends Terminal {
   protected pid: number;

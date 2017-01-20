@@ -6,12 +6,7 @@
 import * as net from 'net';
 import * as path from 'path';
 
-let pty;
-try {
-  pty = require(path.join('..', 'build', 'Release', 'pty.node'));
-} catch (e) {
-  pty = require(path.join('..', 'build', 'Debug', 'pty.node'));
-};
+const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
 
 /**
  * Agent. Internal class.
