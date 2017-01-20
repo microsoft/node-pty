@@ -4,7 +4,7 @@
   "author": {
     "name": "Daniel Imms"
   },
-  "version": "0.6.0-beta2",
+  "version": "0.6.0",
   "license": "MIT",
   "main": "./lib/index.js",
   "repository": {
