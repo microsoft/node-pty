@@ -25,7 +25,7 @@ export abstract class Terminal implements ITerminal {
   protected readable: boolean;
   protected writable: boolean;
 
-  protected _internalee: any;
+  protected _internalee: EventEmitter;
 
   constructor() {
     // for 'close'
