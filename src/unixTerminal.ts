@@ -12,6 +12,9 @@ import { assign } from './utils';
 
 const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
 
+const DEFAULT_FILE = 'sh';
+const DEFAULT_NAME = 'xterm';
+
 export class UnixTerminal extends Terminal {
   protected pid: number;
   protected fd: number;
@@ -33,7 +36,7 @@ export class UnixTerminal extends Terminal {
 
     // Initialize arguments
     args = args || [];
-    file = file || 'sh';
+    file = file || DEFAULT_FILE;
     opt = opt || {};
     opt.env = opt.env || process.env;
 
@@ -48,7 +51,7 @@ export class UnixTerminal extends Terminal {
     }
 
     const cwd = opt.cwd || process.cwd();
-    const name = opt.name || env.TERM || 'xterm';
+    const name = opt.name || env.TERM || DEFAULT_NAME;
     env.TERM = name;
     const parsedEnv = this._parseEnv(env);
 
