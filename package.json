@@ -38,7 +38,6 @@
     "test": "cross-env NODE_ENV=test mocha -R spec test"
   },
   "dependencies": {
-    "extend": "~1.2.1",
     "nan": "2.5.0"
   },
   "devDependencies": {

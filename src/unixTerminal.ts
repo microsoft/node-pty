@@ -3,12 +3,12 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
-import * as extend from 'extend';
 import * as net from 'net';
 import * as path from 'path';
 import * as tty from 'tty';
 import { Terminal } from './terminal';
 import { ProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
+import { assign } from './utils';
 
 let pty;
 try {
@@ -46,7 +46,7 @@ export class UnixTerminal extends Terminal {
     const rows = opt.rows || Terminal.DEFAULT_ROWS;
     const uid = opt.uid != null ? opt.uid : -1;
     const gid = opt.gid != null ? opt.gid : -1;
-    const env = extend({}, opt.env);
+    const env = assign({}, opt.env);
 
     if (opt.env === process.env) {
       this._sanitizeEnv(env);
