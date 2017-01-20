@@ -6,14 +6,14 @@
 
 This is useful for:
 
-- Writing a terminal emulator.
+- Writing a terminal emulator (eg. via [xterm.js](https://github.com/sourcelair/xterm.js)).
 - Getting certain programs to *think* you're a terminal, such as when you need a program to send you control sequences.
 
 `node-pty` supports Linux, macOS and Windows. Windows support is possible by utilizing the [winpty](https://github.com/rprichard/winpty) library.
 
 ## Example Usage
 
-``` js
+```js
 var os = require('os');
 var pty = require('node-pty');
 
@@ -53,8 +53,7 @@ On Windows, you can show the winpty agent console window by adding the environme
 
 **Powershell gives error 8009001d**
 
-> 
-Internal Windows PowerShell error.  Loading managed Windows PowerShell failed with error 8009001d.
+> Internal Windows PowerShell error.  Loading managed Windows PowerShell failed with error 8009001d.
 
 This happens when PowerShell is launched with no `SystemRoot` environment variable present.
 
