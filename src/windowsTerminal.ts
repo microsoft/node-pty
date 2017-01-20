@@ -11,6 +11,9 @@ import { WindowsPtyAgent } from './windowsPtyAgent';
 import { IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { assign } from './utils';
 
+const DEFAULT_FILE = 'cmd.exe';
+const DEFAULT_NAME = 'Windows Shell';
+
 export class WindowsTerminal extends Terminal {
   private isReady: boolean;
   private deferreds: any[];
@@ -21,7 +24,7 @@ export class WindowsTerminal extends Terminal {
 
     // Initialize arguments
     args = args || [];
-    file = file || 'cmd.exe';
+    file = file || DEFAULT_FILE;
     opt = opt || {};
     opt.env = opt.env || process.env;
 
@@ -29,7 +32,7 @@ export class WindowsTerminal extends Terminal {
     const cols = opt.cols || Terminal.DEFAULT_COLS;
     const rows = opt.rows || Terminal.DEFAULT_ROWS;
     const cwd = opt.cwd || process.cwd();
-    const name = opt.name || env.TERM || 'Windows Shell';
+    const name = opt.name || env.TERM || DEFAULT_NAME;
     const parsedEnv = this._parseEnv(env);
 
     // If the terminal is ready
