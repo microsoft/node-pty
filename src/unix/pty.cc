@@ -1,5 +1,6 @@
 /**
  * Copyright (c) 2012-2015, Christopher Jeffrey (MIT License)
+ * Copyright (c) 2017, Daniel Imms (MIT License)
  *
  * pty.cc:
  *   This file is responsible for starting processes
@@ -253,7 +254,12 @@ NAN_METHOD(PtyFork) {
     case -1:
       return Nan::ThrowError("forkpty(3) failed.");
     case 0:
-      if (strlen(cwd)) chdir(cwd);
+      if (strlen(cwd)) {
+        if (chdir(cwd) == -1) {
+          perror("chdir(2) failed.");
+          _exit(1);
+        }
+      }
 
       if (uid != -1 && gid != -1) {
         if (setgid(gid) == -1) {
