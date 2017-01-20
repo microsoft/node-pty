@@ -42,8 +42,8 @@ export class UnixTerminal extends Terminal {
 
     const cols = opt.cols || Terminal.DEFAULT_COLS;
     const rows = opt.rows || Terminal.DEFAULT_ROWS;
-    const uid = opt.uid != null ? opt.uid : -1;
-    const gid = opt.gid != null ? opt.gid : -1;
+    const uid = opt.uid || -1;
+    const gid = opt.gid || -1;
     const env = assign({}, opt.env);
 
     if (opt.env === process.env) {
