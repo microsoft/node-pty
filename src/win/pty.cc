@@ -78,7 +78,7 @@ static bool remove_pipe_handle(int handle) {
   for(size_t i = 0; i < ptyHandles.size(); ++i) {
     winpty_t *ptyHandle = ptyHandles[i];
     if((int)winpty_agent_process(ptyHandle) == handle) {
-      delete ptyHandle;
+      winpty_free(ptyHandle);
       ptyHandle = nullptr;
       return true;
     }
@@ -322,8 +322,7 @@ static NAN_METHOD(PtyKill) {
   winpty_t *pc = get_pipe_handle(handle);
 
   assert(pc != nullptr);
-  assert(true == remove_pipe_handle(handle));
-  winpty_free(pc);
+  assert(remove_pipe_handle(handle));
 
   return info.GetReturnValue().SetUndefined();
 }
