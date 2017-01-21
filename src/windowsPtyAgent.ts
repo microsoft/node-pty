@@ -80,6 +80,10 @@ export class WindowsPtyAgent {
   }
 
   public kill(): void {
+    this._inSocket.readable = false;
+    this._inSocket.writable = false;
+    this._outSocket.readable = false;
+    this._outSocket.writable = false;
     pty.kill(this.pid);
   }
 }
