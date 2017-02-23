@@ -230,8 +230,7 @@ NAN_METHOD(PtyFork) {
   term->c_cc[VSTATUS] = 20;
   #endif
 
-  term->c_ispeed = B38400;
-  term->c_ospeed = B38400;
+  cfsetspeed(term, B38400);
 
   // uid / gid
   int uid = info[6]->IntegerValue();
