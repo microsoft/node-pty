@@ -18,11 +18,11 @@ describe("argvToCommandLine", function() {
     it("doesn't escape multiple backslashes", function() {
       check(['asdf\\\\qwer'], 'asdf\\\\qwer');
     });
-    it("adds backslashes before quotes", function() {
-      check(['"asdf"qwer"'], '\\"asdf\\"qwer\\"');
+    it("should not add backslashes before quotes", function() {
+      check(['"asdf"qwer"'], '"asdf"qwer"');
     });
-    it("escapes backslashes before quotes", function() {
-      check(['asdf\\"qwer'], 'asdf\\\\\\"qwer');
+    it("escapes backslashes, not quotes", function() {
+      check(['asdf\\"qwer'], 'asdf\\"qwer');
     });
   });
 
@@ -42,11 +42,11 @@ describe("argvToCommandLine", function() {
     it("doesn't escape multiple backslashes", function() {
       check(['asdf \\\\qwer'], '"asdf \\\\qwer"');
     });
-    it("adds backslashes before quotes", function() {
-      check(['"asdf "qwer"'], '"\\"asdf \\"qwer\\""');
+    it("doesn't escape quotes", function() {
+      check(['"asdf "qwer"'], '""asdf "qwer""');
     });
-    it("escapes backslashes before quotes", function() {
-      check(['asdf \\"qwer'], '"asdf \\\\\\"qwer"');
+    it("escapes backslashes, not quotes", function() {
+      check(['asdf \\"qwer'], '"asdf \\"qwer"');
     });
     it("escapes multiple backslashes at the end", function() {
       check(['asdf qwer\\\\'], '"asdf qwer\\\\\\\\"');
@@ -55,7 +55,7 @@ describe("argvToCommandLine", function() {
 
   describe("Multiple arguments", function() {
     it("joins arguments with spaces", function() {
-      check(['asdf', 'qwer zxcv', '', '"'], 'asdf "qwer zxcv" "" \\"');
+      check(['asdf', 'qwer zxcv', '', '"'], 'asdf "qwer zxcv" "" "');
     });
   });
 });
