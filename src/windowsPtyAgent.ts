@@ -110,10 +110,6 @@ export function argvToCommandLine(argv: string[]): string {
       const p = arg[i];
       if (p === '\\') {
         bsCount++;
-      } else if (p === '"') {
-        result += repeatText('\\', bsCount * 2 + 1);
-        result += '"';
-        bsCount = 0;
       } else {
         result += repeatText('\\', bsCount);
         bsCount = 0;
