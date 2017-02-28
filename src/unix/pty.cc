@@ -205,10 +205,8 @@ NAN_METHOD(PtyFork) {
   struct termios* term = new termios();
 #if defined(IUTF8)
   term->c_iflag = ICRNL | IXON | IXANY | IMAXBEL | BRKINT | IUTF8;
-#elif defined(UTF8)
-  term->c_iflag = ICRNL | IXON | IXANY | IMAXBEL | BRKINT | UTF8;
 #else
-# error No UTF-8 is possible.
+  term->c_iflag = ICRNL | IXON | IXANY | IMAXBEL | BRKINT | UTF8;
 #endif
   term->c_oflag = OPOST | ONLCR;
   term->c_cflag = CREAD | CS8 | HUPCL;
