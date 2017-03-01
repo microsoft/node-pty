@@ -3,7 +3,7 @@ var pty = require('..');
 
 var shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
 
-var ptyProcess = pty.spawn(shell, [], {
+var ptyProcess = pty.fork(shell, [], {
   name: 'xterm-color',
   cols: 80,
   rows: 30,
