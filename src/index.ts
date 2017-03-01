@@ -18,10 +18,12 @@ export function fork(file?: string, args?: string[], opt?: IPtyForkOptions): ITe
   return new Terminal(file, args, opt);
 };
 
+/** @deprecated */
 export function spawn(file?: string, args?: string[], opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
 };
 
+/** @deprecated */
 export function createTerminal(file?: string, args?: string[], opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
 };
