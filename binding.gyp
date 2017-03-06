@@ -16,7 +16,7 @@
         ],
         'libraries': [
           'shlwapi.lib',
-          '../deps/winpty-0.4.2-msvc2015/x64/lib/winpty.lib'
+          '<(module_root_dir)/deps/winpty-0.4.2-msvc2015/x64/lib/winpty.lib'
         ],
       }, { # OS!="win"
         'sources': [
