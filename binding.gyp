@@ -9,17 +9,14 @@
         # "I disabled those warnings because of winpty" - @peters (GH-40)
         'msvs_disabled_warnings': [ 4506, 4530 ],
         'include_dirs' : [
-          'deps/winpty/src/include',
-        ],
-        'dependencies' : [
-          'deps/winpty/src/winpty.gyp:winpty-agent',
-          'deps/winpty/src/winpty.gyp:winpty',
+          'deps/winpty-0.4.2-msvc2015/include',
         ],
         'sources' : [
           'src/win/pty.cc'
         ],
         'libraries': [
-          'shlwapi.lib'
+          'shlwapi.lib',
+          '../deps/winpty-0.4.2-msvc2015/x64/lib/winpty.lib'
         ],
       }, { # OS!="win"
         'sources': [
