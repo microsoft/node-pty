@@ -5,6 +5,7 @@
 
 import * as net from 'net';
 import * as path from 'path';
+import { ArgvOrCommandLine } from './types';
 
 const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
 
@@ -31,7 +32,7 @@ export class WindowsPtyAgent {
 
   constructor(
     file: string,
-    args: string[],
+    args: ArgvOrCommandLine,
     env: string[],
     cwd: string,
     cols: number,
@@ -42,12 +43,10 @@ export class WindowsPtyAgent {
     cwd = path.resolve(cwd);
 
     // Compose command line
-    const cmdline = [file];
-    Array.prototype.push.apply(cmdline, args);
-    const cmdlineFlat = argvToCommandLine(cmdline);
+    const commandLine = argsToCommandLine(file, args);
 
     // Open pty session.
-    const term = pty.startProcess(file, cmdlineFlat, env, cwd, cols, rows, debug);
+    const term = pty.startProcess(file, commandLine, env, cwd, cols, rows, debug);
 
     // Terminal pid.
     this._pid = term.pid;
@@ -91,7 +90,15 @@ export class WindowsPtyAgent {
 // Convert argc/argv into a Win32 command-line following the escaping convention
 // documented on MSDN (e.g. see CommandLineToArgvW documentation). Copied from
 // winpty project.
-export function argvToCommandLine(argv: string[]): string {
+export function argsToCommandLine(file: string, args: ArgvOrCommandLine): string {
+  if (isCommandLine(args)) {
+    if (args.length === 0) {
+      return file;
+    }
+    return `${file} ${args}`;
+  }
+  const argv = [file];
+  Array.prototype.push.apply(argv, args);
   let result = '';
   for (let argIndex = 0; argIndex < argv.length; argIndex++) {
     if (argIndex > 0) {
@@ -110,6 +117,10 @@ export function argvToCommandLine(argv: string[]): string {
       const p = arg[i];
       if (p === '\\') {
         bsCount++;
+      } else if (p === '"') {
+        result += repeatText('\\', bsCount * 2 + 1);
+        result += '"';
+        bsCount = 0;
       } else {
         result += repeatText('\\', bsCount);
         bsCount = 0;
@@ -124,6 +135,10 @@ export function argvToCommandLine(argv: string[]): string {
     }
   }
   return result;
+}
+
+function isCommandLine(args: ArgvOrCommandLine): args is string {
+  return typeof args === 'string';
 }
 
 function repeatText(text: string, count: number): string {

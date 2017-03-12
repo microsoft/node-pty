@@ -9,6 +9,7 @@ import { inherits } from 'util';
 import { Terminal } from './terminal';
 import { WindowsPtyAgent } from './windowsPtyAgent';
 import { IPtyForkOptions, IPtyOpenOptions } from './interfaces';
+import { ArgvOrCommandLine } from './types';
 import { assign } from './utils';
 
 const DEFAULT_FILE = 'cmd.exe';
@@ -19,7 +20,7 @@ export class WindowsTerminal extends Terminal {
   private deferreds: any[];
   private agent: WindowsPtyAgent;
 
-  constructor(file?: string, args?: string[], opt?: IPtyForkOptions) {
+  constructor(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions) {
     super();
 
     // Initialize arguments
