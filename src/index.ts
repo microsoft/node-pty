@@ -14,12 +14,12 @@ if (os.platform() === 'win32') {
   Terminal = require('./unixTerminal').UnixTerminal;
 }
 
-export function fork(file?: string, args?: string[], opt?: IPtyForkOptions): ITerminal {
+export function spawn(file?: string, args?: string[], opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
 };
 
 /** @deprecated */
-export function spawn(file?: string, args?: string[], opt?: IPtyForkOptions): ITerminal {
+export function fork(file?: string, args?: string[], opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
 };
 
