@@ -5,6 +5,7 @@
 
 import * as net from 'net';
 import * as path from 'path';
+import { ArgvOrCmdline } from './types';
 
 const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
 
@@ -31,7 +32,7 @@ export class WindowsPtyAgent {
 
   constructor(
     file: string,
-    args: string[],
+    args: ArgvOrCmdline,
     env: string[],
     cwd: string,
     cols: number,
@@ -42,12 +43,10 @@ export class WindowsPtyAgent {
     cwd = path.resolve(cwd);
 
     // Compose command line
-    const cmdline = [file];
-    Array.prototype.push.apply(cmdline, args);
-    const cmdlineFlat = argvToCommandLine(cmdline);
+    const cmdline = argsToCommandLine(file, args);
 
     // Open pty session.
-    const term = pty.startProcess(file, cmdlineFlat, env, cwd, cols, rows, debug);
+    const term = pty.startProcess(file, cmdline, env, cwd, cols, rows, debug);
 
     // Terminal pid.
     this._pid = term.pid;
@@ -91,7 +90,12 @@ export class WindowsPtyAgent {
 // Convert argc/argv into a Win32 command-line following the escaping convention
 // documented on MSDN (e.g. see CommandLineToArgvW documentation). Copied from
 // winpty project.
-export function argvToCommandLine(argv: string[]): string {
+export function argsToCommandLine(file: string, argvOrCmdLine: ArgvOrCmdline): string {
+  if (isCommandLine(argvOrCmdLine)) {
+    return `${file} ${argvOrCmdLine}`;
+  }
+  const argv = [file];
+  Array.prototype.push.apply(argv, argvOrCmdLine);
   let result = '';
   for (let argIndex = 0; argIndex < argv.length; argIndex++) {
     if (argIndex > 0) {
@@ -128,6 +132,10 @@ export function argvToCommandLine(argv: string[]): string {
     }
   }
   return result;
+}
+
+function isCommandLine(argvOrCmdLine: ArgvOrCmdline): argvOrCmdLine is string {
+  return typeof argvOrCmdLine === 'string';
 }
 
 function repeatText(text: string, count: number): string {
