@@ -317,11 +317,11 @@ static NAN_METHOD(PtyKill) {
     || !info[0]->IsNumber() // pid
     || !info[1]->IsNumber()) // innerPidHandle
   {
-    return Nan::ThrowError("Usage: pty.kill(pid)");
+    return Nan::ThrowError("Usage: pty.kill(pid, innerPidHandle)");
   }
 
   int handle = info[0]->Int32Value();
-  HANDLE innerPidHandle = (HANDLE)info[0]->Int32Value();
+  HANDLE innerPidHandle = (HANDLE)info[1]->Int32Value();
 
   winpty_t *pc = get_pipe_handle(handle);
 
