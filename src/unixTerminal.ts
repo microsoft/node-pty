@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as tty from 'tty';
 import { Terminal } from './terminal';
 import { ProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
-import { ArgvOrCmdline } from './types';
+import { ArgvOrCommandLine } from './types';
 import { assign } from './utils';
 
 const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
@@ -32,7 +32,7 @@ export class UnixTerminal extends Terminal {
   private master: any;
   private slave: any;
 
-  constructor(file?: string, args?: ArgvOrCmdline, opt?: IPtyForkOptions) {
+  constructor(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions) {
     super();
 
     if (typeof args === 'string') {
