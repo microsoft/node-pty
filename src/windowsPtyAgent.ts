@@ -21,6 +21,9 @@ export class WindowsPtyAgent {
   private _inSocket: net.Socket;
   private _outSocket: net.Socket;
   private _pid: number;
+  private _innerPid: number;
+  private _innerPidHandle: number;
+
   private _fd: any;
   private _pty: number;
 
@@ -50,6 +53,8 @@ export class WindowsPtyAgent {
 
     // Terminal pid.
     this._pid = term.pid;
+    this._innerPid = term.innerPid;
+    this._innerPidHandle = term.innerPidHandle;
 
     // Not available on windows.
     this._fd = term.fd;
@@ -83,7 +88,7 @@ export class WindowsPtyAgent {
     this._inSocket.writable = false;
     this._outSocket.readable = false;
     this._outSocket.writable = false;
-    pty.kill(this.pid);
+    pty.kill(this.pid, this._innerPidHandle);
   }
 }
 
