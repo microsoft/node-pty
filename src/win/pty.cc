@@ -79,6 +79,7 @@ static bool remove_pipe_handle(int handle) {
     winpty_t *ptyHandle = ptyHandles[i];
     if((int)winpty_agent_process(ptyHandle) == handle) {
       winpty_free(ptyHandle);
+      ptyHandles.erase(ptyHandles.begin() + i);
       ptyHandle = nullptr;
       return true;
     }
