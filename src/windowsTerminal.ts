@@ -23,11 +23,6 @@ export class WindowsTerminal extends Terminal {
   constructor(file?: string, args?: ArgvOrCmdline, opt?: IPtyForkOptions) {
     super();
 
-    if (typeof args === 'string') {
-      // TODO: Implement args as string
-      throw new Error('args as a string is not supported on Window yet.');
-    }
-
     // Initialize arguments
     args = args || [];
     file = file || DEFAULT_FILE;
