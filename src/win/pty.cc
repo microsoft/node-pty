@@ -246,6 +246,8 @@ open:
   // Pty object values.
   Local<Object> marshal = Nan::New<Object>();
 
+  marshal->Set(Nan::New<String>("innerPid").ToLocalChecked(), Nan::New<Number>((int)GetProcessId(handle)));
+  marshal->Set(Nan::New<String>("innerPidHandle").ToLocalChecked(), Nan::New<Number>((int)handle));
   marshal->Set(Nan::New<String>("pid").ToLocalChecked(), Nan::New<Number>((int)winpty_agent_process(pc)));
   marshal->Set(Nan::New<String>("pty").ToLocalChecked(), Nan::New<Number>(InterlockedIncrement(&ptyCounter)));
   marshal->Set(Nan::New<String>("fd").ToLocalChecked(), Nan::New<Number>(-1));
@@ -311,18 +313,21 @@ static NAN_METHOD(PtyResize) {
 static NAN_METHOD(PtyKill) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 1
-    || !info[0]->IsNumber()) // pid
+  if (info.Length() != 2
+    || !info[0]->IsNumber() // pid
+    || !info[1]->IsNumber()) // innerPidHandle
   {
     return Nan::ThrowError("Usage: pty.kill(pid)");
   }
 
   int handle = info[0]->Int32Value();
+  HANDLE innerPidHandle = (HANDLE)info[0]->Int32Value();
 
   winpty_t *pc = get_pipe_handle(handle);
 
   assert(pc != nullptr);
   assert(remove_pipe_handle(handle));
+  CloseHandle(innerPidHandle);
 
   return info.GetReturnValue().SetUndefined();
 }
