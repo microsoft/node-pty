@@ -18,9 +18,9 @@ if (os.platform() === 'win32') {
 /**
  * Forks a process as a pseudoterminal.
  * @param file The file to launch.
- * @param args The file's arguments as argv (string[]) or a pre-escaped
- * CommandLine (string). Note that the CommandLine option is only available on
- * Windows and is expected to be escaped properly as per.
+ * @param args The file's arguments as argv (string[]) or in a pre-escaped
+ * CommandLine format (string). Note that the CommandLine option is only
+ * available on Windows and is expected to be escaped properly as per.
  * @param options The options of the terminal.
  * @see CommandLineToArgvW https://msdn.microsoft.com/en-us/library/windows/desktop/bb776391(v=vs.85).aspx
  * @see Parsing C++ Comamnd-Line Arguments https://msdn.microsoft.com/en-us/library/17w5ykft.aspx

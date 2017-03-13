@@ -90,12 +90,15 @@ export class WindowsPtyAgent {
 // Convert argc/argv into a Win32 command-line following the escaping convention
 // documented on MSDN (e.g. see CommandLineToArgvW documentation). Copied from
 // winpty project.
-export function argsToCommandLine(file: string, argvOrCmdLine: ArgvOrCmdline): string {
-  if (isCommandLine(argvOrCmdLine)) {
-    return `${file} ${argvOrCmdLine}`;
+export function argsToCommandLine(file: string, args: ArgvOrCmdline): string {
+  if (isCommandLine(args)) {
+    if (args.length === 0) {
+      return file;
+    }
+    return `${file} ${args}`;
   }
   const argv = [file];
-  Array.prototype.push.apply(argv, argvOrCmdLine);
+  Array.prototype.push.apply(argv, args);
   let result = '';
   for (let argIndex = 0; argIndex < argv.length; argIndex++) {
     if (argIndex > 0) {
@@ -134,8 +137,8 @@ export function argsToCommandLine(file: string, argvOrCmdLine: ArgvOrCmdline): s
   return result;
 }
 
-function isCommandLine(argvOrCmdLine: ArgvOrCmdline): argvOrCmdLine is string {
-  return typeof argvOrCmdLine === 'string';
+function isCommandLine(args: ArgvOrCmdline): args is string {
+  return typeof args === 'string';
 }
 
 function repeatText(text: string, count: number): string {
