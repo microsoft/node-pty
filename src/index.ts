@@ -23,16 +23,18 @@ if (os.platform() === 'win32') {
  * arguments must be done manually.
  * @param options The options of the terminal.
  */
-export function fork(file?: string, args?: ArgsOrArgv, options?: IPtyForkOptions): ITerminal {
-  return new Terminal(file, args, options);
+export function spawn(file?: string, args?: ArgsOrArgv, opt?: IPtyForkOptions): ITerminal {
+  return new Terminal(file, args, opt);
 };
 
-export function spawn(file?: string, args?: ArgsOrArgv, options?: IPtyForkOptions): ITerminal {
-  return new Terminal(file, args, options);
+/** @deprecated */
+export function fork(file?: string, args?: ArgsOrArgv, opt?: IPtyForkOptions): ITerminal {
+  return new Terminal(file, args, opt);
 };
 
-export function createTerminal(file?: string, args?: ArgsOrArgv, options?: IPtyForkOptions): ITerminal {
-  return new Terminal(file, args, options);
+/** @deprecated */
+export function createTerminal(file?: string, args?: ArgsOrArgv, opt?: IPtyForkOptions): ITerminal {
+  return new Terminal(file, args, opt);
 };
 
 export function open(options: IPtyOpenOptions): ITerminal {
