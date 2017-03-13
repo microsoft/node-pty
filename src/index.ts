@@ -6,7 +6,7 @@
 import * as os from 'os';
 import { Terminal as BaseTerminal } from './terminal';
 import { ITerminal, IPtyOpenOptions, IPtyForkOptions } from './interfaces';
-import { ArgsOrArgv } from './types';
+import { ArgvOrCmdline } from './types';
 
 let Terminal: any;
 if (os.platform() === 'win32') {
@@ -18,22 +18,25 @@ if (os.platform() === 'win32') {
 /**
  * Forks a process as a pseudoterminal.
  * @param file The file to launch.
- * @param args The command line arguments as a string array or a string. Note
- * that the string option is only available on Windows and all escaping of the
- * arguments must be done manually.
+ * @param args The file's arguments as argv (string[]) or a pre-escaped
+ * CommandLine (string). Note that the CommandLine option is only available on
+ * Windows and is expected to be escaped properly as per.
  * @param options The options of the terminal.
+ * @see CommandLineToArgvW https://msdn.microsoft.com/en-us/library/windows/desktop/bb776391(v=vs.85).aspx
+ * @see Parsing C++ Comamnd-Line Arguments https://msdn.microsoft.com/en-us/library/17w5ykft.aspx
+ * @see GetCommandLine https://msdn.microsoft.com/en-us/library/windows/desktop/ms683156.aspx
  */
-export function spawn(file?: string, args?: ArgsOrArgv, opt?: IPtyForkOptions): ITerminal {
+export function spawn(file?: string, args?: ArgvOrCmdline, opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
 };
 
 /** @deprecated */
-export function fork(file?: string, args?: ArgsOrArgv, opt?: IPtyForkOptions): ITerminal {
+export function fork(file?: string, args?: ArgvOrCmdline, opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
 };
 
 /** @deprecated */
-export function createTerminal(file?: string, args?: ArgsOrArgv, opt?: IPtyForkOptions): ITerminal {
+export function createTerminal(file?: string, args?: ArgvOrCmdline, opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
 };
 
