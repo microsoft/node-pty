@@ -23,7 +23,7 @@ export class WindowsPtyAgent {
   private _pid: number;
   private _innerPid: number;
   private _innerPidHandle: number;
-  
+
   private _fd: any;
   private _pty: number;
 
