@@ -6,7 +6,7 @@
 import * as os from 'os';
 import { Terminal as BaseTerminal } from './terminal';
 import { ITerminal, IPtyOpenOptions, IPtyForkOptions } from './interfaces';
-import { ArgvOrCmdline } from './types';
+import { ArgvOrCommandLine } from './types';
 
 let Terminal: any;
 if (os.platform() === 'win32') {
@@ -26,17 +26,17 @@ if (os.platform() === 'win32') {
  * @see Parsing C++ Comamnd-Line Arguments https://msdn.microsoft.com/en-us/library/17w5ykft.aspx
  * @see GetCommandLine https://msdn.microsoft.com/en-us/library/windows/desktop/ms683156.aspx
  */
-export function spawn(file?: string, args?: ArgvOrCmdline, opt?: IPtyForkOptions): ITerminal {
+export function spawn(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
 };
 
 /** @deprecated */
-export function fork(file?: string, args?: ArgvOrCmdline, opt?: IPtyForkOptions): ITerminal {
+export function fork(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
 };
 
 /** @deprecated */
-export function createTerminal(file?: string, args?: ArgvOrCmdline, opt?: IPtyForkOptions): ITerminal {
+export function createTerminal(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
 };
 
