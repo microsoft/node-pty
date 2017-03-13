@@ -36,20 +36,6 @@ extern "C" void init(Handle<Object>);
 static std::vector<winpty_t *> ptyHandles;
 static volatile LONG ptyCounter;
 
-struct winpty_s {
-  winpty_s();
-  HANDLE controlPipe;
-  HANDLE coninPipeName;
-  HANDLE conoutPipeName;
-};
-
-winpty_s::winpty_s() :
-  controlPipe(nullptr),
-  coninPipeName(nullptr),
-  conoutPipeName(nullptr)
-{
-}
-
 /**
 * Helpers
 */
