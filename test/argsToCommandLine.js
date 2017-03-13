@@ -60,4 +60,13 @@ describe("argsToCommandLine", function() {
       check('asdf', ['qwer zxcv', '', '"'], 'asdf "qwer zxcv" "" \\"');
     });
   });
+
+  describe("Args as CommandLine", function() {
+    it("should handle empty string", function() {
+      check('file', '', 'file');
+    });
+    it("should not escape multiple args", function() {
+      check('file', 'foo bar baz', 'file foo bar baz');
+    });
+  });
 });
