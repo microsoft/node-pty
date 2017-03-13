@@ -47,7 +47,7 @@ export class WindowsTerminal extends Terminal {
     this.socket = this.agent.outSocket;
 
     // Not available until `ready` event emitted.
-    this.pid = this.agent.pid;
+    this.pid = this.agent.innerPid;
     this.fd = this.agent.fd;
     this.pty = this.agent.pty;
 
