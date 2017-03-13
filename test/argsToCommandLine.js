@@ -65,8 +65,9 @@ describe("argsToCommandLine", function() {
     it("should handle empty string", function() {
       check('file', '', 'file');
     });
-    it("should not escape multiple args", function() {
+    it("should not change args", function() {
       check('file', 'foo bar baz', 'file foo bar baz');
+      check('file', 'foo \\ba"r \baz', 'file foo \\ba"r \baz');
     });
   });
 });
