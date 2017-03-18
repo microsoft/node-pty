@@ -716,6 +716,200 @@ pty_forkpty(int *amaster, char *name,
 #endif
 }
 
+/*
+#include <termios.h>
+
+struct termios {
+    tcflag_t c_iflag;   unsigned long   --> Number
+    tcflag_t c_oflag;   unsigned long   --> Number
+    tcflag_t c_cflag;   unsigned long   --> Number
+    tcflag_t c_lflag;   unsigned long   --> Number
+    cc_t c_cc[NCCS];    unsigned char[]	--> Buffer
+    speed_t c_ispeed;   long --> Number
+    speed_t c_ospeed;   long --> Number
+};
+*/
+NAN_METHOD(PtyTcgetattr) {
+  Nan::HandleScope scope;
+
+  if (info.Length() != 1
+      || !info[0]->IsNumber()) {
+    return Nan::ThrowError("Usage: pty.tcgetattr(fd)");
+  }
+
+  int fd = info[0]->IntegerValue();
+
+  struct termios t;
+
+  if (tcgetattr(fd, &t))
+    return Nan::ThrowError("tcgetattr failed.");
+
+  Local<Object> obj = Nan::New<Object>();
+  Nan::Set(obj,
+    Nan::New<String>("c_iflag").ToLocalChecked(),
+    Nan::New<Number>(t.c_iflag));
+  Nan::Set(obj,
+    Nan::New<String>("c_oflag").ToLocalChecked(),
+    Nan::New<Number>(t.c_oflag));
+  Nan::Set(obj,
+    Nan::New<String>("c_cflag").ToLocalChecked(),
+    Nan::New<Number>(t.c_cflag));
+  Nan::Set(obj,
+    Nan::New<String>("c_lflag").ToLocalChecked(),
+    Nan::New<Number>(t.c_lflag));
+  Nan::Set(obj,
+    Nan::New<String>("c_ispeed").ToLocalChecked(),
+    Nan::New<Number>(t.c_ispeed));
+  Nan::Set(obj,
+    Nan::New<String>("c_ospeed").ToLocalChecked(),
+    Nan::New<Number>(t.c_ospeed));
+  Nan::Set(obj,
+    Nan::New<String>("c_cc").ToLocalChecked(),
+    Nan::CopyBuffer((const char *) &t.c_cc, sizeof(t.c_cc)).ToLocalChecked());
+
+  return info.GetReturnValue().Set(obj);
+}
+
+NAN_METHOD(PtyTcsetattr) {
+  Nan::HandleScope scope;
+
+  if (info.Length() != 9
+      || !info[0]->IsNumber()
+      || !info[1]->IsNumber()
+      || !info[2]->IsNumber()
+      || !info[3]->IsNumber()
+      || !info[4]->IsNumber()
+      || !info[5]->IsNumber()
+      || !info[6]->IsNumber()
+      || !info[7]->IsNumber()
+      || !info[8]->IsObject()) {
+    return Nan::ThrowError("Usage: pty.tcsetattr(fd, optional_actions, c_iflag, c_oflag, c_cflag, c_lflag, c_ispeed, c_ospeed, c_cc)");
+  }
+
+  // get c values
+  int fd = info[0]->IntegerValue();
+  int optional_actions = info[1]->IntegerValue();
+  tcflag_t c_iflag = (tcflag_t) info[2]->Uint32Value();
+  tcflag_t c_oflag = (tcflag_t) info[3]->Uint32Value();
+  tcflag_t c_cflag = (tcflag_t) info[4]->Uint32Value();
+  tcflag_t c_lflag = (tcflag_t) info[5]->Uint32Value();
+  tcflag_t c_ispeed = (tcflag_t) info[6]->Uint32Value();
+  tcflag_t c_ospeed = (tcflag_t) info[7]->Uint32Value();
+  cc_t *c_cc = (cc_t *) node::Buffer::Data(info[8]->ToObject());
+
+  // populate termios struct
+  struct termios t;
+  t.c_iflag = c_iflag;
+  t.c_oflag = c_oflag;
+  t.c_cflag = c_cflag;
+  t.c_lflag = c_lflag;
+  t.c_ispeed = c_ispeed;
+  t.c_ospeed = c_ospeed;
+  memcpy(&t.c_cc, c_cc, sizeof(t.c_cc));  // possible overflow???
+
+  if (tcsetattr(fd, optional_actions, &t))
+      return Nan::ThrowError("tcsetattr failed.");
+}
+
+#define S(s) #s
+
+NAN_METHOD(GetTermiosDefinitions) {
+  Nan::HandleScope scope;
+
+  Local<Object> obj = Nan::New<Object>();
+
+  // basic macro declarations from termios.h
+  // commented out: not defined in ubuntu 14
+  // c_iflag
+  Nan::Set(obj, Nan::New<String>(S(IGNBRK)).ToLocalChecked(), Nan::New<Number>(IGNBRK));
+  Nan::Set(obj, Nan::New<String>(S(BRKINT)).ToLocalChecked(), Nan::New<Number>(BRKINT));
+  Nan::Set(obj, Nan::New<String>(S(IGNPAR)).ToLocalChecked(), Nan::New<Number>(IGNPAR));
+  Nan::Set(obj, Nan::New<String>(S(PARMRK)).ToLocalChecked(), Nan::New<Number>(PARMRK));
+  Nan::Set(obj, Nan::New<String>(S(INPCK)).ToLocalChecked(), Nan::New<Number>(INPCK));
+  Nan::Set(obj, Nan::New<String>(S(ISTRIP)).ToLocalChecked(), Nan::New<Number>(ISTRIP));
+  Nan::Set(obj, Nan::New<String>(S(INLCR)).ToLocalChecked(), Nan::New<Number>(INLCR));
+  Nan::Set(obj, Nan::New<String>(S(IGNCR)).ToLocalChecked(), Nan::New<Number>(IGNCR));
+  Nan::Set(obj, Nan::New<String>(S(ICRNL)).ToLocalChecked(), Nan::New<Number>(ICRNL));
+  Nan::Set(obj, Nan::New<String>(S(IUCLC)).ToLocalChecked(), Nan::New<Number>(IUCLC));
+  Nan::Set(obj, Nan::New<String>(S(IXON)).ToLocalChecked(), Nan::New<Number>(IXON));
+  Nan::Set(obj, Nan::New<String>(S(IXANY)).ToLocalChecked(), Nan::New<Number>(IXANY));
+  Nan::Set(obj, Nan::New<String>(S(IXOFF)).ToLocalChecked(), Nan::New<Number>(IXOFF));
+  Nan::Set(obj, Nan::New<String>(S(IMAXBEL)).ToLocalChecked(), Nan::New<Number>(IMAXBEL));
+  Nan::Set(obj, Nan::New<String>(S(IUTF8)).ToLocalChecked(), Nan::New<Number>(IUTF8));
+  // c_oflag
+  Nan::Set(obj, Nan::New<String>(S(OPOST)).ToLocalChecked(), Nan::New<Number>(OPOST));
+  Nan::Set(obj, Nan::New<String>(S(OLCUC)).ToLocalChecked(), Nan::New<Number>(OLCUC));
+  Nan::Set(obj, Nan::New<String>(S(ONLCR)).ToLocalChecked(), Nan::New<Number>(ONLCR));
+  Nan::Set(obj, Nan::New<String>(S(OCRNL)).ToLocalChecked(), Nan::New<Number>(OCRNL));
+  Nan::Set(obj, Nan::New<String>(S(ONOCR)).ToLocalChecked(), Nan::New<Number>(ONOCR));
+  Nan::Set(obj, Nan::New<String>(S(ONLRET)).ToLocalChecked(), Nan::New<Number>(ONLRET));
+  Nan::Set(obj, Nan::New<String>(S(OFILL)).ToLocalChecked(), Nan::New<Number>(OFILL));
+  Nan::Set(obj, Nan::New<String>(S(OFDEL)).ToLocalChecked(), Nan::New<Number>(OFDEL));
+  Nan::Set(obj, Nan::New<String>(S(NLDLY)).ToLocalChecked(), Nan::New<Number>(NLDLY));
+  Nan::Set(obj, Nan::New<String>(S(CRDLY)).ToLocalChecked(), Nan::New<Number>(CRDLY));
+  Nan::Set(obj, Nan::New<String>(S(TABDLY)).ToLocalChecked(), Nan::New<Number>(TABDLY));
+  Nan::Set(obj, Nan::New<String>(S(BSDLY)).ToLocalChecked(), Nan::New<Number>(BSDLY));
+  Nan::Set(obj, Nan::New<String>(S(VTDLY)).ToLocalChecked(), Nan::New<Number>(VTDLY));
+  Nan::Set(obj, Nan::New<String>(S(FFDLY)).ToLocalChecked(), Nan::New<Number>(FFDLY));
+  // c_cflag
+  Nan::Set(obj, Nan::New<String>(S(CBAUD)).ToLocalChecked(), Nan::New<Number>(CBAUD));
+  Nan::Set(obj, Nan::New<String>(S(CBAUDEX)).ToLocalChecked(), Nan::New<Number>(CBAUDEX));
+  Nan::Set(obj, Nan::New<String>(S(CSIZE)).ToLocalChecked(), Nan::New<Number>(CSIZE));
+  Nan::Set(obj, Nan::New<String>(S(CSTOPB)).ToLocalChecked(), Nan::New<Number>(CSTOPB));
+  Nan::Set(obj, Nan::New<String>(S(CREAD)).ToLocalChecked(), Nan::New<Number>(CREAD));
+  Nan::Set(obj, Nan::New<String>(S(PARENB)).ToLocalChecked(), Nan::New<Number>(PARENB));
+  Nan::Set(obj, Nan::New<String>(S(PARODD)).ToLocalChecked(), Nan::New<Number>(PARODD));
+  Nan::Set(obj, Nan::New<String>(S(HUPCL)).ToLocalChecked(), Nan::New<Number>(HUPCL));
+  Nan::Set(obj, Nan::New<String>(S(CLOCAL)).ToLocalChecked(), Nan::New<Number>(CLOCAL));
+  //Nan::Set(obj, Nan::New<String>(S(LOBLK)).ToLocalChecked(), Nan::New<Number>(LOBLK));
+  Nan::Set(obj, Nan::New<String>(S(CIBAUD)).ToLocalChecked(), Nan::New<Number>(CIBAUD));
+  Nan::Set(obj, Nan::New<String>(S(CMSPAR)).ToLocalChecked(), Nan::New<Number>(CMSPAR));
+  Nan::Set(obj, Nan::New<String>(S(CRTSCTS)).ToLocalChecked(), Nan::New<Number>(CRTSCTS));
+  // c_lflag
+  Nan::Set(obj, Nan::New<String>(S(ISIG)).ToLocalChecked(), Nan::New<Number>(ISIG));
+  Nan::Set(obj, Nan::New<String>(S(ICANON)).ToLocalChecked(), Nan::New<Number>(ICANON));
+  Nan::Set(obj, Nan::New<String>(S(XCASE)).ToLocalChecked(), Nan::New<Number>(XCASE));
+  Nan::Set(obj, Nan::New<String>(S(ECHO)).ToLocalChecked(), Nan::New<Number>(ECHO));
+  Nan::Set(obj, Nan::New<String>(S(ECHOE)).ToLocalChecked(), Nan::New<Number>(ECHOE));
+  Nan::Set(obj, Nan::New<String>(S(ECHOK)).ToLocalChecked(), Nan::New<Number>(ECHOK));
+  Nan::Set(obj, Nan::New<String>(S(ECHONL)).ToLocalChecked(), Nan::New<Number>(ECHONL));
+  Nan::Set(obj, Nan::New<String>(S(ECHOCTL)).ToLocalChecked(), Nan::New<Number>(ECHOCTL));
+  Nan::Set(obj, Nan::New<String>(S(ECHOPRT)).ToLocalChecked(), Nan::New<Number>(ECHOPRT));
+  Nan::Set(obj, Nan::New<String>(S(ECHOKE)).ToLocalChecked(), Nan::New<Number>(ECHOKE));
+  //Nan::Set(obj, Nan::New<String>(S(DEFECHO)).ToLocalChecked(), Nan::New<Number>(DEFECHO));
+  Nan::Set(obj, Nan::New<String>(S(FLUSHO)).ToLocalChecked(), Nan::New<Number>(FLUSHO));
+  Nan::Set(obj, Nan::New<String>(S(NOFLSH)).ToLocalChecked(), Nan::New<Number>(NOFLSH));
+  Nan::Set(obj, Nan::New<String>(S(TOSTOP)).ToLocalChecked(), Nan::New<Number>(TOSTOP));
+  Nan::Set(obj, Nan::New<String>(S(PENDIN)).ToLocalChecked(), Nan::New<Number>(PENDIN));
+  Nan::Set(obj, Nan::New<String>(S(IEXTEN)).ToLocalChecked(), Nan::New<Number>(IEXTEN));
+  // c_cc
+  Nan::Set(obj, Nan::New<String>(S(VDISCARD)).ToLocalChecked(), Nan::New<Number>(VDISCARD));
+  //Nan::Set(obj, Nan::New<String>(S(VDSUSP)).ToLocalChecked(), Nan::New<Number>(VDSUSP));
+  Nan::Set(obj, Nan::New<String>(S(VEOF)).ToLocalChecked(), Nan::New<Number>(VEOF));
+  Nan::Set(obj, Nan::New<String>(S(VEOL)).ToLocalChecked(), Nan::New<Number>(VEOL));
+  Nan::Set(obj, Nan::New<String>(S(VEOL2)).ToLocalChecked(), Nan::New<Number>(VEOL2));
+  Nan::Set(obj, Nan::New<String>(S(VERASE)).ToLocalChecked(), Nan::New<Number>(VERASE));
+  Nan::Set(obj, Nan::New<String>(S(VINTR)).ToLocalChecked(), Nan::New<Number>(VINTR));
+  Nan::Set(obj, Nan::New<String>(S(VKILL)).ToLocalChecked(), Nan::New<Number>(VKILL));
+  Nan::Set(obj, Nan::New<String>(S(VLNEXT)).ToLocalChecked(), Nan::New<Number>(VLNEXT));
+  Nan::Set(obj, Nan::New<String>(S(VMIN)).ToLocalChecked(), Nan::New<Number>(VMIN));
+  Nan::Set(obj, Nan::New<String>(S(VQUIT)).ToLocalChecked(), Nan::New<Number>(VQUIT));
+  Nan::Set(obj, Nan::New<String>(S(VREPRINT)).ToLocalChecked(), Nan::New<Number>(VREPRINT));
+  Nan::Set(obj, Nan::New<String>(S(VSTART)).ToLocalChecked(), Nan::New<Number>(VSTART));
+  //Nan::Set(obj, Nan::New<String>(S(VSTATUS)).ToLocalChecked(), Nan::New<Number>(VSTATUS));
+  Nan::Set(obj, Nan::New<String>(S(VSTOP)).ToLocalChecked(), Nan::New<Number>(VSTOP));
+  Nan::Set(obj, Nan::New<String>(S(VSUSP)).ToLocalChecked(), Nan::New<Number>(VSUSP));
+  //Nan::Set(obj, Nan::New<String>(S(VSWTCH)).ToLocalChecked(), Nan::New<Number>(VSWTCH));
+  Nan::Set(obj, Nan::New<String>(S(VTIME)).ToLocalChecked(), Nan::New<Number>(VTIME));
+  Nan::Set(obj, Nan::New<String>(S(VWERASE)).ToLocalChecked(), Nan::New<Number>(VWERASE));
+  // optional_actions
+  Nan::Set(obj, Nan::New<String>(S(TCSANOW)).ToLocalChecked(), Nan::New<Number>(TCSANOW));
+  Nan::Set(obj, Nan::New<String>(S(TCSADRAIN)).ToLocalChecked(), Nan::New<Number>(TCSADRAIN));
+  Nan::Set(obj, Nan::New<String>(S(TCSAFLUSH)).ToLocalChecked(), Nan::New<Number>(TCSAFLUSH));
+
+  return info.GetReturnValue().Set(obj);
+}
+
 /**
  * Init
  */
@@ -734,6 +928,15 @@ NAN_MODULE_INIT(init) {
   Nan::Set(target,
     Nan::New<String>("process").ToLocalChecked(),
     Nan::New<FunctionTemplate>(PtyGetProc)->GetFunction());
+  Nan::Set(target,
+      Nan::New<String>("tcgetattr").ToLocalChecked(),
+      Nan::New<FunctionTemplate>(PtyTcgetattr)->GetFunction());
+  Nan::Set(target,
+      Nan::New<String>("tcsetattr").ToLocalChecked(),
+      Nan::New<FunctionTemplate>(PtyTcsetattr)->GetFunction());
+  Nan::Set(target,
+      Nan::New<String>("get_termios_definitions").ToLocalChecked(),
+      Nan::New<FunctionTemplate>(GetTermiosDefinitions)->GetFunction());
 }
 
 NODE_MODULE(pty, init)
