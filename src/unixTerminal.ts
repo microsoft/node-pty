@@ -248,7 +248,7 @@ export class UnixTerminal extends Terminal {
         this.fd, optional_action, options.c_iflag, options.c_oflag, options.c_cflag,
         options.c_lflag, options.c_ispeed, options.c_ospeed, options.c_cc);
   }
-  public readonly TERMIOS: any = pty.get_termios_definitions();
+  public static readonly TERMIOS: any = pty.get_termios_definitions();
 }
 
 /**

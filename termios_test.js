@@ -18,6 +18,7 @@ ptyProcess.on('data', function(data) {
 
 console.log(ptyProcess.tcgetattr());
 var pty_options = ptyProcess.tcgetattr();
-pty_options.c_lflag &= ~ptyProcess.TERMIOS.ICANON;
-ptyProcess.tcsetattr(ptyProcess.TERMIOS.TCSANOW, pty_options);
+pty_options.c_lflag &= ~ptyProcess.constructor.TERMIOS.ICANON;
+ptyProcess.tcsetattr(ptyProcess.constructor.TERMIOS.TCSANOW, pty_options);
 console.log(ptyProcess.tcgetattr());
+ptyProcess.kill();
