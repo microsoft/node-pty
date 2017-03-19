@@ -796,6 +796,7 @@ NAN_METHOD(PtyTcsetattr) {
   tcflag_t c_ispeed = (tcflag_t) info[6]->Uint32Value();
   tcflag_t c_ospeed = (tcflag_t) info[7]->Uint32Value();
   cc_t *c_cc = (cc_t *) node::Buffer::Data(info[8]->ToObject());
+  size_t cc_size = node::Buffer::Length(info[8]->ToObject());
 
   // populate termios struct
   struct termios t;
@@ -805,13 +806,17 @@ NAN_METHOD(PtyTcsetattr) {
   t.c_lflag = c_lflag;
   t.c_ispeed = c_ispeed;
   t.c_ospeed = c_ospeed;
-  memcpy(&t.c_cc, c_cc, sizeof(t.c_cc));  // possible overflow???
+
+  if (cc_size != sizeof(t.c_cc))
+    return Nan::ThrowError("c_cc buffer has wrong size");
+
+  memcpy(&t.c_cc, c_cc, sizeof(t.c_cc));
 
   if (tcsetattr(fd, optional_actions, &t))
       return Nan::ThrowError("tcsetattr failed.");
 }
 
-#define S(s) #s
+#define ADD(o, s) (Nan::Set(o, Nan::New<String>(#s).ToLocalChecked(), Nan::New<Number>(s)))
 
 NAN_METHOD(GetTermiosDefinitions) {
   Nan::HandleScope scope;
@@ -820,92 +825,98 @@ NAN_METHOD(GetTermiosDefinitions) {
 
   // basic macro declarations from termios.h
   // commented out: not defined in ubuntu 14
+
   // c_iflag
-  Nan::Set(obj, Nan::New<String>(S(IGNBRK)).ToLocalChecked(), Nan::New<Number>(IGNBRK));
-  Nan::Set(obj, Nan::New<String>(S(BRKINT)).ToLocalChecked(), Nan::New<Number>(BRKINT));
-  Nan::Set(obj, Nan::New<String>(S(IGNPAR)).ToLocalChecked(), Nan::New<Number>(IGNPAR));
-  Nan::Set(obj, Nan::New<String>(S(PARMRK)).ToLocalChecked(), Nan::New<Number>(PARMRK));
-  Nan::Set(obj, Nan::New<String>(S(INPCK)).ToLocalChecked(), Nan::New<Number>(INPCK));
-  Nan::Set(obj, Nan::New<String>(S(ISTRIP)).ToLocalChecked(), Nan::New<Number>(ISTRIP));
-  Nan::Set(obj, Nan::New<String>(S(INLCR)).ToLocalChecked(), Nan::New<Number>(INLCR));
-  Nan::Set(obj, Nan::New<String>(S(IGNCR)).ToLocalChecked(), Nan::New<Number>(IGNCR));
-  Nan::Set(obj, Nan::New<String>(S(ICRNL)).ToLocalChecked(), Nan::New<Number>(ICRNL));
-  Nan::Set(obj, Nan::New<String>(S(IUCLC)).ToLocalChecked(), Nan::New<Number>(IUCLC));
-  Nan::Set(obj, Nan::New<String>(S(IXON)).ToLocalChecked(), Nan::New<Number>(IXON));
-  Nan::Set(obj, Nan::New<String>(S(IXANY)).ToLocalChecked(), Nan::New<Number>(IXANY));
-  Nan::Set(obj, Nan::New<String>(S(IXOFF)).ToLocalChecked(), Nan::New<Number>(IXOFF));
-  Nan::Set(obj, Nan::New<String>(S(IMAXBEL)).ToLocalChecked(), Nan::New<Number>(IMAXBEL));
-  Nan::Set(obj, Nan::New<String>(S(IUTF8)).ToLocalChecked(), Nan::New<Number>(IUTF8));
+  ADD(obj, IGNBRK);
+  ADD(obj, BRKINT);
+  ADD(obj, IGNPAR);
+  ADD(obj, PARMRK);
+  ADD(obj, INPCK);
+  ADD(obj, ISTRIP);
+  ADD(obj, INLCR);
+  ADD(obj, IGNCR);
+  ADD(obj, ICRNL);
+  ADD(obj, IUCLC);
+  ADD(obj, IXON);
+  ADD(obj, IXANY);
+  ADD(obj, IXOFF);
+  ADD(obj, IMAXBEL);
+  ADD(obj, IUTF8);
+
   // c_oflag
-  Nan::Set(obj, Nan::New<String>(S(OPOST)).ToLocalChecked(), Nan::New<Number>(OPOST));
-  Nan::Set(obj, Nan::New<String>(S(OLCUC)).ToLocalChecked(), Nan::New<Number>(OLCUC));
-  Nan::Set(obj, Nan::New<String>(S(ONLCR)).ToLocalChecked(), Nan::New<Number>(ONLCR));
-  Nan::Set(obj, Nan::New<String>(S(OCRNL)).ToLocalChecked(), Nan::New<Number>(OCRNL));
-  Nan::Set(obj, Nan::New<String>(S(ONOCR)).ToLocalChecked(), Nan::New<Number>(ONOCR));
-  Nan::Set(obj, Nan::New<String>(S(ONLRET)).ToLocalChecked(), Nan::New<Number>(ONLRET));
-  Nan::Set(obj, Nan::New<String>(S(OFILL)).ToLocalChecked(), Nan::New<Number>(OFILL));
-  Nan::Set(obj, Nan::New<String>(S(OFDEL)).ToLocalChecked(), Nan::New<Number>(OFDEL));
-  Nan::Set(obj, Nan::New<String>(S(NLDLY)).ToLocalChecked(), Nan::New<Number>(NLDLY));
-  Nan::Set(obj, Nan::New<String>(S(CRDLY)).ToLocalChecked(), Nan::New<Number>(CRDLY));
-  Nan::Set(obj, Nan::New<String>(S(TABDLY)).ToLocalChecked(), Nan::New<Number>(TABDLY));
-  Nan::Set(obj, Nan::New<String>(S(BSDLY)).ToLocalChecked(), Nan::New<Number>(BSDLY));
-  Nan::Set(obj, Nan::New<String>(S(VTDLY)).ToLocalChecked(), Nan::New<Number>(VTDLY));
-  Nan::Set(obj, Nan::New<String>(S(FFDLY)).ToLocalChecked(), Nan::New<Number>(FFDLY));
+  ADD(obj, OPOST);
+  ADD(obj, OLCUC);
+  ADD(obj, ONLCR);
+  ADD(obj, OCRNL);
+  ADD(obj, ONOCR);
+  ADD(obj, ONLRET);
+  ADD(obj, OFILL);
+  ADD(obj, OFDEL);
+  ADD(obj, NLDLY);
+  ADD(obj, CRDLY);
+  ADD(obj, TABDLY);
+  ADD(obj, BSDLY);
+  ADD(obj, VTDLY);
+  ADD(obj, FFDLY);
+
   // c_cflag
-  Nan::Set(obj, Nan::New<String>(S(CBAUD)).ToLocalChecked(), Nan::New<Number>(CBAUD));
-  Nan::Set(obj, Nan::New<String>(S(CBAUDEX)).ToLocalChecked(), Nan::New<Number>(CBAUDEX));
-  Nan::Set(obj, Nan::New<String>(S(CSIZE)).ToLocalChecked(), Nan::New<Number>(CSIZE));
-  Nan::Set(obj, Nan::New<String>(S(CSTOPB)).ToLocalChecked(), Nan::New<Number>(CSTOPB));
-  Nan::Set(obj, Nan::New<String>(S(CREAD)).ToLocalChecked(), Nan::New<Number>(CREAD));
-  Nan::Set(obj, Nan::New<String>(S(PARENB)).ToLocalChecked(), Nan::New<Number>(PARENB));
-  Nan::Set(obj, Nan::New<String>(S(PARODD)).ToLocalChecked(), Nan::New<Number>(PARODD));
-  Nan::Set(obj, Nan::New<String>(S(HUPCL)).ToLocalChecked(), Nan::New<Number>(HUPCL));
-  Nan::Set(obj, Nan::New<String>(S(CLOCAL)).ToLocalChecked(), Nan::New<Number>(CLOCAL));
-  //Nan::Set(obj, Nan::New<String>(S(LOBLK)).ToLocalChecked(), Nan::New<Number>(LOBLK));
-  Nan::Set(obj, Nan::New<String>(S(CIBAUD)).ToLocalChecked(), Nan::New<Number>(CIBAUD));
-  Nan::Set(obj, Nan::New<String>(S(CMSPAR)).ToLocalChecked(), Nan::New<Number>(CMSPAR));
-  Nan::Set(obj, Nan::New<String>(S(CRTSCTS)).ToLocalChecked(), Nan::New<Number>(CRTSCTS));
+  ADD(obj, CBAUD);
+  ADD(obj, CBAUDEX);
+  ADD(obj, CSIZE);
+  ADD(obj, CSTOPB);
+  ADD(obj, CREAD);
+  ADD(obj, PARENB);
+  ADD(obj, PARODD);
+  ADD(obj, HUPCL);
+  ADD(obj, CLOCAL);
+  //ADD(obj, LOBLK);
+  ADD(obj, CIBAUD);
+  ADD(obj, CMSPAR);
+  ADD(obj, CRTSCTS);
+
   // c_lflag
-  Nan::Set(obj, Nan::New<String>(S(ISIG)).ToLocalChecked(), Nan::New<Number>(ISIG));
-  Nan::Set(obj, Nan::New<String>(S(ICANON)).ToLocalChecked(), Nan::New<Number>(ICANON));
-  Nan::Set(obj, Nan::New<String>(S(XCASE)).ToLocalChecked(), Nan::New<Number>(XCASE));
-  Nan::Set(obj, Nan::New<String>(S(ECHO)).ToLocalChecked(), Nan::New<Number>(ECHO));
-  Nan::Set(obj, Nan::New<String>(S(ECHOE)).ToLocalChecked(), Nan::New<Number>(ECHOE));
-  Nan::Set(obj, Nan::New<String>(S(ECHOK)).ToLocalChecked(), Nan::New<Number>(ECHOK));
-  Nan::Set(obj, Nan::New<String>(S(ECHONL)).ToLocalChecked(), Nan::New<Number>(ECHONL));
-  Nan::Set(obj, Nan::New<String>(S(ECHOCTL)).ToLocalChecked(), Nan::New<Number>(ECHOCTL));
-  Nan::Set(obj, Nan::New<String>(S(ECHOPRT)).ToLocalChecked(), Nan::New<Number>(ECHOPRT));
-  Nan::Set(obj, Nan::New<String>(S(ECHOKE)).ToLocalChecked(), Nan::New<Number>(ECHOKE));
-  //Nan::Set(obj, Nan::New<String>(S(DEFECHO)).ToLocalChecked(), Nan::New<Number>(DEFECHO));
-  Nan::Set(obj, Nan::New<String>(S(FLUSHO)).ToLocalChecked(), Nan::New<Number>(FLUSHO));
-  Nan::Set(obj, Nan::New<String>(S(NOFLSH)).ToLocalChecked(), Nan::New<Number>(NOFLSH));
-  Nan::Set(obj, Nan::New<String>(S(TOSTOP)).ToLocalChecked(), Nan::New<Number>(TOSTOP));
-  Nan::Set(obj, Nan::New<String>(S(PENDIN)).ToLocalChecked(), Nan::New<Number>(PENDIN));
-  Nan::Set(obj, Nan::New<String>(S(IEXTEN)).ToLocalChecked(), Nan::New<Number>(IEXTEN));
+  ADD(obj, ISIG);
+  ADD(obj, ICANON);
+  ADD(obj, XCASE);
+  ADD(obj, ECHO);
+  ADD(obj, ECHOE);
+  ADD(obj, ECHOK);
+  ADD(obj, ECHONL);
+  ADD(obj, ECHOCTL);
+  ADD(obj, ECHOPRT);
+  ADD(obj, ECHOKE);
+  //ADD(obj, DEFECHO);
+  ADD(obj, FLUSHO);
+  ADD(obj, NOFLSH);
+  ADD(obj, TOSTOP);
+  ADD(obj, PENDIN);
+  ADD(obj, IEXTEN);
+
   // c_cc
-  Nan::Set(obj, Nan::New<String>(S(VDISCARD)).ToLocalChecked(), Nan::New<Number>(VDISCARD));
-  //Nan::Set(obj, Nan::New<String>(S(VDSUSP)).ToLocalChecked(), Nan::New<Number>(VDSUSP));
-  Nan::Set(obj, Nan::New<String>(S(VEOF)).ToLocalChecked(), Nan::New<Number>(VEOF));
-  Nan::Set(obj, Nan::New<String>(S(VEOL)).ToLocalChecked(), Nan::New<Number>(VEOL));
-  Nan::Set(obj, Nan::New<String>(S(VEOL2)).ToLocalChecked(), Nan::New<Number>(VEOL2));
-  Nan::Set(obj, Nan::New<String>(S(VERASE)).ToLocalChecked(), Nan::New<Number>(VERASE));
-  Nan::Set(obj, Nan::New<String>(S(VINTR)).ToLocalChecked(), Nan::New<Number>(VINTR));
-  Nan::Set(obj, Nan::New<String>(S(VKILL)).ToLocalChecked(), Nan::New<Number>(VKILL));
-  Nan::Set(obj, Nan::New<String>(S(VLNEXT)).ToLocalChecked(), Nan::New<Number>(VLNEXT));
-  Nan::Set(obj, Nan::New<String>(S(VMIN)).ToLocalChecked(), Nan::New<Number>(VMIN));
-  Nan::Set(obj, Nan::New<String>(S(VQUIT)).ToLocalChecked(), Nan::New<Number>(VQUIT));
-  Nan::Set(obj, Nan::New<String>(S(VREPRINT)).ToLocalChecked(), Nan::New<Number>(VREPRINT));
-  Nan::Set(obj, Nan::New<String>(S(VSTART)).ToLocalChecked(), Nan::New<Number>(VSTART));
-  //Nan::Set(obj, Nan::New<String>(S(VSTATUS)).ToLocalChecked(), Nan::New<Number>(VSTATUS));
-  Nan::Set(obj, Nan::New<String>(S(VSTOP)).ToLocalChecked(), Nan::New<Number>(VSTOP));
-  Nan::Set(obj, Nan::New<String>(S(VSUSP)).ToLocalChecked(), Nan::New<Number>(VSUSP));
-  //Nan::Set(obj, Nan::New<String>(S(VSWTCH)).ToLocalChecked(), Nan::New<Number>(VSWTCH));
-  Nan::Set(obj, Nan::New<String>(S(VTIME)).ToLocalChecked(), Nan::New<Number>(VTIME));
-  Nan::Set(obj, Nan::New<String>(S(VWERASE)).ToLocalChecked(), Nan::New<Number>(VWERASE));
+  ADD(obj, VDISCARD);
+  //ADD(obj, VDSUSP);
+  ADD(obj, VEOF);
+  ADD(obj, VEOL);
+  ADD(obj, VEOL2);
+  ADD(obj, VERASE);
+  ADD(obj, VINTR);
+  ADD(obj, VKILL);
+  ADD(obj, VLNEXT);
+  ADD(obj, VMIN);
+  ADD(obj, VQUIT);
+  ADD(obj, VREPRINT);
+  ADD(obj, VSTART);
+  //ADD(obj, VSTATUS);
+  ADD(obj, VSTOP);
+  ADD(obj, VSUSP);
+  //ADD(obj, VSWTCH);
+  ADD(obj, VTIME);
+  ADD(obj, VWERASE);
+
   // optional_actions
-  Nan::Set(obj, Nan::New<String>(S(TCSANOW)).ToLocalChecked(), Nan::New<Number>(TCSANOW));
-  Nan::Set(obj, Nan::New<String>(S(TCSADRAIN)).ToLocalChecked(), Nan::New<Number>(TCSADRAIN));
-  Nan::Set(obj, Nan::New<String>(S(TCSAFLUSH)).ToLocalChecked(), Nan::New<Number>(TCSAFLUSH));
+  ADD(obj, TCSANOW);
+  ADD(obj, TCSADRAIN);
+  ADD(obj, TCSAFLUSH);
 
   return info.GetReturnValue().Set(obj);
 }
