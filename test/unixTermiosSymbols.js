@@ -2,36 +2,36 @@ if (process.platform === 'win32') return;
 
 var assert = require("assert");
 var UnixTerminal = require('../lib/unixTerminal').UnixTerminal;
-var TERMIOS = require('../lib/unixTerminal').UnixTerminal.TERMIOS;
 
 describe("UnixTermios", function() {
   beforeEach(function() {
     term = UnixTerminal.open();
   });
-  it("termios symbols", function () {
-    assert.notEqual(TERMIOS, undefined);
-    assert.notEqual(TERMIOS, {});
-    assert.equal(TERMIOS.hasOwnProperty('ICANON'), true);
-    assert.equal(TERMIOS.hasOwnProperty('TCSANOW'), true);
-  });
-  it("tcgetattr", function () {
-    var attrs = term.tcgetattr();
+  it("getAttributes", function () {
+    var attrs = term.getAttributes();
     assert.equal(attrs.hasOwnProperty('c_iflag'), true);
     assert.equal(attrs.hasOwnProperty('c_oflag'), true);
     assert.equal(attrs.hasOwnProperty('c_cflag'), true);
     assert.equal(attrs.hasOwnProperty('c_lflag'), true);
-    assert.equal(attrs.hasOwnProperty('c_ispeed'), true);
-    assert.equal(attrs.hasOwnProperty('c_ospeed'), true);
     assert.equal(attrs.hasOwnProperty('c_cc'), true);
   });
-  it("tcgetattr/tcsetattr cycle", function () {
-    var attrs = term.tcgetattr();
-    attrs.c_lflag &= ~TERMIOS.ICANON;
-    assert.equal(attrs.c_cc[TERMIOS.VSTART], 17); // 17 --> ^Q
-    attrs.c_cc[TERMIOS.VSTART] = 0;
-    term.tcsetattr(TERMIOS.TCSANOW, attrs);
-    var attrs2 = term.tcgetattr();
-    assert.equal(attrs.c_lflag, attrs2.c_lflag);
-    assert.equal(attrs.c_cc[TERMIOS.VSTART], 0);
+  it("getAttributes/setAttributes cycle", function () {
+    var attrs = term.getAttributes();
+    attrs.c_lflag.ICANON = false;
+    assert.equal(attrs.c_cc.VSTART, '\x11'); // 17 --> ^Q
+    attrs.c_cc.VSTART = '\x00';
+    term.setAttributes(attrs, "TCSANOW");
+    var attrs2 = term.getAttributes();
+    assert.deepEqual(attrs.c_lflag, attrs2.c_lflag);
+    assert.equal(attrs.c_cc.VSTART, '\x00');
+  });
+  it("setAttributes subset", function () {
+    var orig = term.getAttributes();
+    assert.equal(orig.c_lflag.ICANON, true);
+    term.setAttributes({c_lflag: {ICANON: false}}, "TCSANOW");
+    var attrs = term.getAttributes();
+    assert.equal(attrs.c_lflag.ICANON, false);
+    attrs.c_lflag.ICANON = true;
+    assert.deepEqual(orig, attrs);
   });
 });
