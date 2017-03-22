@@ -244,7 +244,7 @@ export class UnixTerminal extends Terminal {
     return pty.tcgetattr(this.fd);
   }
 
-  public setAttributes(attrs: any, action: string) {
+  public setAttributes(attrs: any, action: string): void {
     pty.tcsetattr(this.fd, attrs, action);
   }
 }
