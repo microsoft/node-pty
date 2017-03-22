@@ -16,5 +16,5 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -qq update ; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -qq install g++-4.8 ; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CXX=g++-4.8 ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export CXX=g++-4.8 ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export CXX=gcc-4.8 ; fi
 osx_image: xcode8
