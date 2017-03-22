@@ -3,6 +3,12 @@ if (process.platform === 'win32') return;
 var assert = require("assert");
 var UnixTerminal = require('../lib/unixTerminal').UnixTerminal;
 
+function switchValues(obj, value) {
+  for (key in obj)
+    if (obj.hasOwnProperty(key))
+        obj[key] = value;
+}
+
 describe("UnixTermios", function() {
   beforeEach(function() {
     term = UnixTerminal.open();
@@ -33,5 +39,70 @@ describe("UnixTermios", function() {
     assert.equal(attrs.c_lflag.ICANON, false);
     attrs.c_lflag.ICANON = true;
     assert.deepEqual(orig, attrs);
+  });
+  it("set c_iflags", function () {
+    var c_iflag = term.getAttributes().c_iflag;
+    switchValues(c_iflag, false);
+    term.setAttributes({c_iflag: c_iflag}, "TCSANOW");
+    assert.deepEqual(term.getAttributes().c_iflag, c_iflag);
+    switchValues(c_iflag, true);
+    term.setAttributes({c_iflag: c_iflag}, "TCSANOW");
+    assert.deepEqual(term.getAttributes().c_iflag, c_iflag);
+  });
+  it("set c_oflags", function () {
+    var c_oflag = term.getAttributes().c_oflag;
+    switchValues(c_oflag, false);
+    term.setAttributes({c_oflag: c_oflag}, "TCSANOW");
+    assert.deepEqual(term.getAttributes().c_oflag, c_oflag);
+    switchValues(c_oflag, true);
+    term.setAttributes({c_oflag: c_oflag}, "TCSANOW");
+    assert.deepEqual(term.getAttributes().c_oflag, c_oflag);
+  });
+  it("set c_cflags", function () {
+    var c_cflag = term.getAttributes().c_cflag;
+    switchValues(c_cflag, false);
+    c_cflag.CREAD = true; // not working with false
+    c_cflag.CSIZE = true; // not working without CS5, CS6, CS7, or CS8
+    c_cflag.CS5 = false;
+    c_cflag.CS6 = true;
+    c_cflag.CS7 = true;
+    c_cflag.CS8 = true;
+    term.setAttributes({c_cflag: c_cflag}, "TCSANOW");
+    assert.deepEqual(term.getAttributes().c_cflag, c_cflag);
+    switchValues(c_cflag, true);
+    c_cflag.PARENB = false; // not working with true
+    c_cflag.CS5 = false;
+    c_cflag.CS6 = true;
+    c_cflag.CS7 = true;
+    c_cflag.CS8 = true;
+    term.setAttributes({c_cflag: c_cflag}, "TCSANOW");
+    assert.deepEqual(term.getAttributes().c_cflag, c_cflag);
+  });
+  it("set c_lflags", function () {
+    var c_lflag = term.getAttributes().c_lflag;
+    switchValues(c_lflag, false);
+    term.setAttributes({c_lflag: c_lflag}, "TCSANOW");
+    assert.deepEqual(term.getAttributes().c_lflag, c_lflag);
+    switchValues(c_lflag, true);
+    term.setAttributes({c_lflag: c_lflag}, "TCSANOW");
+    assert.deepEqual(term.getAttributes().c_lflag, c_lflag);
+  });
+  it("set c_cc", function () {
+    var c_cc = term.getAttributes().c_cc;
+    switchValues(c_cc, '\x00');
+    c_cc.VTIME = 0;
+    c_cc.VMIN = 0;
+    term.setAttributes({c_cc: c_cc}, "TCSANOW");
+    assert.deepEqual(term.getAttributes().c_cc, c_cc);
+    switchValues(c_cc, '\x01');
+    c_cc.VTIME = 1;
+    c_cc.VMIN = 1;
+    term.setAttributes({c_cc: c_cc}, "TCSANOW");
+    assert.deepEqual(term.getAttributes().c_cc, c_cc);
+    switchValues(c_cc, '\xff');
+    c_cc.VTIME = 255;
+    c_cc.VMIN = 255;
+    term.setAttributes({c_cc: c_cc}, "TCSANOW");
+    assert.deepEqual(term.getAttributes().c_cc, c_cc);
   });
 });

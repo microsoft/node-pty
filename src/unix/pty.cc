@@ -773,6 +773,10 @@ void _create_termios_symbol_maps() {
   TERMIOS_EXPORT(c_cflag, CBAUD);
   TERMIOS_EXPORT(c_cflag, CBAUDEX);
   TERMIOS_EXPORT(c_cflag, CSIZE);
+  TERMIOS_EXPORT(c_cflag, CS5);
+  TERMIOS_EXPORT(c_cflag, CS6);
+  TERMIOS_EXPORT(c_cflag, CS7);
+  TERMIOS_EXPORT(c_cflag, CS8);
   TERMIOS_EXPORT(c_cflag, CSTOPB);
   TERMIOS_EXPORT(c_cflag, CREAD);
   TERMIOS_EXPORT(c_cflag, PARENB);
@@ -838,7 +842,8 @@ NAN_METHOD(PtyTcgetattr) {
   if (info.Length() == 1) {
     if (info[0]->IsNumber()) {
       if (tcgetattr(info[0]->IntegerValue(), &t)) {
-        return Nan::ThrowError("tcgetattr failed");
+        string error(strerror(errno));
+        return Nan::ThrowError((string("tcgetattr failed - ") + error).c_str());
       }
     } else if (!info[0]->IsNull()) {
       return Nan::ThrowError("Usage: pty.tcgetattr(fd|null)");
@@ -869,7 +874,7 @@ NAN_METHOD(PtyTcgetattr) {
     for (auto &entry: c_cflag) {
       Nan::Set(js_c_cflag,
         Nan::New<String>(entry.first).ToLocalChecked(),
-        Nan::New<Boolean>(t.c_oflag & entry.second));
+        Nan::New<Boolean>(t.c_cflag & entry.second));
     }
   Nan::Set(obj,
     Nan::New<String>("c_cflag").ToLocalChecked(), js_c_cflag);
@@ -886,9 +891,15 @@ NAN_METHOD(PtyTcgetattr) {
   Local<Object> js_c_cc = Nan::New<Object>();
     for (auto &entry: c_cc) {
       uint16_t ti = t.c_cc[entry.second];
-      Nan::Set(js_c_cc,
-        Nan::New<String>(entry.first).ToLocalChecked(),
-        Nan::New<String>(&ti, 1).ToLocalChecked());
+      if ((entry.second == VMIN) || (entry.second == VTIME)) {
+        Nan::Set(js_c_cc,
+          Nan::New<String>(entry.first).ToLocalChecked(),
+          Nan::New<Number>(ti));
+      } else {
+        Nan::Set(js_c_cc,
+          Nan::New<String>(entry.first).ToLocalChecked(),
+          Nan::New<String>(&ti, 1).ToLocalChecked());
+      }
     }
   Nan::Set(obj,
     Nan::New<String>("c_cc").ToLocalChecked(), js_c_cc);
@@ -910,10 +921,14 @@ inline void _set_termios_flag_t(v8::Local<v8::Object> &obj, flag_t *mapper, tcfl
       v8::Local<v8::Value> v(obj->Get(objkeys->Get(j)));
       if (!v->IsBoolean())
         continue;
-      *part = (v->ToBoolean()->Value()) ? (*part | it->second) : (*part & ~it->second);
+      if (v->ToBoolean()->Value())
+        *part |= it->second;
+      else
+        *part &= ~it->second;
     }
   }
 }
+
 
 inline void _set_termios_c_cc(v8::Local<v8::Object> &obj,
                               unordered_map<string, unsigned int> *mapper,
@@ -928,15 +943,26 @@ inline void _set_termios_c_cc(v8::Local<v8::Object> &obj,
     unordered_map<string, unsigned int>::iterator it = mapper->find(objkey);
     if (it != mapper->end()) {
       v8::Local<v8::Value> v(obj->Get(objkeys->Get(j)));
-      if (!v->IsString())
+      uint16_t value;
+      if (!v->IsString()) {
+        if ((objkey != "VMIN") && (objkey != "VTIME"))
+          continue;
+        if (!v->IsNumber())
+          continue;
+        value = v->Uint32Value();
+      } else {
+        v8::String::Value v8_value(v->ToString());
+        if (v8_value.length() != 1)
+          continue;
+        value = *((uint16_t *) *v8_value);
+      }
+      if (value>>8)
         continue;
-      v8::String::Value v8_value(v->ToString());
-      if (v8_value.length() != 1)
-        continue;
-      *(part+it->second) = (cc_t) *((uint16_t *) *v8_value);
+      *(part+it->second) = (cc_t) value;
     }
   }
 }
+
 
 NAN_METHOD(PtyTcsetattr) {
   Nan::HandleScope scope;
@@ -945,7 +971,7 @@ NAN_METHOD(PtyTcsetattr) {
       || !info[0]->IsNumber()
       || !info[1]->IsObject()
       || !info[2]->IsString()) {
-    return Nan::ThrowError("Usage: pty.tcsetattr(fd, attrs, action)");
+    return Nan::ThrowError("usage: pty.tcsetattr(fd, attrs, action)");
   }
 
   // get all parameters
@@ -955,15 +981,17 @@ NAN_METHOD(PtyTcsetattr) {
   unordered_map<string, int>::iterator it;
   it = actions.find(action_str);
   if (it == actions.end())
-    return Nan::ThrowError("action must be one of 'TCSANOW', 'TCSADRAIN', 'TCSAFLUSH'.");
+    return Nan::ThrowError("action must be one of 'TCSANOW', 'TCSADRAIN', 'TCSAFLUSH'");
   int action = it->second;
 
   // prepare termios struct
   struct termios t = termios();
 
   // to allow subsets in attrs prepopulate with current attributes
-  if (tcgetattr(fd, &t))
-      return Nan::ThrowError("tcgetattr failed");
+  if (tcgetattr(fd, &t)) {
+    string error(strerror(errno));
+    return Nan::ThrowError((string("tcgetattr failed - ") + error).c_str());
+  }
 
   // get attrs properties
   Nan::MaybeLocal<v8::Array> maybe_keys(Nan::GetOwnPropertyNames(attrs));
@@ -981,25 +1009,26 @@ NAN_METHOD(PtyTcsetattr) {
 
     // make sure only known struct fields are handled
     string key(*static_cast<v8::String::Utf8Value>(keys->Get(i)));
-    if (!key.compare("c_cc")) {
+    if (key == "c_cc") {
       _set_termios_c_cc(obj, &c_cc, &t.c_cc[0]);
-    } else {
-      if (!key.compare("c_iflag")) {
-        _set_termios_flag_t(obj, &c_iflag, &t.c_iflag);
-      } else if (!key.compare("c_oflag")) {
-        _set_termios_flag_t(obj, &c_oflag, &t.c_oflag);
-      } else if (!key.compare("c_cflag")) {
-        _set_termios_flag_t(obj, &c_cflag, &t.c_cflag);
-      } else if (!key.compare("c_lflag")) {
-        _set_termios_flag_t(obj, &c_lflag, &t.c_lflag);
-      }
+    } else if (key == "c_iflag") {
+      _set_termios_flag_t(obj, &c_iflag, &t.c_iflag);
+    } else if (key == "c_oflag") {
+      _set_termios_flag_t(obj, &c_oflag, &t.c_oflag);
+    } else if (key == "c_cflag") {
+      _set_termios_flag_t(obj, &c_cflag, &t.c_cflag);
+    } else if (key == "c_lflag") {
+      _set_termios_flag_t(obj, &c_lflag, &t.c_lflag);
     }
   }
 
   // finally set the attributes
-  if (tcsetattr(fd, action, &t))
-    return Nan::ThrowError("tcsetattr failed");
+  if (tcsetattr(fd, action, &t)) {
+    string error(strerror(errno));
+    return Nan::ThrowError((string("tcsetattr failed - ") + error).c_str());
+  }
 }
+
 
 /**
  * Init
