@@ -139,13 +139,13 @@ pty_after_close(uv_handle_t *);
 
 /**
  * PtyFork
- * pty.fork(file, args, env, cwd, cols, rows, uid, gid, onexit)
+ * pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, onexit)
  */
 
 NAN_METHOD(PtyFork) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 9
+  if (info.Length() != 10
       || !info[0]->IsString() // file
       || !info[1]->IsArray() // args
       || !info[2]->IsArray() // env
@@ -154,10 +154,11 @@ NAN_METHOD(PtyFork) {
       || !info[5]->IsNumber() // rows
       || !info[6]->IsNumber() // uid
       || !info[7]->IsNumber() // gid
-      || !info[8]->IsFunction() // onexit
+      || !info[8]->IsBoolean() // utf8
+      || !info[9]->IsFunction() // onexit
   ) {
     return Nan::ThrowError(
-      "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, onexit)");
+      "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, onexit)");
   }
 
   // Make sure the process still listens to SIGINT
@@ -204,11 +205,14 @@ NAN_METHOD(PtyFork) {
   // termios
   struct termios t = termios();
   struct termios *term = &t;
+  term->c_iflag = ICRNL | IXON | IXANY | IMAXBEL | BRKINT;
+  if (info[8]->ToBoolean()->Value()) {
 #if defined(IUTF8)
-  term->c_iflag = ICRNL | IXON | IXANY | IMAXBEL | BRKINT | IUTF8;
+    term->c_iflag |= IUTF8;
 #else
-  term->c_iflag = ICRNL | IXON | IXANY | IMAXBEL | BRKINT | UTF8;
+    term->c_iflag |= UTF8;
 #endif
+  }
   term->c_oflag = OPOST | ONLCR;
   term->c_cflag = CREAD | CS8 | HUPCL;
   term->c_lflag = ICANON | ISIG | IEXTEN | ECHO | ECHOE | ECHOK | ECHOKE | ECHOCTL;
@@ -299,7 +303,7 @@ NAN_METHOD(PtyFork) {
       pty_baton *baton = new pty_baton();
       baton->exit_code = 0;
       baton->signal_code = 0;
-      baton->cb.Reset(Local<Function>::Cast(info[8]));
+      baton->cb.Reset(Local<Function>::Cast(info[9]));
       baton->pid = pid;
       baton->async.data = baton;
 

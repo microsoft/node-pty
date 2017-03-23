@@ -60,6 +60,8 @@ export class UnixTerminal extends Terminal {
     env.TERM = name;
     const parsedEnv = this._parseEnv(env);
 
+    const encoding = (opt.encoding === undefined ? 'utf8' : opt.encoding);
+
     const onexit = (code: any, signal: any) => {
       // XXX Sometimes a data event is emitted after exit. Wait til socket is
       // destroyed.
@@ -73,10 +75,12 @@ export class UnixTerminal extends Terminal {
     };
 
     // fork
-    const term = pty.fork(file, args, parsedEnv, cwd, cols, rows, uid, gid, onexit);
+    const term = pty.fork(file, args, parsedEnv, cwd, cols, rows, uid, gid, (encoding === 'utf8'), onexit);
 
     this.socket = new PipeSocket(term.fd);
-    this.socket.setEncoding('utf8');
+    if (encoding !== null) {
+      this.socket.setEncoding(encoding);
+    }
     this.socket.resume();
 
     // setup
@@ -149,16 +153,21 @@ export class UnixTerminal extends Terminal {
 
     const cols = opt.cols || Terminal.DEFAULT_COLS;
     const rows = opt.rows || Terminal.DEFAULT_ROWS;
+    const encoding = (opt.encoding === undefined ? 'utf8' : opt.encoding);
 
     // open
     const term = pty.open(cols, rows);
 
     self.master = new PipeSocket(term.master);
-    self.master.setEncoding('utf8');
+    if (encoding !== null) {
+      self.master.setEncoding(encoding);
+    }
     self.master.resume();
 
     self.slave = new PipeSocket(term.slave);
-    self.slave.setEncoding('utf8');
+    if (encoding !== null) {
+      self.slave.setEncoding(encoding);
+    }
     self.slave.resume();
 
     self.socket = self.master;
