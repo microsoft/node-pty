@@ -24,9 +24,11 @@ export interface IPtyForkOptions {
   env?: ProcessEnv;
   uid?: number;
   gid?: number;
+  encoding?: string;
 }
 
 export interface IPtyOpenOptions {
   cols?: number;
   rows?: number;
+  encoding?: string;
 }
