@@ -52,9 +52,11 @@ describe("UnixTermios", function() {
   it("set c_oflags", function () {
     var c_oflag = term.getAttributes().c_oflag;
     switchValues(c_oflag, false);
+    c_oflag.TAB0 = false;
     term.setAttributes({c_oflag: c_oflag}, "TCSANOW");
     assert.deepEqual(term.getAttributes().c_oflag, c_oflag);
     switchValues(c_oflag, true);
+    c_oflag.TAB0 = false;
     term.setAttributes({c_oflag: c_oflag}, "TCSANOW");
     assert.deepEqual(term.getAttributes().c_oflag, c_oflag);
   });
