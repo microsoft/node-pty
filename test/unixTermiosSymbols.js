@@ -86,6 +86,8 @@ describe("UnixTermios", function() {
     term.setAttributes({c_lflag: c_lflag}, "TCSANOW");
     assert.deepEqual(term.getAttributes().c_lflag, c_lflag);
     switchValues(c_lflag, true);
+    if (c_lflag.hasOwnProperty('EXTPROC'))
+      c_lflag.EXTPROC = false;
     term.setAttributes({c_lflag: c_lflag}, "TCSANOW");
     assert.deepEqual(term.getAttributes().c_lflag, c_lflag);
   });
