@@ -734,7 +734,7 @@ pty_forkpty(int *amaster, char *name,
  */
 
 void _create_termios_symbol_maps() {
-  // FIXME: customize this to get platform dependent symbols exported
+  // no platform switches here, simply test for existance of questionable symbols
 
   // c_iflag
   TERMIOS_EXPORT(c_iflag, IGNBRK);
@@ -746,7 +746,9 @@ void _create_termios_symbol_maps() {
   TERMIOS_EXPORT(c_iflag, INLCR);
   TERMIOS_EXPORT(c_iflag, IGNCR);
   TERMIOS_EXPORT(c_iflag, ICRNL);
+#if defined(IUCLC)
   TERMIOS_EXPORT(c_iflag, IUCLC);
+#endif
   TERMIOS_EXPORT(c_iflag, IXON);
   TERMIOS_EXPORT(c_iflag, IXANY);
   TERMIOS_EXPORT(c_iflag, IXOFF);
@@ -755,7 +757,9 @@ void _create_termios_symbol_maps() {
   
   // c_oflag
   TERMIOS_EXPORT(c_oflag, OPOST);
+#if defined(OLCUC)
   TERMIOS_EXPORT(c_oflag, OLCUC);
+#endif
   TERMIOS_EXPORT(c_oflag, ONLCR);
   TERMIOS_EXPORT(c_oflag, OCRNL);
   TERMIOS_EXPORT(c_oflag, ONOCR);
@@ -770,8 +774,12 @@ void _create_termios_symbol_maps() {
   TERMIOS_EXPORT(c_oflag, FFDLY);
 
   // c_cflag
+#if defined(CBAUD)
   TERMIOS_EXPORT(c_cflag, CBAUD);
+#endif
+#if defined(CBAUDEX)
   TERMIOS_EXPORT(c_cflag, CBAUDEX);
+#endif
   TERMIOS_EXPORT(c_cflag, CSIZE);
   TERMIOS_EXPORT(c_cflag, CS5);
   TERMIOS_EXPORT(c_cflag, CS6);
@@ -783,15 +791,23 @@ void _create_termios_symbol_maps() {
   TERMIOS_EXPORT(c_cflag, PARODD);
   TERMIOS_EXPORT(c_cflag, HUPCL);
   TERMIOS_EXPORT(c_cflag, CLOCAL);
-  //TERMIOS_EXPORT(c_cflag, LOBLK);
+#if defined(LOBLK)
+  TERMIOS_EXPORT(c_cflag, LOBLK);
+#endif
+#if defined(CIBAUD)
   TERMIOS_EXPORT(c_cflag, CIBAUD);
+#endif
+#if defined(CMSPAR)
   TERMIOS_EXPORT(c_cflag, CMSPAR);
+#endif
   TERMIOS_EXPORT(c_cflag, CRTSCTS);
 
   // c_lflag
   TERMIOS_EXPORT(c_lflag, ISIG);
   TERMIOS_EXPORT(c_lflag, ICANON);
+#if defined(XCASE)
   TERMIOS_EXPORT(c_lflag, XCASE);
+#endif
   TERMIOS_EXPORT(c_lflag, ECHO);
   TERMIOS_EXPORT(c_lflag, ECHOE);
   TERMIOS_EXPORT(c_lflag, ECHOK);
@@ -799,7 +815,9 @@ void _create_termios_symbol_maps() {
   TERMIOS_EXPORT(c_lflag, ECHOCTL);
   TERMIOS_EXPORT(c_lflag, ECHOPRT);
   TERMIOS_EXPORT(c_lflag, ECHOKE);
-  //TERMIOS_EXPORT(c_lflag, DEFECHO);
+#if defined(DEFECHO)
+  TERMIOS_EXPORT(c_lflag, DEFECHO);
+#endif
   TERMIOS_EXPORT(c_lflag, FLUSHO);
   TERMIOS_EXPORT(c_lflag, NOFLSH);
   TERMIOS_EXPORT(c_lflag, TOSTOP);
@@ -808,7 +826,9 @@ void _create_termios_symbol_maps() {
 
   // c_cc
   TERMIOS_EXPORT(c_cc, VDISCARD);
-  //TERMIOS_EXPORT(c_cc, VDSUSP);
+#if defined(VDSUSP)
+  TERMIOS_EXPORT(c_cc, VDSUSP);
+#endif
   TERMIOS_EXPORT(c_cc, VEOF);
   TERMIOS_EXPORT(c_cc, VEOL);
   TERMIOS_EXPORT(c_cc, VEOL2);
@@ -820,10 +840,14 @@ void _create_termios_symbol_maps() {
   TERMIOS_EXPORT(c_cc, VQUIT);
   TERMIOS_EXPORT(c_cc, VREPRINT);
   TERMIOS_EXPORT(c_cc, VSTART);
-  //TERMIOS_EXPORT(c_cc, VSTATUS);
+#if defined(VSTATUS)
+  TERMIOS_EXPORT(c_cc, VSTATUS);
+#endif
   TERMIOS_EXPORT(c_cc, VSTOP);
   TERMIOS_EXPORT(c_cc, VSUSP);
-  //TERMIOS_EXPORT(c_cc, VSWTCH);
+#if defined(VSWTCH)
+  TERMIOS_EXPORT(c_cc, VSWTCH);
+#endif
   TERMIOS_EXPORT(c_cc, VTIME);
   TERMIOS_EXPORT(c_cc, VWERASE);
 
