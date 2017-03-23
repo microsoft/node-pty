@@ -202,7 +202,8 @@ NAN_METHOD(PtyFork) {
   winp.ws_ypixel = 0;
 
   // termios
-  struct termios* term = new termios();
+  struct termios t = termios();
+  struct termios *term = &t;
 #if defined(IUTF8)
   term->c_iflag = ICRNL | IXON | IXANY | IMAXBEL | BRKINT | IUTF8;
 #else
