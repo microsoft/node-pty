@@ -23,6 +23,10 @@ export class WindowsTerminal extends Terminal {
   constructor(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions) {
     super();
 
+    if (opt.encoding) {
+      console.warn('Setting encoding on Windows is not supported');
+    }
+
     // Initialize arguments
     args = args || [];
     file = file || DEFAULT_FILE;
