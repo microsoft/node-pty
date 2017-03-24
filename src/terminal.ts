@@ -6,7 +6,7 @@
 import * as path from 'path';
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
-import { ITerminal } from './interfaces';
+import { ITerminal, IPtyForkOptions } from './interfaces';
 
 export abstract class Terminal implements ITerminal {
   protected static readonly DEFAULT_COLS: number = 80;
@@ -27,7 +27,12 @@ export abstract class Terminal implements ITerminal {
 
   protected _internalee: EventEmitter;
 
-  constructor() {
+  constructor(opt?: IPtyForkOptions) {
+    // TODO: Fill in more type checks
+    if (opt.cwd && typeof opt.cwd !== 'string') {
+      throw new Error('cwd must be a string');
+    }
+
     // for 'close'
     this._internalee = new EventEmitter();
   }

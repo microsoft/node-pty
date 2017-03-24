@@ -33,7 +33,7 @@ export class UnixTerminal extends Terminal {
   private slave: any;
 
   constructor(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions) {
-    super();
+    super(opt);
 
     if (typeof args === 'string') {
       throw new Error('args as a string is not supported on unix.');
