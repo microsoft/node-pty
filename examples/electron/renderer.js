@@ -1,8 +1,8 @@
 var os = require('os');
-
 var pty = require('node-pty');
 var Terminal = require('xterm');
 
+// Initialize node-pty with an appropriate shell
 const shell = process.env[os.platform() === 'win32' ? 'COMSPEC' : 'SHELL'];
 const ptyProcess = pty.spawn(shell, [], {
   name: 'xterm-color',
@@ -12,9 +12,11 @@ const ptyProcess = pty.spawn(shell, [], {
   env: process.env
 });
 
+// Initialize xterm.js and attach it to the DOM
 const xterm = new Terminal();
 xterm.open(document.getElementById('xterm'));
 
+// Setup communication between xterm.js and node-pty
 xterm.on('data', (data) => {
   ptyProcess.write(data);
 });
