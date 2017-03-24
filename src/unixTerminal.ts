@@ -153,21 +153,17 @@ export class UnixTerminal extends Terminal {
 
     const cols = opt.cols || Terminal.DEFAULT_COLS;
     const rows = opt.rows || Terminal.DEFAULT_ROWS;
-    const encoding = (opt.encoding === undefined ? 'utf8' : opt.encoding);
+    const encoding = opt.encoding ? 'utf8' : opt.encoding;
 
     // open
     const term = pty.open(cols, rows);
 
     self.master = new PipeSocket(term.master);
-    if (encoding !== null) {
-      self.master.setEncoding(encoding);
-    }
+    self.master.setEncoding(encoding);
     self.master.resume();
 
     self.slave = new PipeSocket(term.slave);
-    if (encoding !== null) {
-      self.slave.setEncoding(encoding);
-    }
+    self.slave.setEncoding(encoding);
     self.slave.resume();
 
     self.socket = self.master;
