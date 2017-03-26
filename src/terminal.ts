@@ -28,13 +28,29 @@ export abstract class Terminal implements ITerminal {
   protected _internalee: EventEmitter;
 
   constructor(opt?: IPtyForkOptions) {
-    // TODO: Fill in more type checks
-    if (opt.cwd && typeof opt.cwd !== 'string') {
-      throw new Error('cwd must be a string');
-    }
-
     // for 'close'
     this._internalee = new EventEmitter();
+
+    if (!opt) {
+      return;
+    }
+
+    // Do basic type checks here in case node-pty is being used within JavaScript. If the wrong
+    // types go through to the C++ side it can lead to hard to diagnose exceptions.
+    this._checkType('name', opt.name ? opt.name : null, 'string');
+    this._checkType('cols', opt.cols ? opt.cols : null, 'number');
+    this._checkType('rows', opt.rows ? opt.rows : null, 'number');
+    this._checkType('cwd', opt.cwd ? opt.cwd : null, 'string');
+    this._checkType('env', opt.env ? opt.env : null, 'object');
+    this._checkType('uid', opt.uid ? opt.uid : null, 'number');
+    this._checkType('gid', opt.gid ? opt.gid : null, 'number');
+    this._checkType('encoding', opt.encoding ? opt.encoding : null, 'string');
+  }
+
+  private _checkType(name: string, value: any, type: string): void {
+    if (value && typeof value !== type) {
+      throw new Error(`${name} must be a ${type} (not a ${typeof value})`);
+    }
   }
 
   /** See net.Socket.end */
