@@ -247,8 +247,7 @@ NAN_METHOD(PtyFork) {
 
   // fork the pty
   int master = -1;
-  char name[40];
-  pid_t pid = pty_forkpty(&master, name, term, &winp);
+  pid_t pid = pty_forkpty(&master, nullptr, term, &winp);
 
   if (pid) {
     for (i = 0; i < argl; i++) free(argv[i]);
@@ -298,7 +297,7 @@ NAN_METHOD(PtyFork) {
         Nan::New<Number>(pid));
       Nan::Set(obj,
         Nan::New<String>("pty").ToLocalChecked(),
-        Nan::New<String>(name).ToLocalChecked());
+        Nan::New<String>(ptsname(master)).ToLocalChecked());
 
       pty_baton *baton = new pty_baton();
       baton->exit_code = 0;
@@ -340,8 +339,7 @@ NAN_METHOD(PtyOpen) {
 
   // pty
   int master, slave;
-  char name[40];
-  int ret = pty_openpty(&master, &slave, name, NULL, &winp);
+  int ret = pty_openpty(&master, &slave, nullptr, NULL, &winp);
 
   if (ret == -1) {
     return Nan::ThrowError("openpty(3) failed.");
@@ -364,7 +362,7 @@ NAN_METHOD(PtyOpen) {
     Nan::New<Number>(slave));
   Nan::Set(obj,
     Nan::New<String>("pty").ToLocalChecked(),
-    Nan::New<String>(name).ToLocalChecked());
+    Nan::New<String>(ptsname(master)).ToLocalChecked());
 
   return info.GetReturnValue().Set(obj);
 }
