@@ -78,6 +78,18 @@ extern char **environ;
 
 using namespace node;
 using namespace v8;
+using namespace std;
+
+/* for termios */
+#include <unordered_map>
+typedef unordered_map<string, tcflag_t> flag_t;
+static flag_t c_iflag;
+static flag_t c_oflag;
+static flag_t c_cflag;
+static flag_t c_lflag;
+static unordered_map<string, unsigned int> c_cc;
+static unordered_map<string, int> actions;
+#define TERMIOS_EXPORT(o, s) (o[#s] = s)
 
 /**
  * Structs
@@ -719,6 +731,380 @@ pty_forkpty(int *amaster, char *name,
 #endif
 }
 
+
+/**
+ * termios attributes
+ */
+
+void _create_termios_symbol_maps() {
+  // no platform switches here, simply test for existance of questionable symbols
+  // checked OS: linux, FreeBSD (partly darwin compatible)
+  // TODO: OSX - doc specifies FreeBSD definitions but not all are actually implemented
+  // TODO: Solaris, others?
+
+  // c_iflag
+  TERMIOS_EXPORT(c_iflag, IGNBRK);
+  TERMIOS_EXPORT(c_iflag, BRKINT);
+  TERMIOS_EXPORT(c_iflag, IGNPAR);
+  TERMIOS_EXPORT(c_iflag, PARMRK);
+  TERMIOS_EXPORT(c_iflag, INPCK);
+  TERMIOS_EXPORT(c_iflag, ISTRIP);
+  TERMIOS_EXPORT(c_iflag, INLCR);
+  TERMIOS_EXPORT(c_iflag, IGNCR);
+  TERMIOS_EXPORT(c_iflag, ICRNL);
+#if defined(IUCLC)
+  TERMIOS_EXPORT(c_iflag, IUCLC);
+#endif
+  TERMIOS_EXPORT(c_iflag, IXON);
+  TERMIOS_EXPORT(c_iflag, IXANY);
+  TERMIOS_EXPORT(c_iflag, IXOFF);
+  TERMIOS_EXPORT(c_iflag, IMAXBEL);
+#if defined(IUTF8)
+  TERMIOS_EXPORT(c_iflag, IUTF8);
+#endif
+
+  // c_oflag
+  TERMIOS_EXPORT(c_oflag, OPOST);
+#if defined(OLCUC)
+  TERMIOS_EXPORT(c_oflag, OLCUC);
+#endif
+  TERMIOS_EXPORT(c_oflag, ONLCR);
+  TERMIOS_EXPORT(c_oflag, OCRNL);
+  TERMIOS_EXPORT(c_oflag, ONOCR);
+  TERMIOS_EXPORT(c_oflag, ONLRET);
+#if defined(OFILL)
+  TERMIOS_EXPORT(c_oflag, OFILL);
+#endif
+#if defined(OFDEL)
+  TERMIOS_EXPORT(c_oflag, OFDEL);
+#endif
+#if defined(NLDLY)
+  TERMIOS_EXPORT(c_oflag, NLDLY);
+#endif
+#if defined(CRDLY)
+  TERMIOS_EXPORT(c_oflag, CRDLY);
+#endif
+  TERMIOS_EXPORT(c_oflag, TABDLY);
+#if defined(BSDLY)
+  TERMIOS_EXPORT(c_oflag, BSDLY);
+#endif
+#if defined(VTDLY)
+  TERMIOS_EXPORT(c_oflag, VTDLY);
+#endif
+#if defined(FFDLY)
+  TERMIOS_EXPORT(c_oflag, FFDLY);
+#endif
+#if defined(TAB0)
+  TERMIOS_EXPORT(c_oflag, TAB0);
+#endif
+#if defined(TAB3)
+  TERMIOS_EXPORT(c_oflag, TAB3);
+#endif
+#if defined(ONOEOT)
+  TERMIOS_EXPORT(c_oflag, ONOEOT);
+#endif
+
+  // c_cflag
+#if defined(CBAUD)
+  TERMIOS_EXPORT(c_cflag, CBAUD);
+#endif
+#if defined(CBAUDEX)
+  TERMIOS_EXPORT(c_cflag, CBAUDEX);
+#endif
+  TERMIOS_EXPORT(c_cflag, CSIZE);
+  TERMIOS_EXPORT(c_cflag, CS5);
+  TERMIOS_EXPORT(c_cflag, CS6);
+  TERMIOS_EXPORT(c_cflag, CS7);
+  TERMIOS_EXPORT(c_cflag, CS8);
+  TERMIOS_EXPORT(c_cflag, CSTOPB);
+  TERMIOS_EXPORT(c_cflag, CREAD);
+  TERMIOS_EXPORT(c_cflag, PARENB);
+  TERMIOS_EXPORT(c_cflag, PARODD);
+  TERMIOS_EXPORT(c_cflag, HUPCL);
+  TERMIOS_EXPORT(c_cflag, CLOCAL);
+#if defined(LOBLK)
+  TERMIOS_EXPORT(c_cflag, LOBLK);
+#endif
+#if defined(CIBAUD)
+  TERMIOS_EXPORT(c_cflag, CIBAUD);
+#endif
+#if defined(CMSPAR)
+  TERMIOS_EXPORT(c_cflag, CMSPAR);
+#endif
+  TERMIOS_EXPORT(c_cflag, CRTSCTS);
+#if defined(CCTS_OFLOW)
+  TERMIOS_EXPORT(c_cflag, CCTS_OFLOW);
+#endif
+#if defined(CRTS_IFLOW)
+  TERMIOS_EXPORT(c_cflag, CRTS_IFLOW);
+#endif
+#if defined(MDMBUF)
+  TERMIOS_EXPORT(c_cflag, MDMBUF);
+#endif
+
+  // c_lflag
+  TERMIOS_EXPORT(c_lflag, ISIG);
+  TERMIOS_EXPORT(c_lflag, ICANON);
+#if defined(XCASE)
+  TERMIOS_EXPORT(c_lflag, XCASE);
+#endif
+  TERMIOS_EXPORT(c_lflag, ECHO);
+  TERMIOS_EXPORT(c_lflag, ECHOE);
+#if defined(ECHOK)
+  TERMIOS_EXPORT(c_lflag, ECHOK);
+#endif
+  TERMIOS_EXPORT(c_lflag, ECHONL);
+  TERMIOS_EXPORT(c_lflag, ECHOCTL);
+  TERMIOS_EXPORT(c_lflag, ECHOPRT);
+  TERMIOS_EXPORT(c_lflag, ECHOKE);
+#if defined(DEFECHO)
+  TERMIOS_EXPORT(c_lflag, DEFECHO);
+#endif
+  TERMIOS_EXPORT(c_lflag, FLUSHO);
+  TERMIOS_EXPORT(c_lflag, NOFLSH);
+  TERMIOS_EXPORT(c_lflag, TOSTOP);
+  TERMIOS_EXPORT(c_lflag, PENDIN);
+  TERMIOS_EXPORT(c_lflag, IEXTEN);
+#if defined(ALTWERASE)
+  TERMIOS_EXPORT(c_lflag, ALTWERASE);
+#endif
+#if defined(EXTPROC)
+  TERMIOS_EXPORT(c_lflag, EXTPROC);
+#endif
+#if defined(NOKERNINFO)
+  TERMIOS_EXPORT(c_lflag, NOKERNINFO);
+#endif
+
+  // c_cc
+  TERMIOS_EXPORT(c_cc, VDISCARD);
+#if defined(VDSUSP)
+  TERMIOS_EXPORT(c_cc, VDSUSP);
+#endif
+  TERMIOS_EXPORT(c_cc, VEOF);
+  TERMIOS_EXPORT(c_cc, VEOL);
+  TERMIOS_EXPORT(c_cc, VEOL2);
+  TERMIOS_EXPORT(c_cc, VERASE);
+  TERMIOS_EXPORT(c_cc, VINTR);
+  TERMIOS_EXPORT(c_cc, VKILL);
+  TERMIOS_EXPORT(c_cc, VLNEXT);
+  TERMIOS_EXPORT(c_cc, VMIN);
+  TERMIOS_EXPORT(c_cc, VQUIT);
+  TERMIOS_EXPORT(c_cc, VREPRINT);
+  TERMIOS_EXPORT(c_cc, VSTART);
+#if defined(VSTATUS)
+  TERMIOS_EXPORT(c_cc, VSTATUS);
+#endif
+  TERMIOS_EXPORT(c_cc, VSTOP);
+  TERMIOS_EXPORT(c_cc, VSUSP);
+#if defined(VSWTCH)
+  TERMIOS_EXPORT(c_cc, VSWTCH);
+#endif
+  TERMIOS_EXPORT(c_cc, VTIME);
+  TERMIOS_EXPORT(c_cc, VWERASE);
+
+  // optional_actions
+  TERMIOS_EXPORT(actions, TCSANOW);
+  TERMIOS_EXPORT(actions, TCSADRAIN);
+  TERMIOS_EXPORT(actions, TCSAFLUSH);
+}
+
+
+NAN_METHOD(PtyTcgetattr) {
+  Nan::HandleScope scope;
+
+  struct termios t = termios();
+
+  if (info.Length() == 1) {
+    if (info[0]->IsNumber()) {
+      if (tcgetattr(info[0]->IntegerValue(), &t)) {
+        string error(strerror(errno));
+        return Nan::ThrowError((string("tcgetattr failed - ") + error).c_str());
+      }
+    } else if (!info[0]->IsNull()) {
+      return Nan::ThrowError("Usage: pty.tcgetattr(fd|null)");
+    }
+  }
+
+  Local<Object> obj = Nan::New<Object>();
+
+  Local<Object> js_c_iflag = Nan::New<Object>();
+  for (auto &entry: c_iflag) {
+    Nan::Set(js_c_iflag,
+      Nan::New<String>(entry.first).ToLocalChecked(),
+      Nan::New<Boolean>(t.c_iflag & entry.second));
+  }
+  Nan::Set(obj,
+    Nan::New<String>("c_iflag").ToLocalChecked(), js_c_iflag);
+
+  Local<Object> js_c_oflag = Nan::New<Object>();
+    for (auto &entry: c_oflag) {
+      Nan::Set(js_c_oflag,
+        Nan::New<String>(entry.first).ToLocalChecked(),
+        Nan::New<Boolean>(t.c_oflag & entry.second));
+    }
+  Nan::Set(obj,
+    Nan::New<String>("c_oflag").ToLocalChecked(), js_c_oflag);
+
+  Local<Object> js_c_cflag = Nan::New<Object>();
+    for (auto &entry: c_cflag) {
+      Nan::Set(js_c_cflag,
+        Nan::New<String>(entry.first).ToLocalChecked(),
+        Nan::New<Boolean>(t.c_cflag & entry.second));
+    }
+  Nan::Set(obj,
+    Nan::New<String>("c_cflag").ToLocalChecked(), js_c_cflag);
+
+  Local<Object> js_c_lflag = Nan::New<Object>();
+    for (auto &entry: c_lflag) {
+      Nan::Set(js_c_lflag,
+        Nan::New<String>(entry.first).ToLocalChecked(),
+        Nan::New<Boolean>(t.c_lflag & entry.second));
+    }
+  Nan::Set(obj,
+    Nan::New<String>("c_lflag").ToLocalChecked(), js_c_lflag);
+
+  Local<Object> js_c_cc = Nan::New<Object>();
+    for (auto &entry: c_cc) {
+      uint16_t ti = t.c_cc[entry.second];
+      if ((entry.second == VMIN) || (entry.second == VTIME)) {
+        Nan::Set(js_c_cc,
+          Nan::New<String>(entry.first).ToLocalChecked(),
+          Nan::New<Number>(ti));
+      } else {
+        Nan::Set(js_c_cc,
+          Nan::New<String>(entry.first).ToLocalChecked(),
+          Nan::New<String>(&ti, 1).ToLocalChecked());
+      }
+    }
+  Nan::Set(obj,
+    Nan::New<String>("c_cc").ToLocalChecked(), js_c_cc);
+
+  return info.GetReturnValue().Set(obj);
+}
+
+
+inline void _set_termios_flag_t(v8::Local<v8::Object> &obj, flag_t *mapper, tcflag_t *part) {
+  Nan::MaybeLocal<v8::Array> maybe_obj_keys(Nan::GetOwnPropertyNames(obj));
+  if (maybe_obj_keys.IsEmpty())
+    return;
+  v8::Local<v8::Array> objkeys(maybe_obj_keys.ToLocalChecked());
+  int objlength = objkeys->Length();
+  for (int j=0; j<objlength; ++j) {
+    string objkey(*static_cast<v8::String::Utf8Value>(objkeys->Get(j)));
+    flag_t::iterator it = mapper->find(objkey);
+    if (it != mapper->end()) {
+      v8::Local<v8::Value> v(obj->Get(objkeys->Get(j)));
+      if (!v->IsBoolean())
+        continue;
+      if (v->ToBoolean()->Value())
+        *part |= it->second;
+      else
+        *part &= ~it->second;
+    }
+  }
+}
+
+
+inline void _set_termios_c_cc(v8::Local<v8::Object> &obj,
+                              unordered_map<string, unsigned int> *mapper,
+                              cc_t *part) {
+  Nan::MaybeLocal<v8::Array> maybe_obj_keys(Nan::GetOwnPropertyNames(obj));
+  if (maybe_obj_keys.IsEmpty())
+    return;
+  v8::Local<v8::Array> objkeys(maybe_obj_keys.ToLocalChecked());
+  int objlength = objkeys->Length();
+  for (int j=0; j<objlength; ++j) {
+    string objkey(*static_cast<v8::String::Utf8Value>(objkeys->Get(j)));
+    unordered_map<string, unsigned int>::iterator it = mapper->find(objkey);
+    if (it != mapper->end()) {
+      v8::Local<v8::Value> v(obj->Get(objkeys->Get(j)));
+      uint16_t value;
+      if (!v->IsString()) {
+        if ((objkey != "VMIN") && (objkey != "VTIME"))
+          continue;
+        if (!v->IsNumber())
+          continue;
+        value = v->Uint32Value();
+      } else {
+        v8::String::Value v8_value(v->ToString());
+        if (v8_value.length() != 1)
+          continue;
+        value = *((uint16_t *) *v8_value);
+      }
+      if (value>>8)
+        continue;
+      *(part+it->second) = (cc_t) value;
+    }
+  }
+}
+
+
+NAN_METHOD(PtyTcsetattr) {
+  Nan::HandleScope scope;
+
+  if (info.Length() != 3
+      || !info[0]->IsNumber()
+      || !info[1]->IsObject()
+      || !info[2]->IsString()) {
+    return Nan::ThrowError("usage: pty.tcsetattr(fd, attrs, action)");
+  }
+
+  // get all parameters
+  int fd = info[0]->IntegerValue();
+  v8::Local<v8::Object> attrs(info[1]->ToObject());
+  string action_str(*static_cast<v8::String::Utf8Value>(info[2]->ToString()));
+  unordered_map<string, int>::iterator it;
+  it = actions.find(action_str);
+  if (it == actions.end())
+    return Nan::ThrowError("action must be one of 'TCSANOW', 'TCSADRAIN', 'TCSAFLUSH'");
+  int action = it->second;
+
+  // prepare termios struct
+  struct termios t = termios();
+
+  // to allow subsets in attrs prepopulate with current attributes
+  if (tcgetattr(fd, &t)) {
+    string error(strerror(errno));
+    return Nan::ThrowError((string("tcgetattr failed - ") + error).c_str());
+  }
+
+  // get attrs properties
+  Nan::MaybeLocal<v8::Array> maybe_keys(Nan::GetOwnPropertyNames(attrs));
+  if (maybe_keys.IsEmpty())
+    return;
+  v8::Local<v8::Array> keys(maybe_keys.ToLocalChecked());
+  int length = keys->Length();
+
+  // walk over properties and set matching values
+  for (int i=0; i<length; ++i) {
+    v8::Local<v8::Value> value(attrs->Get(keys->Get(i)));
+    if (!value->IsObject())
+      continue;
+    v8::Local<v8::Object> obj(value->ToObject());
+
+    // make sure only known struct fields are handled
+    string key(*static_cast<v8::String::Utf8Value>(keys->Get(i)));
+    if (key == "c_cc") {
+      _set_termios_c_cc(obj, &c_cc, &t.c_cc[0]);
+    } else if (key == "c_iflag") {
+      _set_termios_flag_t(obj, &c_iflag, &t.c_iflag);
+    } else if (key == "c_oflag") {
+      _set_termios_flag_t(obj, &c_oflag, &t.c_oflag);
+    } else if (key == "c_cflag") {
+      _set_termios_flag_t(obj, &c_cflag, &t.c_cflag);
+    } else if (key == "c_lflag") {
+      _set_termios_flag_t(obj, &c_lflag, &t.c_lflag);
+    }
+  }
+
+  // finally set the attributes
+  if (tcsetattr(fd, action, &t)) {
+    string error(strerror(errno));
+    return Nan::ThrowError((string("tcsetattr failed - ") + error).c_str());
+  }
+}
+
+
 /**
  * Init
  */
@@ -737,6 +1123,13 @@ NAN_MODULE_INIT(init) {
   Nan::Set(target,
     Nan::New<String>("process").ToLocalChecked(),
     Nan::New<FunctionTemplate>(PtyGetProc)->GetFunction());
+  Nan::Set(target,
+      Nan::New<String>("tcgetattr").ToLocalChecked(),
+      Nan::New<FunctionTemplate>(PtyTcgetattr)->GetFunction());
+  Nan::Set(target,
+      Nan::New<String>("tcsetattr").ToLocalChecked(),
+      Nan::New<FunctionTemplate>(PtyTcsetattr)->GetFunction());
+  _create_termios_symbol_maps();
 }
 
 NODE_MODULE(pty, init)

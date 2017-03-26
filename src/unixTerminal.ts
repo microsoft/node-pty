@@ -244,6 +244,14 @@ export class UnixTerminal extends Terminal {
       delete env['COLUMNS'];
       delete env['LINES'];
   }
+
+  public getAttributes(): any {
+    return pty.tcgetattr(this.fd);
+  }
+
+  public setAttributes(attrs: any, action: string): void {
+    pty.tcsetattr(this.fd, attrs, action);
+  }
 }
 
 /**
