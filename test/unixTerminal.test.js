@@ -6,7 +6,7 @@ var UnixTerminal = require('../lib/unixTerminal').UnixTerminal;
 describe("UnixTerminal", function() {
   describe("Constructor", function() {
     it("should set a valid pts name", function() {
-      const term = new UnixTerminal('cmd.exe', [], {});
+      const term = new UnixTerminal('/bin/bash', [], {});
       let regExp;
       if (process.platform === 'linux') {
         // https://linux.die.net/man/4/pts
