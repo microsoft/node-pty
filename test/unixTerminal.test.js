@@ -21,4 +21,41 @@ describe("UnixTerminal", function() {
       }
     });
   });
+
+  describe("PtyForkEncodingOption", function() {
+    it("should default to utf8", function(done) {
+      const term = new UnixTerminal(null, [ '-c', 'cat "' + __dirname + '/utf8-character.txt"' ]);
+      term.on('data', function(data) {
+        assert.equal(typeof data, 'string');
+        assert.equal(data, '\u00E6');
+        done();
+      });
+    });
+    it("should return a Buffer when encoding is null", function(done) {
+      const term = new UnixTerminal(null, [ '-c', 'cat "' + __dirname + '/utf8-character.txt"' ], {
+          encoding: null,
+        });
+      term.on('data', function(data) {
+        assert.equal(typeof data, 'object');
+        assert.ok(data instanceof Buffer);
+        assert.equal(0xC3, data[0]);
+        assert.equal(0xA6, data[1]);
+        done();
+      });
+    });
+    it("should support other encodings", function(done) {
+      const term = new UnixTerminal(null, [ '-c', 'cat "' + __dirname + '/utf8-sentence.txt"' ], {
+          encoding: 'base64'
+        });
+      var buf = '';
+      term.on('data', function(data) {
+        assert.equal(typeof data, 'string');
+        buf += data;
+      });
+      term.on('close', function() {
+        assert.equal(buf, 'SGV5LCDDpiEgV2hhZGR1cD8=');
+        done();
+      });
+    });
+  });
 });
