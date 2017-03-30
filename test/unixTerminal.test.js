@@ -14,7 +14,7 @@ describe("UnixTerminal", function() {
       }
       if (process.platform === 'darwin') {
         // https://developer.apple.com/legacy/library/documentation/Darwin/Reference/ManPages/man4/pty.4.html
-        regExp = /^\/dev\/tty[p-sP-S][a-z0-9]$/;
+        regExp = /^\/dev\/tty[p-sP-S][a-z0-9]+$/;
       }
       if (regExp) {
         assert.ok(regExp.test(term.pty), '"' + term.pty + '" should match ' + regExp.toString());
