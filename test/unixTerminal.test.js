@@ -16,7 +16,9 @@ describe("UnixTerminal", function() {
         // https://developer.apple.com/legacy/library/documentation/Darwin/Reference/ManPages/man4/pty.4.html
         regExp = /^\/dev\/tty[p-sP-S][a-z0-9]$/;
       }
-      assert.ok(regExp.test(term.pty), '"' + term.pty + '" should match ' + regExp.toString());
+      if (regExp) {
+        assert.ok(regExp.test(term.pty), '"' + term.pty + '" should match ' + regExp.toString());
+      }
     });
   });
 });
