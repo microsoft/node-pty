@@ -52,7 +52,7 @@ describe("UnixTerminal", function() {
         assert.equal(typeof data, 'string');
         buf += data;
       });
-      term.on('end', function() {
+      term.on('close', function() {
         assert.equal(buf, 'SGV5LCDDpiEgV2hhZGR1cD8=');
         done();
       });
