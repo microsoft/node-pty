@@ -54,7 +54,7 @@ describe("UnixTerminal", function() {
         buffer += data;
       });
       term.on('exit', function() {
-        assert.equal(new Buffer(buffer, 'base64').toString().replace('\r', ''), text);
+        assert.equal(new Buffer(buffer, 'base64').toString().replace('\r', '').replace('\n', ''), text);
         done();
       });
     });
