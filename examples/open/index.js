@@ -1,4 +1,4 @@
-var pty = require('..');
+var pty = require('../..');
 var assert = require('assert');
 var tty = require('tty');
 
