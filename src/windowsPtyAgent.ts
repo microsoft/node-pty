@@ -29,8 +29,8 @@ export class WindowsPtyAgent {
 
   public get inSocket(): net.Socket { return this._inSocket; }
   public get outSocket(): net.Socket { return this._outSocket; }
-  public get pid(): number { return this._pid; }
   public get fd(): any { return this._fd; }
+  public get innerPid(): number { return this._innerPid; }
   public get pty(): number { return this._pty; }
 
   constructor(
@@ -80,7 +80,7 @@ export class WindowsPtyAgent {
   }
 
   public resize(cols: number, rows: number): void {
-    pty.resize(this.pid, cols, rows);
+    pty.resize(this._pid, cols, rows);
   }
 
   public kill(): void {
@@ -88,7 +88,7 @@ export class WindowsPtyAgent {
     this._inSocket.writable = false;
     this._outSocket.readable = false;
     this._outSocket.writable = false;
-    pty.kill(this.pid, this._innerPidHandle);
+    pty.kill(this._pid, this._innerPidHandle);
   }
 }
 
