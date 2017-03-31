@@ -1,5 +1,5 @@
 var os = require('os');
-var pty = require('..');
+var pty = require('../..');
 
 var shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
 
