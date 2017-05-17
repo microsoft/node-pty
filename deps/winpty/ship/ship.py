@@ -48,12 +48,12 @@ def dllVersion(path):
 print "Determining Cygwin/MSYS2 DLL versions..."
 sys.stdout.flush()
 BUILD_TARGETS = [
-    {
-        "name": "msys",
-        "path": "C:\\MinGW\\bin;C:\\MinGW\\msys\\1.0\\bin",
-        # The parallel make.exe in the original MSYS/MinGW project hangs.
-        "make_binary": "mingw32-make.exe",
-    },
+    # {
+    #     "name": "msys",
+    #     "path": "C:\\MinGW\\bin;C:\\MinGW\\msys\\1.0\\bin",
+    #     # The parallel make.exe in the original MSYS/MinGW project hangs.
+    #     "make_binary": "mingw32-make.exe",
+    # },
     {
         "name": "msys2-" + dllVersion("C:\\msys32\\usr\\bin\\msys-2.0.dll") + "-ia32",
         "path": "C:\\msys32\\mingw32\\bin;C:\\msys32\\usr\\bin",

@@ -197,7 +197,7 @@ void debugShowInput(bool enableMouse, bool escapeInput) {
                 };
                 sb << "key: " << (ker.bKeyDown ? "dn" : "up")
                    << " rpt=" << ker.wRepeatCount
-                   << " scn=" << ker.wVirtualScanCode
+                   << " scn=" << (ker.wVirtualScanCode ? "0x" : "") << hexOfInt(ker.wVirtualScanCode)
                    << ' ' << key.toString() << '\n';
                 if ((ker.dwControlKeyState &
                         (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED)) &&

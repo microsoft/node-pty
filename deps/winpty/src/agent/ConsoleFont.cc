@@ -113,8 +113,6 @@ struct Font {
 //  - misc/Utf16Echo.cc, misc/FontSurvey.cc, misc/SetFont.cc, misc/GetFont.cc
 
 const FontSize kLucidaFontSizes[] = {
-    { 2, 1 },
-    { 4, 2 },
     { 5, 3 },
     { 6, 4 },
     { 8, 5 },
@@ -132,8 +130,6 @@ const FontSize kLucidaFontSizes[] = {
 
 // Japanese.  Used on Vista and Windows 7.
 const FontSize k932GothicVista[] = {
-    { 2, 1 },
-    { 4, 2 },
     { 6, 3 },
     { 8, 4 },
     { 10, 5 },
@@ -150,7 +146,6 @@ const FontSize k932GothicVista[] = {
 const FontSize k932GothicWin8[] = {
     // All of these characters are broken w.r.t. full-size East Asian
     // characters, but they're equally broken.
-    { 3, 2 },
     { 5, 3 },
     { 7, 4 },
     { 9, 5 },
@@ -170,8 +165,6 @@ const FontSize k932GothicWin8[] = {
 
 // Japanese.  Used on the new Windows 10 console.
 const FontSize k932GothicWin10[] = {
-    { 2, 1 },
-    { 4, 2 },
     { 6, 3 },
     { 8, 4 },
     { 10, 5 },
@@ -191,8 +184,6 @@ const FontSize k932GothicWin10[] = {
 
 // Chinese Simplified.
 const FontSize k936SimSun[] = {
-    { 2, 1 },
-    { 4, 2 },
     { 6, 3 },
     { 8, 4 },
     { 10, 5 },
@@ -212,8 +203,6 @@ const FontSize k936SimSun[] = {
 
 // Korean.
 const FontSize k949GulimChe[] = {
-    { 2, 1 },
-    { 4, 2 },
     { 6, 3 },
     { 8, 4 },
     { 10, 5 },
@@ -233,8 +222,6 @@ const FontSize k949GulimChe[] = {
 
 // Chinese Traditional.
 const FontSize k950MingLight[] = {
-    { 2, 1 },
-    { 4, 2 },
     { 6, 3 },
     { 8, 4 },
     { 10, 5 },

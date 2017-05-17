@@ -39,6 +39,7 @@
 #include "UnicodeEncoding.h"
 #include "Win32Console.h"
 
+// MAPVK_VK_TO_VSC isn't defined by the old MinGW.
 #ifndef MAPVK_VK_TO_VSC
 #define MAPVK_VK_TO_VSC 0
 #endif
@@ -394,10 +395,17 @@ int ConsoleInput::scanInput(std::vector<INPUT_RECORD> &records,
         trace("Incomplete escape sequence");
         return -1;
     } else if (matchLen > 0) {
-        appendKeyPress(records,
-                       match.virtualKey,
-                       match.unicodeChar,
-                       match.keyState);
+        uint32_t winCodePointDn = match.unicodeChar;
+        if ((match.keyState & LEFT_CTRL_PRESSED) && (match.keyState & LEFT_ALT_PRESSED)) {
+            winCodePointDn = '\0';
+        }
+        uint32_t winCodePointUp = winCodePointDn;
+        if (match.keyState & LEFT_ALT_PRESSED) {
+            winCodePointUp = '\0';
+        }
+        appendKeyPress(records, match.virtualKey,
+                       winCodePointDn, winCodePointUp, match.keyState,
+                       match.unicodeChar, match.keyState);
         return matchLen;
     }
 
@@ -416,7 +424,7 @@ int ConsoleInput::scanInput(std::vector<INPUT_RECORD> &records,
                 trace("Incomplete UTF-8 character in Alt-<Char>");
                 return -1;
             }
-            appendUtf8Char(records, &input[1], len, LEFT_ALT_PRESSED);
+            appendUtf8Char(records, &input[1], len, true);
             return 1 + len;
         }
     }
@@ -436,7 +444,7 @@ int ConsoleInput::scanInput(std::vector<INPUT_RECORD> &records,
         trace("Incomplete UTF-8 character");
         return -1;
     }
-    appendUtf8Char(records, &input[0], len, 0);
+    appendUtf8Char(records, &input[0], len, false);
     return len;
 }
 
@@ -556,10 +564,10 @@ int ConsoleInput::scanMouseInput(std::vector<INPUT_RECORD> &records,
 void ConsoleInput::appendUtf8Char(std::vector<INPUT_RECORD> &records,
                                   const char *charBuffer,
                                   const int charLen,
-                                  const uint16_t keyState)
+                                  const bool terminalAltEscape)
 {
-    const uint32_t code = decodeUtf8(charBuffer);
-    if (code == static_cast<uint32_t>(-1)) {
+    const uint32_t codePoint = decodeUtf8(charBuffer);
+    if (codePoint == static_cast<uint32_t>(-1)) {
         static bool debugInput = isTracingEnabled() && hasDebugFlag("input");
         if (debugInput) {
             StringBuilder error(64);
@@ -573,36 +581,65 @@ void ConsoleInput::appendUtf8Char(std::vector<INPUT_RECORD> &records,
         return;
     }
 
-    const short charScan = code > 0xFFFF ? -1 : VkKeyScan(code);
+    const short charScan = codePoint > 0xFFFF ? -1 : VkKeyScan(codePoint);
     uint16_t virtualKey = 0;
-    uint16_t charKeyState = keyState;
+    uint16_t winKeyState = 0;
+    uint32_t winCodePointDn = codePoint;
+    uint32_t winCodePointUp = codePoint;
+    uint16_t vtKeyState = 0;
+
     if (charScan != -1) {
         virtualKey = charScan & 0xFF;
-        if (charScan & 0x100)
-            charKeyState |= SHIFT_PRESSED;
-        else if (charScan & 0x200)
-            charKeyState |= LEFT_CTRL_PRESSED;
-        else if (charScan & 0x400)
-            charKeyState |= LEFT_ALT_PRESSED;
+        if (charScan & 0x100) {
+            winKeyState |= SHIFT_PRESSED;
+        }
+        if (charScan & 0x200) {
+            winKeyState |= LEFT_CTRL_PRESSED;
+        }
+        if (charScan & 0x400) {
+            winKeyState |= RIGHT_ALT_PRESSED;
+        }
+        if (terminalAltEscape && (winKeyState & LEFT_CTRL_PRESSED)) {
+            // If the terminal escapes a Ctrl-<Key> with Alt, then set the
+            // codepoint to 0.  On the other hand, if a character requires
+            // AltGr (like U+00B2 on a German layout), then VkKeyScan will
+            // report both Ctrl and Alt pressed, and we should keep the
+            // codepoint.  See https://github.com/rprichard/winpty/issues/109.
+            winCodePointDn = 0;
+            winCodePointUp = 0;
+        }
     }
-    appendKeyPress(records, virtualKey, code, charKeyState);
+    if (terminalAltEscape) {
+        winCodePointUp = 0;
+        winKeyState |= LEFT_ALT_PRESSED;
+        vtKeyState |= LEFT_ALT_PRESSED;
+    }
+
+    appendKeyPress(records, virtualKey,
+                   winCodePointDn, winCodePointUp, winKeyState,
+                   codePoint, vtKeyState);
 }
 
 void ConsoleInput::appendKeyPress(std::vector<INPUT_RECORD> &records,
-                                  uint16_t virtualKey,
-                                  uint32_t codePoint,
-                                  uint16_t keyState)
+                                  const uint16_t virtualKey,
+                                  const uint32_t winCodePointDn,
+                                  const uint32_t winCodePointUp,
+                                  const uint16_t winKeyState,
+                                  const uint32_t vtCodePoint,
+                                  const uint16_t vtKeyState)
 {
-    const bool ctrl = (keyState & LEFT_CTRL_PRESSED) != 0;
-    const bool alt = (keyState & LEFT_ALT_PRESSED) != 0;
-    const bool shift = (keyState & SHIFT_PRESSED) != 0;
+    const bool ctrl = (winKeyState & LEFT_CTRL_PRESSED) != 0;
+    const bool leftAlt = (winKeyState & LEFT_ALT_PRESSED) != 0;
+    const bool rightAlt = (winKeyState & RIGHT_ALT_PRESSED) != 0;
+    const bool shift = (winKeyState & SHIFT_PRESSED) != 0;
+    const bool enhanced = (winKeyState & ENHANCED_KEY) != 0;
     bool hasDebugInput = false;
 
     if (isTracingEnabled()) {
         static bool debugInput = hasDebugFlag("input");
         if (debugInput) {
             hasDebugInput = true;
-            InputMap::Key key = { virtualKey, codePoint, keyState };
+            InputMap::Key key = { virtualKey, winCodePointDn, winKeyState };
             trace("keypress: %s", key.toString().c_str());
         }
     }
@@ -614,7 +651,7 @@ void ConsoleInput::appendKeyPress(std::vector<INPUT_RECORD> &records,
                 virtualKey == VK_RIGHT ||
                 virtualKey == VK_HOME ||
                 virtualKey == VK_END) &&
-            !ctrl && !alt && !shift) {
+            !ctrl && !leftAlt && !rightAlt && !shift) {
         if (hasDebugInput) {
             trace("sending keypress to console HWND");
         }
@@ -634,35 +671,39 @@ void ConsoleInput::appendKeyPress(std::vector<INPUT_RECORD> &records,
         stepKeyState |= LEFT_CTRL_PRESSED;
         appendInputRecord(records, TRUE, VK_CONTROL, 0, stepKeyState);
     }
-    if (alt) {
+    if (leftAlt) {
         stepKeyState |= LEFT_ALT_PRESSED;
         appendInputRecord(records, TRUE, VK_MENU, 0, stepKeyState);
+    }
+    if (rightAlt) {
+        stepKeyState |= RIGHT_ALT_PRESSED;
+        appendInputRecord(records, TRUE, VK_MENU, 0, stepKeyState | ENHANCED_KEY);
     }
     if (shift) {
         stepKeyState |= SHIFT_PRESSED;
         appendInputRecord(records, TRUE, VK_SHIFT, 0, stepKeyState);
     }
+    if (enhanced) {
+        stepKeyState |= ENHANCED_KEY;
+    }
     if (m_escapeInputEnabled) {
-        reencodeEscapedKeyPress(records, virtualKey, codePoint, stepKeyState);
+        reencodeEscapedKeyPress(records, virtualKey, vtCodePoint, vtKeyState);
     } else {
-        if (ctrl && alt) {
-            // This behavior seems arbitrary, but it's what I see in the
-            // Windows 7 console.
-            codePoint = 0;
-        }
-        appendCPInputRecords(records, TRUE, virtualKey, codePoint, stepKeyState);
+        appendCPInputRecords(records, TRUE, virtualKey, winCodePointDn, stepKeyState);
     }
-    if (alt) {
-        // This behavior seems arbitrary, but it's what I see in the Windows 7
-        // console.
-        codePoint = 0;
+    appendCPInputRecords(records, FALSE, virtualKey, winCodePointUp, stepKeyState);
+    if (enhanced) {
+        stepKeyState &= ~ENHANCED_KEY;
     }
-    appendCPInputRecords(records, FALSE, virtualKey, codePoint, stepKeyState);
     if (shift) {
         stepKeyState &= ~SHIFT_PRESSED;
         appendInputRecord(records, FALSE, VK_SHIFT, 0, stepKeyState);
     }
-    if (alt) {
+    if (rightAlt) {
+        stepKeyState &= ~RIGHT_ALT_PRESSED;
+        appendInputRecord(records, FALSE, VK_MENU, 0, stepKeyState | ENHANCED_KEY);
+    }
+    if (leftAlt) {
         stepKeyState &= ~LEFT_ALT_PRESSED;
         appendInputRecord(records, FALSE, VK_MENU, 0, stepKeyState);
     }

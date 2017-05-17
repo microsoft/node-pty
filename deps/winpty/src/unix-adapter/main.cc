@@ -207,11 +207,11 @@ static std::string convertPosixPathToWin(const std::string &path)
         CYGWIN_VERSION_API_MINOR >= CYGWIN_VERSION_CYGWIN_CONV
     // MSYS2 and versions of Cygwin released after 2009 or so use this API.
     // The original MSYS still lacks this API.
-    ssize_t newSize = cygwin_conv_path(CCP_POSIX_TO_WIN_A | CCP_RELATIVE,
+    ssize_t newSize = cygwin_conv_path(CCP_POSIX_TO_WIN_A | CCP_ABSOLUTE,
                                        path.c_str(), NULL, 0);
     assert(newSize >= 0);
     tmp = new char[newSize + 1];
-    ssize_t success = cygwin_conv_path(CCP_POSIX_TO_WIN_A | CCP_RELATIVE,
+    ssize_t success = cygwin_conv_path(CCP_POSIX_TO_WIN_A | CCP_ABSOLUTE,
                                        path.c_str(), tmp, newSize + 1);
     assert(success == 0);
 #else
@@ -231,6 +231,91 @@ static std::string convertPosixPathToWin(const std::string &path)
     std::string ret(tmp);
     delete [] tmp;
     return ret;
+}
+
+static std::string resolvePath(const std::string &path)
+{
+    char ret[PATH_MAX];
+    ret[0] = '\0';
+    if (realpath(path.c_str(), ret) != ret) {
+        return std::string();
+    }
+    return ret;
+}
+
+template <size_t N>
+static bool endsWith(const std::string &path, const char (&suf)[N])
+{
+    const size_t suffixLen = N - 1;
+    char actualSuf[N];
+    if (path.size() < suffixLen) {
+        return false;
+    }
+    strcpy(actualSuf, &path.c_str()[path.size() - suffixLen]);
+    for (size_t i = 0; i < suffixLen; ++i) {
+        actualSuf[i] = tolower(actualSuf[i]);
+    }
+    return !strcmp(actualSuf, suf);
+}
+
+static std::string findProgram(
+    const char *winptyProgName,
+    const std::string &prog)
+{
+    std::string candidate;
+    if (prog.find('/') == std::string::npos &&
+            prog.find('\\') == std::string::npos) {
+        // XXX: It would be nice to use a lambda here (once/if old MSYS support
+        // is dropped).
+        // Search the PATH.
+        const char *const pathVar = getenv("PATH");
+        const std::string pathList(pathVar ? pathVar : "");
+        size_t elpos = 0;
+        while (true) {
+            const size_t elend = pathList.find(':', elpos);
+            candidate = pathList.substr(elpos, elend - elpos);
+            if (!candidate.empty() && *(candidate.end() - 1) != '/') {
+                candidate += '/';
+            }
+            candidate += prog;
+            candidate = resolvePath(candidate);
+            if (!candidate.empty()) {
+                int perm = X_OK;
+                if (endsWith(candidate, ".bat") || endsWith(candidate, ".cmd")) {
+#ifdef __MSYS__
+                    // In MSYS/MSYS2, batch files don't have the execute bit
+                    // set, so just check that they're readable.
+                    perm = R_OK;
+#endif
+                } else if (endsWith(candidate, ".com") || endsWith(candidate, ".exe")) {
+                    // Do nothing.
+                } else {
+                    // Make the exe extension explicit so that we don't try to
+                    // run shell scripts with CreateProcess/winpty_spawn.
+                    candidate += ".exe";
+                }
+                if (!access(candidate.c_str(), perm)) {
+                    break;
+                }
+            }
+            if (elend == std::string::npos) {
+                fprintf(stderr, "%s: error: cannot start '%s': Not found in PATH\n",
+                    winptyProgName, prog.c_str());
+                exit(1);
+            } else {
+                elpos = elend + 1;
+            }
+        }
+    } else {
+        candidate = resolvePath(prog);
+        if (candidate.empty()) {
+            std::string errstr(strerror(errno));
+            fprintf(stderr, "%s: error: cannot start '%s': %s\n",
+                winptyProgName, prog.c_str(), errstr.c_str());
+            exit(1);
+        }
+    }
+    return convertPosixPathToWin(candidate);
 }
 
 // Convert argc/argv into a Win32 command-line following the escaping convention
@@ -547,7 +632,7 @@ int main(int argc, char *argv[])
 
     {
         // Start the child process under the console.
-        args.childArgv[0] = convertPosixPathToWin(args.childArgv[0]);
+        args.childArgv[0] = findProgram(argv[0], args.childArgv[0]);
         std::string cmdLine = argvToCommandLine(args.childArgv);
         wchar_t *cmdLineW = heapMbsToWcs(cmdLine.c_str());
 
@@ -565,11 +650,13 @@ int main(int argc, char *argv[])
         if (!spawnRet) {
             winpty_result_t spawnCode = winpty_error_code(spawnErr);
             if (spawnCode == WINPTY_ERROR_SPAWN_CREATE_PROCESS_FAILED) {
-                fprintf(stderr, "Could not start '%s': %s\n",
+                fprintf(stderr, "%s: error: cannot start '%s': %s\n",
+                    argv[0],
                     cmdLine.c_str(),
                     formatErrorMessage(lastError).c_str());
             } else {
-                fprintf(stderr, "Could not start '%s': internal error: %s\n",
+                fprintf(stderr, "%s: error: cannot start '%s': internal error: %s\n",
+                    argv[0],
                     cmdLine.c_str(),
                     wcsToMbs(winpty_error_msg(spawnErr)).c_str());
             }

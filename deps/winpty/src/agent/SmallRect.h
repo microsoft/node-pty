@@ -76,6 +76,14 @@ struct SmallRect : SMALL_RECT
                other.Bottom <= Bottom;
     }
 
+    bool contains(const Coord &other) const
+    {
+        return other.X >= Left &&
+               other.X <= Right &&
+               other.Y >= Top &&
+               other.Y <= Bottom;
+    }
+
     SmallRect intersected(const SmallRect &other) const
     {
         int x1 = std::max(Left, other.Left);
