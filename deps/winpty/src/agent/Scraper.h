@@ -64,7 +64,7 @@ public:
 
 private:
     void resetConsoleTracking(
-        Terminal::SendClearFlag sendClear, const SmallRect &windowRect);
+        Terminal::SendClearFlag sendClear, int64_t scrapedLineCount);
     void markEntireWindowDirty(const SmallRect &windowRect);
     void scanForDirtyLines(const SmallRect &windowRect);
     void clearBufferLines(int firstRow, int count);
@@ -73,9 +73,9 @@ private:
                                    ConsoleScreenBufferInfo &finalInfoOut);
     WORD attributesMask();
     void directScrapeOutput(const ConsoleScreenBufferInfo &info,
-                            bool cursorVisible);
+                            bool consoleCursorVisible);
     bool scrollingScrapeOutput(const ConsoleScreenBufferInfo &info,
-                               bool cursorVisible,
+                               bool consoleCursorVisible,
                                bool tentative);
     void syncMarkerText(CHAR_INFO (&output)[SYNC_MARKER_LEN]);
     int findSyncMarker();

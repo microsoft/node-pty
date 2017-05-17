@@ -206,6 +206,24 @@ const int kCsiShiftModifier = 1;
 const int kCsiAltModifier   = 2;
 const int kCsiCtrlModifier  = 4;
 
+static inline bool useEnhancedForVirtualKey(uint16_t vk) {
+    switch (vk) {
+        case VK_UP:
+        case VK_DOWN:
+        case VK_LEFT:
+        case VK_RIGHT:
+        case VK_INSERT:
+        case VK_DELETE:
+        case VK_HOME:
+        case VK_END:
+        case VK_PRIOR:
+        case VK_NEXT:
+            return true;
+        default:
+            return false;
+    }
+}
+
 static void addSimpleEntries(InputMap &inputMap) {
     struct SimpleEncoding {
         const char *encoding;
@@ -233,9 +251,13 @@ static void addSimpleEntries(InputMap &inputMap) {
     };
 
     for (size_t i = 0; i < DIM(simpleEncodings); ++i) {
+        auto k = simpleEncodings[i].key;
+        if (useEnhancedForVirtualKey(k.virtualKey)) {
+            k.keyState |= ENHANCED_KEY;
+        }
         inputMap.set(simpleEncodings[i].encoding,
                      strlen(simpleEncodings[i].encoding),
-                     simpleEncodings[i].key);
+                     k);
     }
 }
 
@@ -262,6 +284,9 @@ static inline void setEncoding(const ExpandContext &ctx, char *end,
                 k.unicodeChar = '\n';
                 break;
         }
+    }
+    if (useEnhancedForVirtualKey(k.virtualKey)) {
+        k.keyState |= ENHANCED_KEY;
     }
     ctx.inputMap.set(ctx.buffer, end - ctx.buffer, k);
 }

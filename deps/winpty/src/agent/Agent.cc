@@ -529,11 +529,31 @@ void Agent::resizeWindow(int cols, int rows)
     Win32Console::FreezeGuard guard(m_console, m_console.frozen());
     const Coord newSize(cols, rows);
     ConsoleScreenBufferInfo info;
-    m_primaryScraper->resizeWindow(*openPrimaryBuffer(), newSize, info);
+    auto primaryBuffer = openPrimaryBuffer();
+    m_primaryScraper->resizeWindow(*primaryBuffer, newSize, info);
     m_consoleInput->setMouseWindowRect(info.windowRect());
     if (m_errorScraper) {
         m_errorScraper->resizeWindow(*m_errorBuffer, newSize, info);
     }
+
+    // Synthesize a WINDOW_BUFFER_SIZE_EVENT event.  Normally, Windows
+    // generates this event only when the buffer size changes, not when the
+    // window size changes.  This behavior is undesirable in two ways:
+    //  - When winpty expands the window horizontally, it must expand the
+    //    buffer first, then the window.  At least some programs (e.g. the WSL
+    //    bash.exe wrapper) use the window width rather than the buffer width,
+    //    so there is a short timespan during which they can read the wrong
+    //    value.
+    //  - If the window's vertical size is changed, no event is generated,
+    //    even though a typical well-behaved console program cares about the
+    //    *window* height, not the *buffer* height.
+    // This synthesization works around a design flaw in the console.  It's probably
+    // harmless.  See https://github.com/rprichard/winpty/issues/110.
+    INPUT_RECORD sizeEvent {};
+    sizeEvent.EventType = WINDOW_BUFFER_SIZE_EVENT;
+    sizeEvent.Event.WindowBufferSizeEvent.dwSize = primaryBuffer->bufferSize();
+    DWORD actual {};
+    WriteConsoleInputW(GetStdHandle(STD_INPUT_HANDLE), &sizeEvent, 1, &actual);
 }
 
 void Agent::scrapeBuffers()
