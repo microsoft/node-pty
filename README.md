@@ -17,6 +17,7 @@ This is useful for:
 
 - [Microsoft Visual Studio Code](code.visualstudio.com)
 - [Hyper](https://hyper.is/)
+- [Upterm](https://github.com/railsware/upterm)
 
 Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
 
