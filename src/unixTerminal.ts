@@ -67,14 +67,14 @@ export class UnixTerminal extends Terminal {
       // XXX Sometimes a data event is emitted after exit. Wait til socket is
       // destroyed.
       let poller = setInterval(() => {
-        // here must be placed the check for unread data in pipe
-        // for now we rely on the 20ms of the poller (solves 99% of truncate)
-        if (true) {
+        // no clue how to get the pending data state from the stream
+        // therefore with a small c select helper
+        if (!pty.hasReadData(this.fd)) {
           clearInterval(poller);
           let closeSync = require('fs').closeSync;
           closeSync(this.slave_fd);
         }
-      }, 20);
+      }, 10);
       if (!this._emittedClose) {
         if (this._boundClose) return;
         this._boundClose = true;

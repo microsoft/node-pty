@@ -60,7 +60,7 @@ describe("UnixTerminal", function() {
     });
   });
   describe('check for full output', function() {
-    it('test sentinel', function(done) {
+    it('test sentinel x100', function(done) {
       // must run multiple times since it gets not truncated always
       let runner = function(_done) {
         // some lengthy output call to enforce multiple pipe reads
@@ -74,7 +74,7 @@ describe("UnixTerminal", function() {
             _done();
         });
       };
-      let runs = 20;
+      let runs = 100;
       let finished = 0;
       let _done = function() {
         finished += 1;

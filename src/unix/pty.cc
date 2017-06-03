@@ -726,6 +726,32 @@ pty_forkpty(int *amaster, char *name,
 #endif
 }
 
+
+//#include <sys/select.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
+NAN_METHOD(PtyHasReadData)
+{
+  Nan::HandleScope scope;
+  if (info.Length() != 1 || !info[0]->IsNumber())
+    return Nan::ThrowError("Usage: pty.hasReadData(fd)");
+
+  int fd = info[0]->IntegerValue();
+  fd_set rfds;
+  struct timeval tv;
+  int result, res = 0;
+  FD_ZERO(&rfds);
+  FD_SET(fd, &rfds);
+  tv.tv_sec = 0;
+  tv.tv_usec = 10;
+  result = select(fd+1, &rfds, NULL, NULL, &tv);
+  if (result > 0 && FD_ISSET(fd, &rfds))  // pending data to read
+    res = 1;
+  return info.GetReturnValue().Set(Nan::New<Boolean>(res));
+}
+
+
 /**
  * Init
  */
@@ -744,6 +770,9 @@ NAN_MODULE_INIT(init) {
   Nan::Set(target,
     Nan::New<String>("process").ToLocalChecked(),
     Nan::New<FunctionTemplate>(PtyGetProc)->GetFunction());
+  Nan::Set(target,
+    Nan::New<String>("hasReadData").ToLocalChecked(),
+    Nan::New<FunctionTemplate>(PtyHasReadData)->GetFunction());
 }
 
 NODE_MODULE(pty, init)
