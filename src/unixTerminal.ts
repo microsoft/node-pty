@@ -20,6 +20,7 @@ export class UnixTerminal extends Terminal {
   protected pid: number;
   protected fd: number;
   protected pty: any;
+  protected  slave_fd: any;
 
   protected file: string;
   protected name: string;
@@ -65,6 +66,15 @@ export class UnixTerminal extends Terminal {
     const onexit = (code: any, signal: any) => {
       // XXX Sometimes a data event is emitted after exit. Wait til socket is
       // destroyed.
+      let poller = setInterval(() => {
+        // here must be placed the check for unread data in pipe
+        // for now we rely on the 20ms of the poller (solves 99% of truncate)
+        if (true) {
+          clearInterval(poller);
+          let closeSync = require('fs').closeSync;
+          closeSync(this.slave_fd);
+        }
+      }, 20);
       if (!this._emittedClose) {
         if (this._boundClose) return;
         this._boundClose = true;
@@ -119,6 +129,7 @@ export class UnixTerminal extends Terminal {
     this.pid = term.pid;
     this.fd = term.fd;
     this.pty = term.pty;
+    this.slave_fd = term.slave_fd;
 
     this.file = file;
     this.name = name;

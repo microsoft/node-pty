@@ -250,6 +250,9 @@ NAN_METHOD(PtyFork) {
   int master = -1;
   pid_t pid = pty_forkpty(&master, nullptr, term, &winp);
 
+  // hold fd to slave
+  int slave = open(ptsname(master), O_RDWR);
+
   if (pid) {
     for (i = 0; i < argl; i++) free(argv[i]);
     delete[] argv;
@@ -299,6 +302,9 @@ NAN_METHOD(PtyFork) {
       Nan::Set(obj,
         Nan::New<String>("pty").ToLocalChecked(),
         Nan::New<String>(ptsname(master)).ToLocalChecked());
+      Nan::Set(obj,
+        Nan::New<String>("slave_fd").ToLocalChecked(),
+        Nan::New<Number>(slave));
 
       pty_baton *baton = new pty_baton();
       baton->exit_code = 0;

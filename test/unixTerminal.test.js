@@ -59,4 +59,30 @@ describe("UnixTerminal", function() {
       });
     });
   });
+  describe('check for full output', function() {
+    it('test sentinel', function(done) {
+      // must run multiple times since it gets not truncated always
+      let runner = function(_done) {
+        // some lengthy output call to enforce multiple pipe reads
+        const term = new UnixTerminal('/bin/bash', ['-c', 'ls -lr /usr/lib/ && echo "__sentinel__" | tr -d "\n"'], {});
+        let buffer = '';
+        term.on('data', function (data) {
+            buffer += data;
+        });
+        term.on('exit', function () {
+            assert.equal(buffer.split('\r\n').pop(), '__sentinel__');
+            _done();
+        });
+      };
+      let runs = 20;
+      let finished = 0;
+      let _done = function() {
+        finished += 1;
+        if (finished === runs)
+          done();
+      };
+      for (let i=0; i<runs; ++i)
+        runner(_done);
+    });
+  });
 });
