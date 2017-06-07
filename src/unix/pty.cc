@@ -253,7 +253,7 @@ NAN_METHOD(PtyFork) {
   pid_t pid = pty_forkpty(&master, nullptr, term, &winp);
 
   // hold fd to slave
-  int slave = open(ptsname(master), O_RDWR);
+  int slave = (pid>0) ? open(ptsname(master), O_RDWR) : -1;
 
   if (pid) {
     for (i = 0; i < argl; i++) free(argv[i]);
@@ -284,6 +284,8 @@ NAN_METHOD(PtyFork) {
           _exit(1);
         }
       }
+      
+      
 
       pty_execvpe(argv[0], argv, env);
 
