@@ -60,21 +60,21 @@ describe("UnixTerminal", function() {
     });
   });
   describe('check for full output', function() {
-    it('test sentinel x100', function(done) {
+    it('test sentinel x50', function(done) {
       // must run multiple times since it gets not truncated always
       let runner = function(_done) {
         // some lengthy output call to enforce multiple pipe reads
-        const term = new UnixTerminal('/bin/bash', ['-c', 'ls -lr /usr/lib/ && echo "__sentinel__" | tr -d "\n"'], {});
+        const term = new UnixTerminal('/bin/bash', ['-c', 'ls -lR /usr/lib/ && echo "__sentinel__" | tr -d "\n"'], {});
         let buffer = '';
         term.on('data', function (data) {
-            buffer += data;
+            buffer = data;
         });
         term.on('exit', function () {
             assert.equal(buffer.split('\r\n').pop(), '__sentinel__');
             _done();
         });
       };
-      let runs = 100;
+      let runs = 50;
       let finished = 0;
       let _done = function() {
         finished += 1;

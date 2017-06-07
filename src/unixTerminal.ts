@@ -31,7 +31,6 @@ export class UnixTerminal extends Terminal {
   private _boundClose: boolean;
   private _emittedClose: boolean;
   private master: any;
-  private slave: any;
 
   constructor(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions) {
     super(opt);
@@ -66,15 +65,6 @@ export class UnixTerminal extends Terminal {
     const onexit = (code: any, signal: any) => {
       // XXX Sometimes a data event is emitted after exit. Wait til socket is
       // destroyed.
-      let poller = setInterval(() => {
-        // no clue how to get the pending data state from the stream
-        // therefore with a small c select helper
-        if (!pty.hasReadData(this.fd)) {
-          clearInterval(poller);
-          let closeSync = require('fs').closeSync;
-          closeSync(this.slave_fd);
-        }
-      }, 10);
       if (!this._emittedClose) {
         if (this._boundClose) return;
         this._boundClose = true;
@@ -129,7 +119,6 @@ export class UnixTerminal extends Terminal {
     this.pid = term.pid;
     this.fd = term.fd;
     this.pty = term.pty;
-    this.slave_fd = term.slave_fd;
 
     this.file = file;
     this.name = name;
