@@ -20,7 +20,6 @@ export class UnixTerminal extends Terminal {
   protected pid: number;
   protected fd: number;
   protected pty: any;
-  protected  slave_fd: any;
 
   protected file: string;
   protected name: string;
@@ -31,6 +30,7 @@ export class UnixTerminal extends Terminal {
   private _boundClose: boolean;
   private _emittedClose: boolean;
   private master: any;
+  private slave: any;
 
   constructor(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions) {
     super(opt);
