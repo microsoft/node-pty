@@ -498,17 +498,18 @@ pty_waitpid(void *data) {
   if (WIFSIGNALED(stat_loc)) {
     baton->signal_code = WTERMSIG(stat_loc);
   }
-  
+
   // wait until master has no pending read data
+  // polls master every 10 ms
   int fd = baton->master;
   fd_set rfds;
   struct timeval tv;
-  tv.tv_sec = 0;
-  tv.tv_usec = 1000;
   for (;;) {
     FD_ZERO(&rfds);
     FD_SET(fd, &rfds);
-    if (select(fd+1, &rfds, NULL, NULL, &tv) < 1 || !FD_ISSET(fd, &rfds))
+    tv.tv_sec = 0;
+    tv.tv_usec = 10000;
+    if (select(fd+1, &rfds, NULL, NULL, &tv) < 1)
       break;
   }
   close(baton->slave);
