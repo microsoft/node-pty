@@ -21,7 +21,7 @@ export class WindowsTerminal extends Terminal {
   private agent: WindowsPtyAgent;
 
   constructor(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions) {
-    super();
+    super(opt);
 
     if (opt.encoding) {
       console.warn('Setting encoding on Windows is not supported');
