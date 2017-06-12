@@ -100,7 +100,7 @@ export function argsToCommandLine(file: string, args: ArgvOrCommandLine): string
     if (args.length === 0) {
       return file;
     }
-    return `${file} ${args}`;
+    return `${argsToCommandLine(file, [])} ${args}`;
   }
   const argv = [file];
   Array.prototype.push.apply(argv, args);
