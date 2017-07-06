@@ -86,9 +86,6 @@ export class WindowsTerminal extends Terminal {
         });
       });
 
-      // Resume socket.
-      this.socket.resume();
-
       // Shutdown if `error` event is emitted.
       this.socket.on('error', err => {
         // Close terminal session.

@@ -81,7 +81,6 @@ export class UnixTerminal extends Terminal {
     if (encoding !== null) {
       this.socket.setEncoding(encoding);
     }
-    this.socket.resume();
 
     // setup
     this.socket.on('error', (err: any) => {
