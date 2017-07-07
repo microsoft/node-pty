@@ -185,10 +185,6 @@ static NAN_METHOD(PtyStartProcess) {
     goto cleanup;
   }
 
-  goto open;
-
-open:
-  // Below used to be PtyOpen
   int cols = info[4]->Int32Value();
   int rows = info[5]->Int32Value();
   bool debug = info[6]->ToBoolean()->IsTrue();
