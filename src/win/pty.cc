@@ -126,6 +126,15 @@ static std::wstring get_shell_path(std::wstring filename)  {
   return shellpath;
 }
 
+void throw_winpty_error(const char *generalMsg, winpty_error_ptr_t error_ptr) {
+  std::stringstream why;
+  std::wstring msg(winpty_error_msg(error_ptr));
+  std::string msg_(msg.begin(), msg.end());
+  std::string generalMsg_(generalMsg);
+  why << generalMsg << ": " << msg_;
+  Nan::ThrowError(why.str().c_str());
+}
+
 /*
 * PtyStartProcess
 * pty.startProcess(pid, file, env, cwd);
@@ -196,10 +205,7 @@ static NAN_METHOD(PtyStartProcess) {
   winpty_error_ptr_t error_ptr = nullptr;
   winpty_config_t* winpty_config = winpty_config_new(0, &error_ptr);
   if (winpty_config == nullptr) {
-    std::wstring msg(winpty_error_msg(error_ptr));
-    std::string msg_(msg.begin(), msg.end());
-    why << "Error creating WinPTY config: " << msg_;
-    Nan::ThrowError(why.str().c_str());
+    throw_winpty_error("Error creating WinPTY config", error_ptr);
     goto cleanup;
   }
   winpty_error_free(error_ptr);
@@ -208,10 +214,7 @@ static NAN_METHOD(PtyStartProcess) {
   winpty_t *pc = winpty_open(winpty_config, &error_ptr);
 
   if (pc == nullptr) {
-    std::wstring msg(winpty_error_msg(error_ptr));
-    std::string msg_(msg.begin(), msg.end());
-    why << "Error launching WinPTY agent: " << msg_;
-    Nan::ThrowError(why.str().c_str());
+    throw_winpty_error("Error launching WinPTY agent", error_ptr);
     goto cleanup;
   }
 
@@ -223,10 +226,7 @@ static NAN_METHOD(PtyStartProcess) {
 
   winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, env.c_str(), &error_ptr);
   if (config == nullptr) {
-    std::wstring msg(winpty_error_msg(error_ptr));
-    std::string msg_(msg.begin(), msg.end());
-    why << "Error creating WinPTY spawn config: " << msg_;
-    Nan::ThrowError(why.str().c_str());
+    throw_winpty_error("Error creating WinPTY spawn config", error_ptr);
     goto cleanup;
   }
   winpty_error_free(error_ptr);
@@ -235,10 +235,7 @@ static NAN_METHOD(PtyStartProcess) {
   BOOL spawnSuccess = winpty_spawn(pc, config, &handle, nullptr, nullptr, &error_ptr);
   winpty_spawn_config_free(config);
   if(!spawnSuccess) {
-    std::wstring msg(winpty_error_msg(error_ptr));
-    std::string msg_(msg.begin(), msg.end());
-    why << "Unable to start terminal process: " << msg_;
-    Nan::ThrowError(why.str().c_str());
+    throw_winpty_error("Unable to start terminal process", error_ptr);
     goto cleanup;
   }
   winpty_error_free(error_ptr);
