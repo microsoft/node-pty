@@ -180,7 +180,9 @@ static NAN_METHOD(PtyStartProcess) {
   std::string shellpath_(shellpath.begin(), shellpath.end());
 
   if(shellpath.empty() || !file_exists(shellpath)) {
-    goto invalid_filename;
+    why << "File not found: " << shellpath_;
+    Nan::ThrowError(why.str().c_str());
+    goto cleanup;
   }
 
   goto open;
@@ -250,11 +252,6 @@ open:
     marshal->Set(Nan::New<String>("conout").ToLocalChecked(), Nan::New<String>(conoutPipeNameStr).ToLocalChecked());
   }
 
-  goto cleanup;
-
-invalid_filename:
-  why << "File not found: " << shellpath_;
-  Nan::ThrowError(why.str().c_str());
   goto cleanup;
 
 cleanup:
