@@ -212,6 +212,7 @@ static NAN_METHOD(PtyStartProcess) {
     std::string msg_(msg.begin(), msg.end());
     why << "Error launching WinPTY agent: " << msg_;
     Nan::ThrowError(why.str().c_str());
+    goto cleanup;
   }
 
   winpty_config_free(winpty_config);
@@ -220,15 +221,27 @@ static NAN_METHOD(PtyStartProcess) {
   // Save pty struct fpr later use.
   ptyHandles.insert(ptyHandles.end(), pc);
 
-  winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, env.c_str(), nullptr);
-  HANDLE handle = nullptr;
-  BOOL spawnSuccess = winpty_spawn(pc, config, &handle, nullptr, nullptr, nullptr);
-  winpty_spawn_config_free(config);
-  if(!spawnSuccess) {
-    why << "Unable to start terminal process.";
+  winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, env.c_str(), &error_ptr);
+  if (config == nullptr) {
+    std::wstring msg(winpty_error_msg(error_ptr));
+    std::string msg_(msg.begin(), msg.end());
+    why << "Error creating WinPTY spawn config: " << msg_;
     Nan::ThrowError(why.str().c_str());
     goto cleanup;
   }
+  winpty_error_free(error_ptr);
+
+  HANDLE handle = nullptr;
+  BOOL spawnSuccess = winpty_spawn(pc, config, &handle, nullptr, nullptr, &error_ptr);
+  winpty_spawn_config_free(config);
+  if(!spawnSuccess) {
+    std::wstring msg(winpty_error_msg(error_ptr));
+    std::string msg_(msg.begin(), msg.end());
+    why << "Unable to start terminal process: " << msg_;
+    Nan::ThrowError(why.str().c_str());
+    goto cleanup;
+  }
+  winpty_error_free(error_ptr);
 
   // Pty object values.
   Local<Object> marshal = Nan::New<Object>();
