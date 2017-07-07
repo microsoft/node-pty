@@ -36,7 +36,8 @@
     "tslint": "tslint src/**/*.ts",
     "install": "node scripts/install.js",
     "postinstall": "node scripts/post-install.js",
-    "test": "cross-env NODE_ENV=test mocha -R spec test"
+    "test": "cross-env NODE_ENV=test mocha -R spec test",
+    "prepublish": "npm run tsc"
   },
   "dependencies": {
     "nan": "2.5.0"
