@@ -143,8 +143,8 @@ static NAN_METHOD(PtyStartProcess) {
     || !info[5]->IsNumber() // rows
     || !info[6]->IsBoolean()) // debug
   {
-    return Nan::ThrowError(
-        "Usage: pty.startProcess(file, cmdline, env, cwd, cols, rows, debug)");
+    Nan::ThrowError("Usage: pty.startProcess(file, cmdline, env, cwd, cols, rows, debug)");
+    return;
   }
 
   std::stringstream why;
@@ -204,6 +204,7 @@ open:
     std::string msg_(msg.begin(), msg.end());
     why << "Error creating WinPTY config: " << msg_;
     Nan::ThrowError(why.str().c_str());
+    goto cleanup;
   }
   winpty_error_free(error_ptr);
   winpty_config_set_initial_size(winpty_config, cols, rows);
@@ -230,6 +231,7 @@ open:
   if(!spawnSuccess) {
     why << "Unable to start terminal process.";
     Nan::ThrowError(why.str().c_str());
+    goto cleanup;
   }
 
   // Pty object values.
@@ -259,7 +261,7 @@ cleanup:
   delete cmdline;
   delete cwd;
 
-  return info.GetReturnValue().Set(marshal);
+  info.GetReturnValue().Set(marshal);
 }
 
 /*
@@ -274,7 +276,8 @@ static NAN_METHOD(PtyResize) {
     || !info[1]->IsNumber() // cols
     || !info[2]->IsNumber()) // rows
   {
-    return Nan::ThrowError("Usage: pty.resize(pid, cols, rows)");
+    Nan::ThrowError("Usage: pty.resize(pid, cols, rows)");
+    return;
   }
 
   int handle = info[0]->Int32Value();
@@ -301,7 +304,8 @@ static NAN_METHOD(PtyKill) {
     || !info[0]->IsNumber() // pid
     || !info[1]->IsNumber()) // innerPidHandle
   {
-    return Nan::ThrowError("Usage: pty.kill(pid, innerPidHandle)");
+    Nan::ThrowError("Usage: pty.kill(pid, innerPidHandle)");
+    return;
   }
 
   int handle = info[0]->Int32Value();
