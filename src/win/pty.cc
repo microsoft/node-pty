@@ -130,9 +130,9 @@ void throw_winpty_error(const char *generalMsg, winpty_error_ptr_t error_ptr) {
   std::stringstream why;
   std::wstring msg(winpty_error_msg(error_ptr));
   std::string msg_(msg.begin(), msg.end());
-  std::string generalMsg_(generalMsg);
   why << generalMsg << ": " << msg_;
   Nan::ThrowError(why.str().c_str());
+  winpty_error_free(error_ptr);
 }
 
 /*
@@ -201,7 +201,7 @@ static NAN_METHOD(PtyStartProcess) {
   // Enable/disable debugging
   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
 
-  // Open a new pty session.
+  // Create winpty config
   winpty_error_ptr_t error_ptr = nullptr;
   winpty_config_t* winpty_config = winpty_config_new(0, &error_ptr);
   if (winpty_config == nullptr) {
@@ -209,21 +209,23 @@ static NAN_METHOD(PtyStartProcess) {
     goto cleanup;
   }
   winpty_error_free(error_ptr);
+
+  // Set pty size on config
   winpty_config_set_initial_size(winpty_config, cols, rows);
 
+  // Start the pty agent
   winpty_t *pc = winpty_open(winpty_config, &error_ptr);
-
+  winpty_config_free(winpty_config);
   if (pc == nullptr) {
     throw_winpty_error("Error launching WinPTY agent", error_ptr);
     goto cleanup;
   }
-
-  winpty_config_free(winpty_config);
   winpty_error_free(error_ptr);
 
-  // Save pty struct fpr later use.
+  // Save pty struct for later use
   ptyHandles.insert(ptyHandles.end(), pc);
 
+  // Create winpty spawn config
   winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, env.c_str(), &error_ptr);
   if (config == nullptr) {
     throw_winpty_error("Error creating WinPTY spawn config", error_ptr);
@@ -231,24 +233,23 @@ static NAN_METHOD(PtyStartProcess) {
   }
   winpty_error_free(error_ptr);
 
+  // Spawn the new process
   HANDLE handle = nullptr;
   BOOL spawnSuccess = winpty_spawn(pc, config, &handle, nullptr, nullptr, &error_ptr);
   winpty_spawn_config_free(config);
-  if(!spawnSuccess) {
+  if (!spawnSuccess) {
     throw_winpty_error("Unable to start terminal process", error_ptr);
     goto cleanup;
   }
   winpty_error_free(error_ptr);
 
-  // Pty object values.
+  // Set return values
   Local<Object> marshal = Nan::New<Object>();
-
   marshal->Set(Nan::New<String>("innerPid").ToLocalChecked(), Nan::New<Number>((int)GetProcessId(handle)));
   marshal->Set(Nan::New<String>("innerPidHandle").ToLocalChecked(), Nan::New<Number>((int)handle));
   marshal->Set(Nan::New<String>("pid").ToLocalChecked(), Nan::New<Number>((int)winpty_agent_process(pc)));
   marshal->Set(Nan::New<String>("pty").ToLocalChecked(), Nan::New<Number>(InterlockedIncrement(&ptyCounter)));
   marshal->Set(Nan::New<String>("fd").ToLocalChecked(), Nan::New<Number>(-1));
-
   {
     LPCWSTR coninPipeName = winpty_conin_name(pc);
     std::wstring coninPipeNameWStr(coninPipeName);
