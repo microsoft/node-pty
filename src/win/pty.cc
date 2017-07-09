@@ -18,14 +18,13 @@
 #include <iostream>
 #include <vector>
 
-using namespace v8;
 using namespace std;
 using namespace node;
 
 /**
 * Misc
 */
-extern "C" void init(Handle<Object>);
+extern "C" void init(v8::Handle<v8::Object>);
 
 #define WINPTY_DBG_VARIABLE TEXT("WINPTYDBG")
 #define MAX_ENV 65536
@@ -40,7 +39,7 @@ static volatile LONG ptyCounter;
 * Helpers
 */
 
-const wchar_t* to_wstring(const String::Utf8Value& str)
+const wchar_t* to_wstring(const v8::String::Utf8Value& str)
 {
   const char *bytes = *str;
   unsigned int sizeOfStr = MultiByteToWideChar(CP_UTF8, 0, bytes, -1, NULL, 0);
@@ -158,19 +157,19 @@ static NAN_METHOD(PtyStartProcess) {
 
   std::stringstream why;
 
-  const wchar_t *filename = to_wstring(String::Utf8Value(info[0]->ToString()));
-  const wchar_t *cmdline = to_wstring(String::Utf8Value(info[1]->ToString()));
-  const wchar_t *cwd = to_wstring(String::Utf8Value(info[3]->ToString()));
+  const wchar_t *filename = to_wstring(v8::String::Utf8Value(info[0]->ToString()));
+  const wchar_t *cmdline = to_wstring(v8::String::Utf8Value(info[1]->ToString()));
+  const wchar_t *cwd = to_wstring(v8::String::Utf8Value(info[3]->ToString()));
 
   // create environment block
   std::wstring env;
-  const Handle<Array> envValues = Handle<Array>::Cast(info[2]);
+  const v8::Handle<v8::Array> envValues = v8::Handle<v8::Array>::Cast(info[2]);
   if(!envValues.IsEmpty()) {
 
     std::wstringstream envBlock;
 
     for(uint32_t i = 0; i < envValues->Length(); i++) {
-      std::wstring envValue(to_wstring(String::Utf8Value(envValues->Get(i)->ToString())));
+      std::wstring envValue(to_wstring(v8::String::Utf8Value(envValues->Get(i)->ToString())));
       envBlock << envValue << L'\0';
     }
 
@@ -244,21 +243,21 @@ static NAN_METHOD(PtyStartProcess) {
   winpty_error_free(error_ptr);
 
   // Set return values
-  Local<Object> marshal = Nan::New<Object>();
-  marshal->Set(Nan::New<String>("innerPid").ToLocalChecked(), Nan::New<Number>((int)GetProcessId(handle)));
-  marshal->Set(Nan::New<String>("innerPidHandle").ToLocalChecked(), Nan::New<Number>((int)handle));
-  marshal->Set(Nan::New<String>("pid").ToLocalChecked(), Nan::New<Number>((int)winpty_agent_process(pc)));
-  marshal->Set(Nan::New<String>("pty").ToLocalChecked(), Nan::New<Number>(InterlockedIncrement(&ptyCounter)));
-  marshal->Set(Nan::New<String>("fd").ToLocalChecked(), Nan::New<Number>(-1));
+  v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
+  marshal->Set(Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>((int)GetProcessId(handle)));
+  marshal->Set(Nan::New<v8::String>("innerPidHandle").ToLocalChecked(), Nan::New<v8::Number>((int)handle));
+  marshal->Set(Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>((int)winpty_agent_process(pc)));
+  marshal->Set(Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(InterlockedIncrement(&ptyCounter)));
+  marshal->Set(Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
   {
     LPCWSTR coninPipeName = winpty_conin_name(pc);
     std::wstring coninPipeNameWStr(coninPipeName);
     std::string coninPipeNameStr(coninPipeNameWStr.begin(), coninPipeNameWStr.end());
-    marshal->Set(Nan::New<String>("conin").ToLocalChecked(), Nan::New<String>(coninPipeNameStr).ToLocalChecked());
+    marshal->Set(Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(coninPipeNameStr).ToLocalChecked());
     LPCWSTR conoutPipeName = winpty_conout_name(pc);
     std::wstring conoutPipeNameWStr(conoutPipeName);
     std::string conoutPipeNameStr(conoutPipeNameWStr.begin(), conoutPipeNameWStr.end());
-    marshal->Set(Nan::New<String>("conout").ToLocalChecked(), Nan::New<String>(conoutPipeNameStr).ToLocalChecked());
+    marshal->Set(Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
   }
 
   goto cleanup;
@@ -331,7 +330,7 @@ static NAN_METHOD(PtyKill) {
 * Init
 */
 
-extern "C" void init(Handle<Object> target) {
+extern "C" void init(v8::Handle<v8::Object> target) {
   Nan::HandleScope scope;
   Nan::SetMethod(target, "startProcess", PtyStartProcess);
   Nan::SetMethod(target, "resize", PtyResize);
