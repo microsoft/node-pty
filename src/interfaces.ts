@@ -14,6 +14,7 @@ export interface ITerminal {
   setEncoding(encoding: string): void;
   resume(): void;
   pause(): void;
+  on(type: string, listener: (...args: any[]) => any): void;
 }
 
 export interface IPtyForkOptions {
