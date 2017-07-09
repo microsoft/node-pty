@@ -256,6 +256,7 @@ static NAN_METHOD(PtyStartProcess) {
     std::string conoutPipeNameStr(conoutPipeNameWStr.begin(), conoutPipeNameWStr.end());
     marshal->Set(Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
   }
+  info.GetReturnValue().Set(marshal);
 
   goto cleanup;
 
@@ -263,8 +264,6 @@ cleanup:
   delete filename;
   delete cmdline;
   delete cwd;
-
-  info.GetReturnValue().Set(marshal);
 }
 
 /*
