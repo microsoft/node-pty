@@ -73,18 +73,11 @@ extern char **environ;
 #endif
 
 /**
- * Namespace
- */
-
-using namespace node;
-using namespace v8;
-
-/**
  * Structs
  */
 
 struct pty_baton {
-  Nan::Persistent<Function> cb;
+  Nan::Persistent<v8::Function> cb;
   int exit_code;
   int signal_code;
   pid_t pid;
@@ -165,34 +158,34 @@ NAN_METHOD(PtyFork) {
   signal(SIGINT, SIG_DFL);
 
   // file
-  String::Utf8Value file(info[0]->ToString());
+  v8::String::Utf8Value file(info[0]->ToString());
 
   // args
   int i = 0;
-  Local<Array> argv_ = Local<Array>::Cast(info[1]);
+  v8::Local<v8::Array> argv_ = v8::Local<v8::Array>::Cast(info[1]);
   int argc = argv_->Length();
   int argl = argc + 1 + 1;
   char **argv = new char*[argl];
   argv[0] = strdup(*file);
   argv[argl-1] = NULL;
   for (; i < argc; i++) {
-    String::Utf8Value arg(argv_->Get(Nan::New<Integer>(i))->ToString());
+    v8::String::Utf8Value arg(argv_->Get(Nan::New<v8::Integer>(i))->ToString());
     argv[i+1] = strdup(*arg);
   }
 
   // env
   i = 0;
-  Local<Array> env_ = Local<Array>::Cast(info[2]);
+  v8::Local<v8::Array> env_ = v8::Local<v8::Array>::Cast(info[2]);
   int envc = env_->Length();
   char **env = new char*[envc+1];
   env[envc] = NULL;
   for (; i < envc; i++) {
-    String::Utf8Value pair(env_->Get(Nan::New<Integer>(i))->ToString());
+    v8::String::Utf8Value pair(env_->Get(Nan::New<v8::Integer>(i))->ToString());
     env[i] = strdup(*pair);
   }
 
   // cwd
-  String::Utf8Value cwd_(info[3]->ToString());
+  v8::String::Utf8Value cwd_(info[3]->ToString());
   char *cwd = strdup(*cwd_);
 
   // size
@@ -289,21 +282,21 @@ NAN_METHOD(PtyFork) {
         return Nan::ThrowError("Could not set master fd to nonblocking.");
       }
 
-      Local<Object> obj = Nan::New<Object>();
+      v8::Local<v8::Object> obj = Nan::New<v8::Object>();
       Nan::Set(obj,
-        Nan::New<String>("fd").ToLocalChecked(),
-        Nan::New<Number>(master));
+        Nan::New<v8::String>("fd").ToLocalChecked(),
+        Nan::New<v8::Number>(master));
       Nan::Set(obj,
-        Nan::New<String>("pid").ToLocalChecked(),
-        Nan::New<Number>(pid));
+        Nan::New<v8::String>("pid").ToLocalChecked(),
+        Nan::New<v8::Number>(pid));
       Nan::Set(obj,
-        Nan::New<String>("pty").ToLocalChecked(),
-        Nan::New<String>(ptsname(master)).ToLocalChecked());
+        Nan::New<v8::String>("pty").ToLocalChecked(),
+        Nan::New<v8::String>(ptsname(master)).ToLocalChecked());
 
       pty_baton *baton = new pty_baton();
       baton->exit_code = 0;
       baton->signal_code = 0;
-      baton->cb.Reset(Local<Function>::Cast(info[9]));
+      baton->cb.Reset(v8::Local<v8::Function>::Cast(info[9]));
       baton->pid = pid;
       baton->async.data = baton;
 
@@ -354,16 +347,16 @@ NAN_METHOD(PtyOpen) {
     return Nan::ThrowError("Could not set slave fd to nonblocking.");
   }
 
-  Local<Object> obj = Nan::New<Object>();
+  v8::Local<v8::Object> obj = Nan::New<v8::Object>();
   Nan::Set(obj,
-    Nan::New<String>("master").ToLocalChecked(),
-    Nan::New<Number>(master));
+    Nan::New<v8::String>("master").ToLocalChecked(),
+    Nan::New<v8::Number>(master));
   Nan::Set(obj,
-    Nan::New<String>("slave").ToLocalChecked(),
-    Nan::New<Number>(slave));
+    Nan::New<v8::String>("slave").ToLocalChecked(),
+    Nan::New<v8::Number>(slave));
   Nan::Set(obj,
-    Nan::New<String>("pty").ToLocalChecked(),
-    Nan::New<String>(ptsname(master)).ToLocalChecked());
+    Nan::New<v8::String>("pty").ToLocalChecked(),
+    Nan::New<v8::String>(ptsname(master)).ToLocalChecked());
 
   return info.GetReturnValue().Set(obj);
 }
@@ -415,7 +408,7 @@ NAN_METHOD(PtyGetProc) {
 
   int fd = info[0]->IntegerValue();
 
-  String::Utf8Value tty_(info[1]->ToString());
+  v8::String::Utf8Value tty_(info[1]->ToString());
   char *tty = strdup(*tty_);
   char *name = pty_getproc(fd, tty);
   free(tty);
@@ -424,7 +417,7 @@ NAN_METHOD(PtyGetProc) {
     return info.GetReturnValue().SetUndefined();
   }
 
-  Local<String> name_ = Nan::New<String>(name).ToLocalChecked();
+  v8::Local<v8::String> name_ = Nan::New<v8::String>(name).ToLocalChecked();
   free(name);
   return info.GetReturnValue().Set(name_);
 }
@@ -507,12 +500,12 @@ pty_after_waitpid(uv_async_t *async, int unhelpful) {
   Nan::HandleScope scope;
   pty_baton *baton = static_cast<pty_baton*>(async->data);
 
-  Local<Value> argv[] = {
-    Nan::New<Integer>(baton->exit_code),
-    Nan::New<Integer>(baton->signal_code),
+  v8::Local<v8::Value> argv[] = {
+    Nan::New<v8::Integer>(baton->exit_code),
+    Nan::New<v8::Integer>(baton->signal_code),
   };
 
-  Local<Function> cb = Nan::New<Function>(baton->cb);
+  v8::Local<v8::Function> cb = Nan::New<v8::Function>(baton->cb);
   baton->cb.Reset();
   memset(&baton->cb, -1, sizeof(baton->cb));
   Nan::Callback(cb).Call(Nan::GetCurrentContext()->Global(), 2, argv);
@@ -727,17 +720,17 @@ pty_forkpty(int *amaster, char *name,
 NAN_MODULE_INIT(init) {
   Nan::HandleScope scope;
   Nan::Set(target,
-    Nan::New<String>("fork").ToLocalChecked(),
-    Nan::New<FunctionTemplate>(PtyFork)->GetFunction());
+    Nan::New<v8::String>("fork").ToLocalChecked(),
+    Nan::New<v8::FunctionTemplate>(PtyFork)->GetFunction());
   Nan::Set(target,
-    Nan::New<String>("open").ToLocalChecked(),
-    Nan::New<FunctionTemplate>(PtyOpen)->GetFunction());
+    Nan::New<v8::String>("open").ToLocalChecked(),
+    Nan::New<v8::FunctionTemplate>(PtyOpen)->GetFunction());
   Nan::Set(target,
-    Nan::New<String>("resize").ToLocalChecked(),
-    Nan::New<FunctionTemplate>(PtyResize)->GetFunction());
+    Nan::New<v8::String>("resize").ToLocalChecked(),
+    Nan::New<v8::FunctionTemplate>(PtyResize)->GetFunction());
   Nan::Set(target,
-    Nan::New<String>("process").ToLocalChecked(),
-    Nan::New<FunctionTemplate>(PtyGetProc)->GetFunction());
+    Nan::New<v8::String>("process").ToLocalChecked(),
+    Nan::New<v8::FunctionTemplate>(PtyGetProc)->GetFunction());
 }
 
 NODE_MODULE(pty, init)
