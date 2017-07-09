@@ -18,7 +18,6 @@
 #include <iostream>
 #include <vector>
 
-using namespace std;
 using namespace node;
 
 /**
@@ -97,7 +96,7 @@ static std::wstring get_shell_path(std::wstring filename)  {
 
   std::wstring delimiter = L";";
   size_t pos = 0;
-  vector<wstring> paths;
+  std::vector<std::wstring> paths;
   std::wstring buffer(buffer_);
   while ((pos = buffer.find(delimiter)) != std::wstring::npos) {
     paths.push_back(buffer.substr(0, pos));
@@ -107,7 +106,7 @@ static std::wstring get_shell_path(std::wstring filename)  {
   const wchar_t *filename_ = filename.c_str();
 
   for (int i = 0; i < paths.size(); ++i) {
-    wstring path = paths[i];
+    std::wstring path = paths[i];
     wchar_t searchPath[MAX_PATH];
     ::PathCombineW(searchPath, const_cast<wchar_t*>(path.c_str()), filename_);
 
