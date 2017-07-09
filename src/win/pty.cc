@@ -126,6 +126,15 @@ static std::wstring get_shell_path(std::wstring filename)  {
   return shellpath;
 }
 
+void throw_winpty_error(const char *generalMsg, winpty_error_ptr_t error_ptr) {
+  std::stringstream why;
+  std::wstring msg(winpty_error_msg(error_ptr));
+  std::string msg_(msg.begin(), msg.end());
+  why << generalMsg << ": " << msg_;
+  Nan::ThrowError(why.str().c_str());
+  winpty_error_free(error_ptr);
+}
+
 /*
 * PtyStartProcess
 * pty.startProcess(pid, file, env, cwd);
@@ -143,8 +152,8 @@ static NAN_METHOD(PtyStartProcess) {
     || !info[5]->IsNumber() // rows
     || !info[6]->IsBoolean()) // debug
   {
-    return Nan::ThrowError(
-        "Usage: pty.startProcess(file, cmdline, env, cwd, cols, rows, debug)");
+    Nan::ThrowError("Usage: pty.startProcess(file, cmdline, env, cwd, cols, rows, debug)");
+    return;
   }
 
   std::stringstream why;
@@ -180,13 +189,11 @@ static NAN_METHOD(PtyStartProcess) {
   std::string shellpath_(shellpath.begin(), shellpath.end());
 
   if(shellpath.empty() || !file_exists(shellpath)) {
-    goto invalid_filename;
+    why << "File not found: " << shellpath_;
+    Nan::ThrowError(why.str().c_str());
+    goto cleanup;
   }
 
-  goto open;
-
-open:
-  // Below used to be PtyOpen
   int cols = info[4]->Int32Value();
   int rows = info[5]->Int32Value();
   bool debug = info[6]->ToBoolean()->IsTrue();
@@ -194,51 +201,55 @@ open:
   // Enable/disable debugging
   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
 
-  // Open a new pty session.
+  // Create winpty config
   winpty_error_ptr_t error_ptr = nullptr;
   winpty_config_t* winpty_config = winpty_config_new(0, &error_ptr);
   if (winpty_config == nullptr) {
-    std::wstring msg(winpty_error_msg(error_ptr));
-    std::string msg_(msg.begin(), msg.end());
-    why << "Error creating WinPTY config: " << msg_;
-    Nan::ThrowError(why.str().c_str());
+    throw_winpty_error("Error creating WinPTY config", error_ptr);
+    goto cleanup;
   }
   winpty_error_free(error_ptr);
+
+  // Set pty size on config
   winpty_config_set_initial_size(winpty_config, cols, rows);
 
+  // Start the pty agent
   winpty_t *pc = winpty_open(winpty_config, &error_ptr);
-
-  if (pc == nullptr) {
-    std::wstring msg(winpty_error_msg(error_ptr));
-    std::string msg_(msg.begin(), msg.end());
-    why << "Error launching WinPTY agent: " << msg_;
-    Nan::ThrowError(why.str().c_str());
-  }
-
   winpty_config_free(winpty_config);
+  if (pc == nullptr) {
+    throw_winpty_error("Error launching WinPTY agent", error_ptr);
+    goto cleanup;
+  }
   winpty_error_free(error_ptr);
 
-  // Save pty struct fpr later use.
+  // Save pty struct for later use
   ptyHandles.insert(ptyHandles.end(), pc);
 
-  winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, env.c_str(), nullptr);
-  HANDLE handle = nullptr;
-  BOOL spawnSuccess = winpty_spawn(pc, config, &handle, nullptr, nullptr, nullptr);
-  winpty_spawn_config_free(config);
-  if(!spawnSuccess) {
-    why << "Unable to start terminal process.";
-    Nan::ThrowError(why.str().c_str());
+  // Create winpty spawn config
+  winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, env.c_str(), &error_ptr);
+  if (config == nullptr) {
+    throw_winpty_error("Error creating WinPTY spawn config", error_ptr);
+    goto cleanup;
   }
+  winpty_error_free(error_ptr);
 
-  // Pty object values.
+  // Spawn the new process
+  HANDLE handle = nullptr;
+  BOOL spawnSuccess = winpty_spawn(pc, config, &handle, nullptr, nullptr, &error_ptr);
+  winpty_spawn_config_free(config);
+  if (!spawnSuccess) {
+    throw_winpty_error("Unable to start terminal process", error_ptr);
+    goto cleanup;
+  }
+  winpty_error_free(error_ptr);
+
+  // Set return values
   Local<Object> marshal = Nan::New<Object>();
-
   marshal->Set(Nan::New<String>("innerPid").ToLocalChecked(), Nan::New<Number>((int)GetProcessId(handle)));
   marshal->Set(Nan::New<String>("innerPidHandle").ToLocalChecked(), Nan::New<Number>((int)handle));
   marshal->Set(Nan::New<String>("pid").ToLocalChecked(), Nan::New<Number>((int)winpty_agent_process(pc)));
   marshal->Set(Nan::New<String>("pty").ToLocalChecked(), Nan::New<Number>(InterlockedIncrement(&ptyCounter)));
   marshal->Set(Nan::New<String>("fd").ToLocalChecked(), Nan::New<Number>(-1));
-
   {
     LPCWSTR coninPipeName = winpty_conin_name(pc);
     std::wstring coninPipeNameWStr(coninPipeName);
@@ -252,17 +263,12 @@ open:
 
   goto cleanup;
 
-invalid_filename:
-  why << "File not found: " << shellpath_;
-  Nan::ThrowError(why.str().c_str());
-  goto cleanup;
-
 cleanup:
   delete filename;
   delete cmdline;
   delete cwd;
 
-  return info.GetReturnValue().Set(marshal);
+  info.GetReturnValue().Set(marshal);
 }
 
 /*
@@ -277,7 +283,8 @@ static NAN_METHOD(PtyResize) {
     || !info[1]->IsNumber() // cols
     || !info[2]->IsNumber()) // rows
   {
-    return Nan::ThrowError("Usage: pty.resize(pid, cols, rows)");
+    Nan::ThrowError("Usage: pty.resize(pid, cols, rows)");
+    return;
   }
 
   int handle = info[0]->Int32Value();
@@ -304,7 +311,8 @@ static NAN_METHOD(PtyKill) {
     || !info[0]->IsNumber() // pid
     || !info[1]->IsNumber()) // innerPidHandle
   {
-    return Nan::ThrowError("Usage: pty.kill(pid, innerPidHandle)");
+    Nan::ThrowError("Usage: pty.kill(pid, innerPidHandle)");
+    return;
   }
 
   int handle = info[0]->Int32Value();
