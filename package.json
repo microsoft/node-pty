@@ -4,7 +4,7 @@
   "author": {
     "name": "Daniel Imms"
   },
-  "version": "0.6.8",
+  "version": "0.6.9",
   "license": "MIT",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
