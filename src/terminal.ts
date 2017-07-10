@@ -84,36 +84,36 @@ export abstract class Terminal implements ITerminal {
     }
   }
 
-  public addListener(type: string, listener: (...args: any[]) => any): void { this.on(type, listener); }
-  public on(type: string, listener: (...args: any[]) => any): void {
-    if (type === 'close') {
+  public addListener(eventName: string, listener: (...args: any[]) => any): void { this.on(eventName, listener); }
+  public on(eventName: string, listener: (...args: any[]) => any): void {
+    if (eventName === 'close') {
       this._internalee.on('close', listener);
       return;
     }
-    this.socket.on(type, listener);
+    this.socket.on(eventName, listener);
   }
 
-  public emit(event: string, ...args: any[]): any {
-    if (event === 'close') {
+  public emit(eventName: string, ...args: any[]): any {
+    if (eventName === 'close') {
       return this._internalee.emit.apply(this._internalee, arguments);
     }
     return this.socket.emit.apply(this.socket, arguments);
   }
 
-  public listeners(type: string): Function[] {
-    return this.socket.listeners(type);
+  public listeners(eventName: string): Function[] {
+    return this.socket.listeners(eventName);
   }
 
-  public removeListener(type: string, listener: (...args: any[]) => any): void {
-    this.socket.removeListener(type, listener);
+  public removeListener(eventName: string, listener: (...args: any[]) => any): void {
+    this.socket.removeListener(eventName, listener);
   }
 
-  public removeAllListeners(type: string): void {
-    this.socket.removeAllListeners(type);
+  public removeAllListeners(eventName: string): void {
+    this.socket.removeAllListeners(eventName);
   }
 
-  public once(type: string, listener: (...args: any[]) => any): void {
-    this.socket.once(type, listener);
+  public once(eventName: string, listener: (...args: any[]) => any): void {
+    this.socket.once(eventName, listener);
   }
 
   public abstract write(data: string): void;
