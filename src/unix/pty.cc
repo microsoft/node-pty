@@ -202,8 +202,6 @@ NAN_METHOD(PtyFork) {
   if (info[8]->ToBoolean()->Value()) {
 #if defined(IUTF8)
     term->c_iflag |= IUTF8;
-#else
-    term->c_iflag |= UTF8;
 #endif
   }
   term->c_oflag = OPOST | ONLCR;
