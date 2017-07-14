@@ -23,15 +23,15 @@ export class WindowsTerminal extends Terminal {
   constructor(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions) {
     super(opt);
 
-    if (opt.encoding) {
-      console.warn('Setting encoding on Windows is not supported');
-    }
-
     // Initialize arguments
     args = args || [];
     file = file || DEFAULT_FILE;
     opt = opt || {};
     opt.env = opt.env || process.env;
+
+    if (opt.encoding) {
+      console.warn('Setting encoding on Windows is not supported');
+    }
 
     const env = assign({}, opt.env);
     const cols = opt.cols || Terminal.DEFAULT_COLS;
