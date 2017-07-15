@@ -32,4 +32,22 @@ describe("WindowsTerminal", function() {
       });
     });
   });
+
+  describe("On close", function(done) {
+    it("should return process zero exit codes", function(done) {
+      const term = new WindowsTerminal('cmd.exe', '/C exit');
+      term.on('exit', function(code) {
+        assert.equal(code, 0);
+        done();
+      });
+    });
+
+    it("should return process non-zero exit codes", function(done) {
+      const term = new WindowsTerminal('cmd.exe', '/C exit 2');
+      term.on('exit', function(code) {
+        assert.equal(code, 2);
+        done();
+      });
+    });
+  });
 });

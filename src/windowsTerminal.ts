@@ -107,7 +107,7 @@ export class WindowsTerminal extends Terminal {
 
       // Cleanup after the socket is closed.
       this.socket.on('close', () => {
-        this.emit('exit', null);
+        this.emit('exit', this.agent.getExitCode());
         this._close();
       });
 
