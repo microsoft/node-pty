@@ -141,7 +141,7 @@ static NAN_METHOD(PtyGetExitCode) {
     return;
   }
 
-  uint32_t pidHandle = info[0]->Uint32Value();
+  int32_t pidHandle = info[0]->Uint32Value();
   DWORD exitCode = 0;
   GetExitCodeProcess((HANDLE)pidHandle, &exitCode);
 
