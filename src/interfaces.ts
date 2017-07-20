@@ -11,6 +11,11 @@ export interface ITerminal {
   process: string;
 
   /**
+   * Gets the process ID.
+   */
+  pid: number;
+
+  /**
    * Writes data to the socket.
    * @param data The data to write.
    */
