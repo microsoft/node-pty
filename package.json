@@ -40,7 +40,7 @@
     "prepublish": "npm run tsc"
   },
   "dependencies": {
-    "nan": "2.5.0"
+    "nan": "^2.6.2"
   },
   "devDependencies": {
     "@types/node": "^6.0.58",
