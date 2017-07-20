@@ -131,6 +131,22 @@ void throw_winpty_error(const char *generalMsg, winpty_error_ptr_t error_ptr) {
   winpty_error_free(error_ptr);
 }
 
+static NAN_METHOD(PtyGetExitCode) {
+  Nan::HandleScope scope;
+
+  if (info.Length() != 1
+    || !info[0]->IsNumber()) // pidHandle
+  {
+    Nan::ThrowError("Usage: pty.getExitCode(pidHandle)");
+    return;
+  }
+
+  DWORD exitCode = 0;
+  GetExitCodeProcess((HANDLE)info[0]->IntegerValue(), &exitCode);
+
+  info.GetReturnValue().Set(Nan::New<v8::Number>(exitCode));
+}
+
 /*
 * PtyStartProcess
 * pty.startProcess(pid, file, env, cwd);
@@ -331,6 +347,7 @@ extern "C" void init(v8::Handle<v8::Object> target) {
   Nan::SetMethod(target, "startProcess", PtyStartProcess);
   Nan::SetMethod(target, "resize", PtyResize);
   Nan::SetMethod(target, "kill", PtyKill);
+  Nan::SetMethod(target, "getExitCode", PtyGetExitCode);
 };
 
 NODE_MODULE(pty, init);

@@ -90,6 +90,10 @@ export class WindowsPtyAgent {
     this._outSocket.writable = false;
     pty.kill(this._pid, this._innerPidHandle);
   }
+
+  public getExitCode(): number {
+    return pty.getExitCode(this._innerPidHandle);
+  }
 }
 
 // Convert argc/argv into a Win32 command-line following the escaping convention
