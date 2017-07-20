@@ -141,9 +141,8 @@ static NAN_METHOD(PtyGetExitCode) {
     return;
   }
 
-  int32_t pidHandle = info[0]->Uint32Value();
   DWORD exitCode = 0;
-  GetExitCodeProcess((HANDLE)pidHandle, &exitCode);
+  GetExitCodeProcess((HANDLE)info[0]->IntegerValue(), &exitCode);
 
   info.GetReturnValue().Set(Nan::New<v8::Number>(exitCode));
 }
