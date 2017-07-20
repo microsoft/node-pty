@@ -13,7 +13,7 @@ export abstract class Terminal implements ITerminal {
   protected static readonly DEFAULT_ROWS: number = 24;
 
   protected socket: Socket;
-  protected pid: number;
+  protected _pid: number;
   protected fd: number;
   protected pty: any;
 
@@ -26,6 +26,8 @@ export abstract class Terminal implements ITerminal {
   protected writable: boolean;
 
   protected _internalee: EventEmitter;
+
+  public get pid(): number { return this._pid; }
 
   constructor(opt?: IPtyForkOptions) {
     // for 'close'

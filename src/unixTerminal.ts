@@ -17,7 +17,6 @@ const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
 
 export class UnixTerminal extends Terminal {
-  protected pid: number;
   protected fd: number;
   protected pty: any;
 
@@ -115,7 +114,7 @@ export class UnixTerminal extends Terminal {
       }
     });
 
-    this.pid = term.pid;
+    this._pid = term.pid;
     this.fd = term.fd;
     this.pty = term.pty;
 
