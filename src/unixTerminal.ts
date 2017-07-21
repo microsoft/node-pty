@@ -11,6 +11,12 @@ import { ProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 import { assign } from './utils';
 
+declare type NativePty = {
+  master: number;
+  slave: number;
+  pty: string;
+};
+
 const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
 
 const DEFAULT_FILE = 'sh';
@@ -18,7 +24,7 @@ const DEFAULT_NAME = 'xterm';
 
 export class UnixTerminal extends Terminal {
   protected _fd: number;
-  protected _pty: any;
+  protected _pty: string;
 
   protected _file: string;
   protected _name: string;
@@ -157,9 +163,9 @@ export class UnixTerminal extends Terminal {
     const encoding = opt.encoding ? 'utf8' : opt.encoding;
 
     // open
-    const term = pty.open(cols, rows);
+    const term: NativePty = pty.open(cols, rows);
 
-    self._master = new PipeSocket(term.master);
+    self._master = new PipeSocket(<number>term.master);
     self._master.setEncoding(encoding);
     self._master.resume();
 
@@ -253,10 +259,11 @@ export class UnixTerminal extends Terminal {
  * See: https://github.com/chjj/pty.js/issues/103
  */
 class PipeSocket extends net.Socket {
-  constructor(fd: any) {
+  constructor(fd: number) {
     const tty = (<any>process).binding('tty_wrap');
     const guessHandleType = tty.guessHandleType;
     tty.guessHandleType = () => 'PIPE';
+    // @types/node has fd as string? https://github.com/DefinitelyTyped/DefinitelyTyped/pull/18275
     super({ fd });
     tty.guessHandleType = guessHandleType;
   }
