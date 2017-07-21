@@ -183,8 +183,7 @@ export class WindowsTerminal extends Terminal {
     });
   }
 
-  /**
-   * Gets the name of the process.
-   */
   public get process(): string { return this._name; }
+  public get master(): net.Socket { throw new Error('master is not supported on Windows'); }
+  public get slave(): net.Socket { throw new Error('slave is not supported on Windows'); }
 }

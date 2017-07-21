@@ -28,8 +28,11 @@ export class UnixTerminal extends Terminal {
 
   private _boundClose: boolean;
   private _emittedClose: boolean;
-  private master: any;
-  private slave: any;
+  private _master: net.Socket;
+  private _slave: net.Socket;
+
+  public get master(): net.Socket { return this._master; }
+  public get slave(): net.Socket { return this._slave; }
 
   constructor(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions) {
     super(opt);
@@ -139,7 +142,7 @@ export class UnixTerminal extends Terminal {
    */
 
   public static open(opt: IPtyOpenOptions): UnixTerminal {
-    const self = Object.create(UnixTerminal.prototype);
+    const self: UnixTerminal = Object.create(UnixTerminal.prototype);
     opt = opt || {};
 
     if (arguments.length > 1) {
@@ -156,33 +159,33 @@ export class UnixTerminal extends Terminal {
     // open
     const term = pty.open(cols, rows);
 
-    self.master = new PipeSocket(term.master);
-    self.master.setEncoding(encoding);
-    self.master.resume();
+    self._master = new PipeSocket(term.master);
+    self._master.setEncoding(encoding);
+    self._master.resume();
 
-    self.slave = new PipeSocket(term.slave);
-    self.slave.setEncoding(encoding);
-    self.slave.resume();
+    self._slave = new PipeSocket(term.slave);
+    self._slave.setEncoding(encoding);
+    self._slave.resume();
 
-    self.socket = self.master;
-    self.pid = null;
-    self.fd = term.master;
-    self.pty = term.pty;
+    self._socket = self._master;
+    self._pid = null;
+    self._fd = term.master;
+    self._pty = term.pty;
 
-    self.file = process.argv[0] || 'node';
-    self.name = process.env.TERM || '';
+    self._file = process.argv[0] || 'node';
+    self._name = process.env.TERM || '';
 
-    self.readable = true;
-    self.writable = true;
+    self._readable = true;
+    self._writable = true;
 
-    self.socket.on('error', err => {
+    self._socket.on('error', err => {
       self._close();
       if (self.listeners('error').length < 2) {
         throw err;
       }
     });
 
-    self.socket.on('close', () => {
+    self._socket.on('close', () => {
       self._close();
     });
 

@@ -43,9 +43,11 @@
     "nan": "^2.6.2"
   },
   "devDependencies": {
+    "@types/mocha": "^2.2.41",
     "@types/node": "^6.0.58",
     "cross-env": "^3.2.4",
     "mocha": "^3.1.2",
+    "pollUntil": "^1.0.3",
     "tslint": "^4.3.1",
     "typescript": "^2.1.4"
   }

@@ -3,6 +3,7 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
+import * as net from 'net';
 import * as path from 'path';
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
@@ -123,10 +124,9 @@ export abstract class Terminal implements ITerminal {
   public abstract destroy(): void;
   public abstract kill(signal?: string): void;
 
-  /**
-   * Gets the name of the process.
-   */
   public abstract get process(): string;
+  public abstract get master(): net.Socket;
+  public abstract get slave(): net.Socket;
 
   // TODO: Should this be in the API?
   public redraw(): void {
