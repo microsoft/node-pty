@@ -8,22 +8,22 @@ import { Socket } from 'net';
 import { EventEmitter } from 'events';
 import { ITerminal, IPtyForkOptions } from './interfaces';
 
+export const DEFAULT_COLS: number = 80;
+export const DEFAULT_ROWS: number = 24;
+
 export abstract class Terminal implements ITerminal {
-  protected static readonly DEFAULT_COLS: number = 80;
-  protected static readonly DEFAULT_ROWS: number = 24;
-
-  protected socket: Socket;
+  protected _socket: Socket;
   protected _pid: number;
-  protected fd: number;
-  protected pty: any;
+  protected _fd: number;
+  protected _pty: any;
 
-  protected file: string;
-  protected name: string;
-  protected cols: number;
-  protected rows: number;
+  protected _file: string;
+  protected _name: string;
+  protected _cols: number;
+  protected _rows: number;
 
-  protected readable: boolean;
-  protected writable: boolean;
+  protected _readable: boolean;
+  protected _writable: boolean;
 
   protected _internalee: EventEmitter;
 
@@ -57,32 +57,32 @@ export abstract class Terminal implements ITerminal {
 
   /** See net.Socket.end */
   public end(data: string): void{
-    this.socket.end(data);
+    this._socket.end(data);
   }
 
   /** See stream.Readable.pipe */
   public pipe(dest: any, options: any): any {
-    return this.socket.pipe(dest, options);
+    return this._socket.pipe(dest, options);
   }
 
   /** See net.Socket.pause */
   public pause(): Socket {
-    return this.socket.pause();
+    return this._socket.pause();
   }
 
   /** See net.Socket.resume */
   public resume(): Socket {
     // TODO: Type with Socket
-    return this.socket.resume();
+    return this._socket.resume();
   }
 
   /** See net.Socket.setEncoding */
   public setEncoding(encoding: string): void {
-    if ((<any>this.socket)._decoder) {
-      delete (<any>this.socket)._decoder;
+    if ((<any>this._socket)._decoder) {
+      delete (<any>this._socket)._decoder;
     }
     if (encoding) {
-      this.socket.setEncoding(encoding);
+      this._socket.setEncoding(encoding);
     }
   }
 
@@ -92,30 +92,30 @@ export abstract class Terminal implements ITerminal {
       this._internalee.on('close', listener);
       return;
     }
-    this.socket.on(eventName, listener);
+    this._socket.on(eventName, listener);
   }
 
   public emit(eventName: string, ...args: any[]): any {
     if (eventName === 'close') {
       return this._internalee.emit.apply(this._internalee, arguments);
     }
-    return this.socket.emit.apply(this.socket, arguments);
+    return this._socket.emit.apply(this._socket, arguments);
   }
 
   public listeners(eventName: string): Function[] {
-    return this.socket.listeners(eventName);
+    return this._socket.listeners(eventName);
   }
 
   public removeListener(eventName: string, listener: (...args: any[]) => any): void {
-    this.socket.removeListener(eventName, listener);
+    this._socket.removeListener(eventName, listener);
   }
 
   public removeAllListeners(eventName: string): void {
-    this.socket.removeAllListeners(eventName);
+    this._socket.removeAllListeners(eventName);
   }
 
   public once(eventName: string, listener: (...args: any[]) => any): void {
-    this.socket.once(eventName, listener);
+    this._socket.once(eventName, listener);
   }
 
   public abstract write(data: string): void;
@@ -130,8 +130,8 @@ export abstract class Terminal implements ITerminal {
 
   // TODO: Should this be in the API?
   public redraw(): void {
-    let cols = this.cols;
-    let rows = this.rows;
+    let cols = this._cols;
+    let rows = this._rows;
 
     // We could just send SIGWINCH, but most programs will  ignore it if the
     // size hasn't actually changed.
@@ -142,12 +142,12 @@ export abstract class Terminal implements ITerminal {
   }
 
   protected _close(): void {
-    this.socket.writable = false;
-    this.socket.readable = false;
+    this._socket.writable = false;
+    this._socket.readable = false;
     this.write = () => {};
     this.end = () => {};
-    this.writable = false;
-    this.readable = false;
+    this._writable = false;
+    this._readable = false;
   }
 
   protected _parseEnv(env: {[key: string]: string}): string[] {

@@ -17,7 +17,7 @@ describe("UnixTerminal", function() {
         regExp = /^\/dev\/tty[p-sP-S][a-z0-9]+$/;
       }
       if (regExp) {
-        assert.ok(regExp.test(term.pty), '"' + term.pty + '" should match ' + regExp.toString());
+        assert.ok(regExp.test(term._pty), '"' + term._pty + '" should match ' + regExp.toString());
       }
     });
   });
