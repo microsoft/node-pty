@@ -6,7 +6,7 @@
 import * as net from 'net';
 import * as path from 'path';
 import { inherits } from 'util';
-import { Terminal } from './terminal';
+import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { WindowsPtyAgent } from './windowsPtyAgent';
 import { IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
@@ -16,9 +16,9 @@ const DEFAULT_FILE = 'cmd.exe';
 const DEFAULT_NAME = 'Windows Shell';
 
 export class WindowsTerminal extends Terminal {
-  private isReady: boolean;
-  private deferreds: any[];
-  private agent: WindowsPtyAgent;
+  private _isReady: boolean;
+  private _deferreds: any[];
+  private _agent: WindowsPtyAgent;
 
   constructor(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions) {
     super(opt);
@@ -34,44 +34,44 @@ export class WindowsTerminal extends Terminal {
     }
 
     const env = assign({}, opt.env);
-    const cols = opt.cols || Terminal.DEFAULT_COLS;
-    const rows = opt.rows || Terminal.DEFAULT_ROWS;
+    const cols = opt.cols || DEFAULT_COLS;
+    const rows = opt.rows || DEFAULT_ROWS;
     const cwd = opt.cwd || process.cwd();
     const name = opt.name || env.TERM || DEFAULT_NAME;
     const parsedEnv = this._parseEnv(env);
 
     // If the terminal is ready
-    this.isReady = false;
+    this._isReady = false;
 
     // Functions that need to run after `ready` event is emitted.
-    this.deferreds = [];
+    this._deferreds = [];
 
     // Create new termal.
-    this.agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, cols, rows, false);
-    this.socket = this.agent.outSocket;
+    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, cols, rows, false);
+    this._socket = this._agent.outSocket;
 
     // Not available until `ready` event emitted.
-    this._pid = this.agent.innerPid;
-    this.fd = this.agent.fd;
-    this.pty = this.agent.pty;
+    this._pid = this._agent.innerPid;
+    this._fd = this._agent.fd;
+    this._pty = this._agent.pty;
 
     // The forked windows terminal is not available until `ready` event is
     // emitted.
-    this.socket.on('ready_datapipe', () => {
+    this._socket.on('ready_datapipe', () => {
 
       // These events needs to be forwarded.
       ['connect', 'data', 'end', 'timeout', 'drain'].forEach(event => {
-        this.socket.on(event, data => {
+        this._socket.on(event, data => {
 
           // Wait until the first data event is fired then we can run deferreds.
-          if (!this.isReady && event === 'data') {
+          if (!this._isReady && event === 'data') {
 
             // Terminal is now ready and we can avoid having to defer method
             // calls.
-            this.isReady = true;
+            this._isReady = true;
 
             // Execute all deferred methods
-            this.deferreds.forEach(fn => {
+            this._deferreds.forEach(fn => {
               // NB! In order to ensure that `this` has all its references
               // updated any variable that need to be available in `this` before
               // the deferred is run has to be declared above this forEach
@@ -80,14 +80,14 @@ export class WindowsTerminal extends Terminal {
             });
 
             // Reset
-            this.deferreds = [];
+            this._deferreds = [];
 
           }
         });
       });
 
       // Shutdown if `error` event is emitted.
-      this.socket.on('error', err => {
+      this._socket.on('error', err => {
         // Close terminal session.
         this._close();
 
@@ -106,18 +106,18 @@ export class WindowsTerminal extends Terminal {
       });
 
       // Cleanup after the socket is closed.
-      this.socket.on('close', () => {
-        this.emit('exit', this.agent.getExitCode());
+      this._socket.on('close', () => {
+        this.emit('exit', this._agent.getExitCode());
         this._close();
       });
 
     });
 
-    this.file = file;
-    this.name = name;
+    this._file = file;
+    this._name = name;
 
-    this.readable = true;
-    this.writable = true;
+    this._readable = true;
+    this._writable = true;
   }
 
   /**
@@ -134,7 +134,7 @@ export class WindowsTerminal extends Terminal {
 
   public write(data: string): void {
     this._defer(() => {
-      this.agent.inSocket.write(data);
+      this._agent.inSocket.write(data);
     });
   }
 
@@ -144,7 +144,7 @@ export class WindowsTerminal extends Terminal {
 
   public resize(cols: number, rows: number): void {
     this._defer(() => {
-      this.agent.resize(cols, rows);
+      this._agent.resize(cols, rows);
     });
   }
 
@@ -160,7 +160,7 @@ export class WindowsTerminal extends Terminal {
         throw new Error('Signals not supported on windows.');
       }
       this._close();
-      this.agent.kill();
+      this._agent.kill();
     });
   }
 
@@ -172,13 +172,13 @@ export class WindowsTerminal extends Terminal {
     }
 
     // If the terminal is ready, execute.
-    if (this.isReady) {
+    if (this._isReady) {
       deferredFn.apply(this, null);
       return;
     }
 
     // Queue until terminal is ready.
-    this.deferreds.push({
+    this._deferreds.push({
       run: () => deferredFn.apply(this, null)
     });
   }
@@ -186,5 +186,5 @@ export class WindowsTerminal extends Terminal {
   /**
    * Gets the name of the process.
    */
-  public get process(): string { return this.name; }
+  public get process(): string { return this._name; }
 }

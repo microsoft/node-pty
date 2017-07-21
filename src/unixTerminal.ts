@@ -6,7 +6,7 @@
 import * as net from 'net';
 import * as path from 'path';
 import * as tty from 'tty';
-import { Terminal } from './terminal';
+import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { ProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 import { assign } from './utils';
@@ -17,14 +17,14 @@ const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
 
 export class UnixTerminal extends Terminal {
-  protected fd: number;
-  protected pty: any;
+  protected _fd: number;
+  protected _pty: any;
 
-  protected file: string;
-  protected name: string;
+  protected _file: string;
+  protected _name: string;
 
-  protected readable: boolean;
-  protected writable: boolean;
+  protected _readable: boolean;
+  protected _writable: boolean;
 
   private _boundClose: boolean;
   private _emittedClose: boolean;
@@ -44,8 +44,8 @@ export class UnixTerminal extends Terminal {
     opt = opt || {};
     opt.env = opt.env || process.env;
 
-    const cols = opt.cols || Terminal.DEFAULT_COLS;
-    const rows = opt.rows || Terminal.DEFAULT_ROWS;
+    const cols = opt.cols || DEFAULT_COLS;
+    const rows = opt.rows || DEFAULT_ROWS;
     const uid = opt.uid || -1;
     const gid = opt.gid || -1;
     const env = assign({}, opt.env);
@@ -76,13 +76,13 @@ export class UnixTerminal extends Terminal {
     // fork
     const term = pty.fork(file, args, parsedEnv, cwd, cols, rows, uid, gid, (encoding === 'utf8'), onexit);
 
-    this.socket = new PipeSocket(term.fd);
+    this._socket = new PipeSocket(term.fd);
     if (encoding !== null) {
-      this.socket.setEncoding(encoding);
+      this._socket.setEncoding(encoding);
     }
 
     // setup
-    this.socket.on('error', (err: any) => {
+    this._socket.on('error', (err: any) => {
       // NOTE: fs.ReadStream gets EAGAIN twice at first:
       if (err.code) {
         if (~err.code.indexOf('EAGAIN')) {
@@ -115,16 +115,16 @@ export class UnixTerminal extends Terminal {
     });
 
     this._pid = term.pid;
-    this.fd = term.fd;
-    this.pty = term.pty;
+    this._fd = term.fd;
+    this._pty = term.pty;
 
-    this.file = file;
-    this.name = name;
+    this._file = file;
+    this._name = name;
 
-    this.readable = true;
-    this.writable = true;
+    this._readable = true;
+    this._writable = true;
 
-    this.socket.on('close', () => {
+    this._socket.on('close', () => {
       if (this._emittedClose) {
         return;
       }
@@ -149,8 +149,8 @@ export class UnixTerminal extends Terminal {
       };
     }
 
-    const cols = opt.cols || Terminal.DEFAULT_COLS;
-    const rows = opt.rows || Terminal.DEFAULT_ROWS;
+    const cols = opt.cols || DEFAULT_COLS;
+    const rows = opt.rows || DEFAULT_ROWS;
     const encoding = opt.encoding ? 'utf8' : opt.encoding;
 
     // open
@@ -190,7 +190,7 @@ export class UnixTerminal extends Terminal {
   };
 
   public write(data: string): void {
-    this.socket.write(data);
+    this._socket.write(data);
   }
 
   public destroy(): void {
@@ -198,11 +198,11 @@ export class UnixTerminal extends Terminal {
 
     // Need to close the read stream so node stops reading a dead file
     // descriptor. Then we can safely SIGHUP the shell.
-    this.socket.once('close', () => {
+    this._socket.once('close', () => {
       this.kill('SIGHUP');
     });
 
-    this.socket.destroy();
+    this._socket.destroy();
   }
 
   public kill(signal?: string): void {
@@ -215,7 +215,7 @@ export class UnixTerminal extends Terminal {
    * Gets the name of the process.
    */
   public get process(): string {
-    return pty.process(this.fd, this.pty) || this.file;
+    return pty.process(this._fd, this._pty) || this._file;
   }
 
   /**
@@ -223,7 +223,7 @@ export class UnixTerminal extends Terminal {
    */
 
   public resize(cols: number, rows: number): void {
-    pty.resize(this.fd, cols, rows);
+    pty.resize(this._fd, cols, rows);
   }
 
   private _sanitizeEnv(env: ProcessEnv): void {
