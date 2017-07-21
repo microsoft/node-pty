@@ -7,3 +7,4 @@ Makefile.gyp
 node_modules/
 builderror.log
 lib/
+npm-debug.log

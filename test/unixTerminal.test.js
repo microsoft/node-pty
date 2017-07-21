@@ -1,6 +1,8 @@
 if (process.platform === 'win32') return
 
 var assert = require("assert");
+var pollUntil = require('pollUntil');
+var tty = require('tty');
 var UnixTerminal = require('../lib/unixTerminal').UnixTerminal;
 
 describe("UnixTerminal", function() {
@@ -57,6 +59,43 @@ describe("UnixTerminal", function() {
         assert.equal(new Buffer(buffer, 'base64').toString().replace('\r', '').replace('\n', ''), text);
         done();
       });
+    });
+  });
+
+  describe('open', function() {
+    var term;
+
+    afterEach(function() {
+      if (term) {
+        term.slave.destroy();
+        term.master.destroy();
+      }
+    });
+
+    it("should open a pty with access to a master and slave socket", function(done) {
+      term = UnixTerminal.open();
+
+      assert(tty.isatty(term.master));
+      assert(tty.isatty(term.slave));
+
+      var slavebuf = '';
+      term.slave.on('data', function(data) {
+        slavebuf += data;
+      });
+
+      var masterbuf = '';
+      term.master.on('data', function(data) {
+        masterbuf += data;
+      });
+
+      pollUntil(() => {
+        if (masterbuf === "slave\r\nmaster\r\n" && slavebuf === "master\n") {
+          done();
+        }
+      }, [], 200, 10);
+
+      term.slave.write("slave\n");
+      term.master.write("master\n");
     });
   });
 });

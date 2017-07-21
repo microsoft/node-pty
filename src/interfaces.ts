@@ -2,6 +2,8 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
+import * as net from 'net';
+
 export type ProcessEnv = {[key: string]: string};
 
 export interface ITerminal {
@@ -14,6 +16,17 @@ export interface ITerminal {
    * Gets the process ID.
    */
   pid: number;
+
+  /**
+   * The socket for the master file descriptor. This is not supported on
+   * Windows.
+   */
+  master: net.Socket;
+
+  /**
+   * The socket for the slave file descriptor. This is not supported on Windows.
+   */
+  slave: net.Socket;
 
   /**
    * Writes data to the socket.
