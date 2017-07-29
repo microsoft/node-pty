@@ -1,7 +1,6 @@
 import { UnixTerminal } from './unixTerminal';
 import * as assert from 'assert';
 import pollUntil = require('pollUntil');
-import * as tty from 'tty';
 import * as path from 'path';
 
 const FIXTURES_PATH = path.normalize(path.join(__dirname, '..', 'fixtures', 'utf8-character.txt'));
@@ -76,10 +75,6 @@ if (process.platform !== 'win32') {
 
       it('should open a pty with access to a master and slave socket', (done) => {
         term = UnixTerminal.open({});
-
-        // isatty wants a number but it appears to work for net.Socket too.
-        assert(tty.isatty(<any>term.master));
-        assert(tty.isatty(<any>term.slave));
 
         let slavebuf = '';
         term.slave.on('data', (data) => {
