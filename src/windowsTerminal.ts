@@ -3,8 +3,8 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
-import * as net from 'net';
 import * as path from 'path';
+import { Socket } from 'net';
 import { inherits } from 'util';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { WindowsPtyAgent } from './windowsPtyAgent';
@@ -184,6 +184,6 @@ export class WindowsTerminal extends Terminal {
   }
 
   public get process(): string { return this._name; }
-  public get master(): net.Socket { throw new Error('master is not supported on Windows'); }
-  public get slave(): net.Socket { throw new Error('slave is not supported on Windows'); }
+  public get master(): Socket { throw new Error('master is not supported on Windows'); }
+  public get slave(): Socket { throw new Error('slave is not supported on Windows'); }
 }
