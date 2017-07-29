@@ -46,10 +46,10 @@ const wchar_t* to_wstring(const v8::String::Utf8Value& str)
 }
 
 static winpty_t *get_pipe_handle(int handle) {
-  for(size_t i = 0; i < ptyHandles.size(); ++i) {
+  for (size_t i = 0; i < ptyHandles.size(); ++i) {
     winpty_t *ptyHandle = ptyHandles[i];
     int current = (int)winpty_agent_process(ptyHandle);
-    if(current == handle) {
+    if (current == handle) {
       return ptyHandle;
     }
   }
@@ -57,9 +57,9 @@ static winpty_t *get_pipe_handle(int handle) {
 }
 
 static bool remove_pipe_handle(int handle) {
-  for(size_t i = 0; i < ptyHandles.size(); ++i) {
+  for (size_t i = 0; i < ptyHandles.size(); ++i) {
     winpty_t *ptyHandle = ptyHandles[i];
-    if((int)winpty_agent_process(ptyHandle) == handle) {
+    if ((int)winpty_agent_process(ptyHandle) == handle) {
       winpty_free(ptyHandle);
       ptyHandles.erase(ptyHandles.begin() + i);
       ptyHandle = nullptr;
@@ -71,7 +71,7 @@ static bool remove_pipe_handle(int handle) {
 
 static bool file_exists(std::wstring filename) {
   DWORD attr = ::GetFileAttributesW(filename.c_str());
-  if(attr == INVALID_FILE_ATTRIBUTES || (attr & FILE_ATTRIBUTE_DIRECTORY)) {
+  if (attr == INVALID_FILE_ATTRIBUTES || (attr & FILE_ATTRIBUTE_DIRECTORY)) {
     return false;
   }
   return true;
@@ -82,13 +82,13 @@ static std::wstring get_shell_path(std::wstring filename)  {
 
   std::wstring shellpath;
 
-  if(file_exists(filename)) {
+  if (file_exists(filename)) {
     return shellpath;
   }
 
   wchar_t buffer_[MAX_ENV];
   int read = ::GetEnvironmentVariableW(L"Path", buffer_, MAX_ENV);
-  if(!read) {
+  if (!read) {
     return shellpath;
   }
 
@@ -108,15 +108,14 @@ static std::wstring get_shell_path(std::wstring filename)  {
     wchar_t searchPath[MAX_PATH];
     ::PathCombineW(searchPath, const_cast<wchar_t*>(path.c_str()), filename_);
 
-    if(searchPath == NULL) {
+    if (searchPath == NULL) {
       continue;
     }
 
-    if(file_exists(searchPath)) {
+    if (file_exists(searchPath)) {
       shellpath = searchPath;
       break;
     }
-
   }
 
   return shellpath;
@@ -134,9 +133,8 @@ void throw_winpty_error(const char *generalMsg, winpty_error_ptr_t error_ptr) {
 static NAN_METHOD(PtyGetExitCode) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 1
-    || !info[0]->IsNumber()) // pidHandle
-  {
+  if (info.Length() != 1 ||
+      !info[0]->IsNumber()) {
     Nan::ThrowError("Usage: pty.getExitCode(pidHandle)");
     return;
   }
@@ -147,23 +145,17 @@ static NAN_METHOD(PtyGetExitCode) {
   info.GetReturnValue().Set(Nan::New<v8::Number>(exitCode));
 }
 
-/*
-* PtyStartProcess
-* pty.startProcess(pid, file, env, cwd);
-*/
-
 static NAN_METHOD(PtyStartProcess) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 7
-    || !info[0]->IsString() // file
-    || !info[1]->IsString() // cmdline
-    || !info[2]->IsArray() // env
-    || !info[3]->IsString() // cwd
-    || !info[4]->IsNumber() // cols
-    || !info[5]->IsNumber() // rows
-    || !info[6]->IsBoolean()) // debug
-  {
+  if (info.Length() != 7 ||
+      !info[0]->IsString() ||
+      !info[1]->IsString() ||
+      !info[2]->IsArray() ||
+      !info[3]->IsString() ||
+      !info[4]->IsNumber() ||
+      !info[5]->IsNumber() ||
+      !info[6]->IsBoolean()) {
     Nan::ThrowError("Usage: pty.startProcess(file, cmdline, env, cwd, cols, rows, debug)");
     return;
   }
@@ -177,7 +169,7 @@ static NAN_METHOD(PtyStartProcess) {
   // create environment block
   std::wstring env;
   const v8::Handle<v8::Array> envValues = v8::Handle<v8::Array>::Cast(info[2]);
-  if(!envValues.IsEmpty()) {
+  if (!envValues.IsEmpty()) {
 
     std::wstringstream envBlock;
 
@@ -192,7 +184,7 @@ static NAN_METHOD(PtyStartProcess) {
   // use environment 'Path' variable to determine location of
   // the relative path that we have recieved (e.g cmd.exe)
   std::wstring shellpath;
-  if(::PathIsRelativeW(filename)) {
+  if (::PathIsRelativeW(filename)) {
     shellpath = get_shell_path(filename);
   } else {
     shellpath = filename;
@@ -200,7 +192,7 @@ static NAN_METHOD(PtyStartProcess) {
 
   std::string shellpath_(shellpath.begin(), shellpath.end());
 
-  if(shellpath.empty() || !file_exists(shellpath)) {
+  if (shellpath.empty() || !file_exists(shellpath)) {
     why << "File not found: " << shellpath_;
     Nan::ThrowError(why.str().c_str());
     goto cleanup;
@@ -282,18 +274,13 @@ cleanup:
   delete cwd;
 }
 
-/*
-* PtyResize
-* pty.resize(pid, cols, rows);
-*/
 static NAN_METHOD(PtyResize) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 3
-    || !info[0]->IsNumber() // pid
-    || !info[1]->IsNumber() // cols
-    || !info[2]->IsNumber()) // rows
-  {
+  if (info.Length() != 3 ||
+      !info[0]->IsNumber() ||
+      !info[1]->IsNumber() ||
+      !info[2]->IsNumber()) {
     Nan::ThrowError("Usage: pty.resize(pid, cols, rows)");
     return;
   }
@@ -311,17 +298,12 @@ static NAN_METHOD(PtyResize) {
   return info.GetReturnValue().SetUndefined();
 }
 
-/*
-* PtyKill
-* pty.kill(pid);
-*/
 static NAN_METHOD(PtyKill) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 2
-    || !info[0]->IsNumber() // pid
-    || !info[1]->IsNumber()) // innerPidHandle
-  {
+  if (info.Length() != 2 ||
+      !info[0]->IsNumber() ||
+      !info[1]->IsNumber()) {
     Nan::ThrowError("Usage: pty.kill(pid, innerPidHandle)");
     return;
   }
