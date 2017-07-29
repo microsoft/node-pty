@@ -264,7 +264,7 @@ class PipeSocket extends net.Socket {
     const guessHandleType = tty.guessHandleType;
     tty.guessHandleType = () => 'PIPE';
     // @types/node has fd as string? https://github.com/DefinitelyTyped/DefinitelyTyped/pull/18275
-    super({ fd });
+    super({ fd: <any>fd });
     tty.guessHandleType = guessHandleType;
   }
 }

@@ -41,9 +41,9 @@ if (process.platform === 'win32') {
         });
       });
 
-      it('should return process non-zero exit codes', function(done) {
+      it('should return process non-zero exit codes', (done) => {
         const term = new WindowsTerminal('cmd.exe', '/C exit 2');
-        term.on('exit', function(code) {
+        term.on('exit', (code) => {
           assert.equal(code, 2);
           done();
         });
