@@ -74,6 +74,7 @@ if (process.platform !== 'win32') {
       });
 
       it('should open a pty with access to a master and slave socket', (done) => {
+        let doneCalled = false;
         term = UnixTerminal.open({});
 
         let slavebuf = '';
@@ -89,7 +90,9 @@ if (process.platform !== 'win32') {
         (<any>pollUntil)(() => {
           if (masterbuf === 'slave\r\nmaster\r\n' && slavebuf === 'master\n') {
             done();
+            return true;
           }
+          return false;
         }, [], 200, 10);
 
         term.slave.write('slave\n');
