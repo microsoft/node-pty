@@ -3,7 +3,6 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
-import * as net from 'net';
 import * as path from 'path';
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
@@ -73,7 +72,6 @@ export abstract class Terminal implements ITerminal {
 
   /** See net.Socket.resume */
   public resume(): Socket {
-    // TODO: Type with Socket
     return this._socket.resume();
   }
 
@@ -125,8 +123,8 @@ export abstract class Terminal implements ITerminal {
   public abstract kill(signal?: string): void;
 
   public abstract get process(): string;
-  public abstract get master(): net.Socket;
-  public abstract get slave(): net.Socket;
+  public abstract get master(): Socket;
+  public abstract get slave(): Socket;
 
   // TODO: Should this be in the API?
   public redraw(): void {

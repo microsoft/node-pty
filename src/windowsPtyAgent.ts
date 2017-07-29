@@ -3,8 +3,8 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
-import * as net from 'net';
 import * as path from 'path';
+import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
 
 const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
@@ -18,8 +18,8 @@ const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
  */
 
 export class WindowsPtyAgent {
-  private _inSocket: net.Socket;
-  private _outSocket: net.Socket;
+  private _inSocket: Socket;
+  private _outSocket: Socket;
   private _pid: number;
   private _innerPid: number;
   private _innerPidHandle: number;
@@ -27,8 +27,8 @@ export class WindowsPtyAgent {
   private _fd: any;
   private _pty: number;
 
-  public get inSocket(): net.Socket { return this._inSocket; }
-  public get outSocket(): net.Socket { return this._outSocket; }
+  public get inSocket(): Socket { return this._inSocket; }
+  public get outSocket(): Socket { return this._outSocket; }
   public get fd(): any { return this._fd; }
   public get innerPid(): number { return this._innerPid; }
   public get pty(): number { return this._pty; }
@@ -64,7 +64,7 @@ export class WindowsPtyAgent {
     this._pty = term.pty;
 
     // Create terminal pipe IPC channel and forward to a local unix socket.
-    this._outSocket = new net.Socket();
+    this._outSocket = new Socket();
     this._outSocket.setEncoding('utf8');
     this._outSocket.connect(term.conout, () => {
       // TODO: Emit event on agent instead of socket?
@@ -73,7 +73,7 @@ export class WindowsPtyAgent {
       this._outSocket.emit('ready_datapipe');
     });
 
-    this._inSocket = new net.Socket();
+    this._inSocket = new Socket();
     this._inSocket.setEncoding('utf8');
     this._inSocket.connect(term.conin);
     // TODO: Wait for ready event?
