@@ -130,28 +130,22 @@ pty_after_waitpid(uv_async_t *, int);
 static void
 pty_after_close(uv_handle_t *);
 
-/**
- * PtyFork
- * pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, onexit)
- */
-
 NAN_METHOD(PtyFork) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 10
-      || !info[0]->IsString() // file
-      || !info[1]->IsArray() // args
-      || !info[2]->IsArray() // env
-      || !info[3]->IsString() // cwd
-      || !info[4]->IsNumber() // cols
-      || !info[5]->IsNumber() // rows
-      || !info[6]->IsNumber() // uid
-      || !info[7]->IsNumber() // gid
-      || !info[8]->IsBoolean() // utf8
-      || !info[9]->IsFunction() // onexit
-  ) {
+  if (info.Length() != 10 ||
+      !info[0]->IsString() ||
+      !info[1]->IsArray() ||
+      !info[2]->IsArray() ||
+      !info[3]->IsString() ||
+      !info[4]->IsNumber() ||
+      !info[5]->IsNumber() ||
+      !info[6]->IsNumber() ||
+      !info[7]->IsNumber() ||
+      !info[8]->IsBoolean() ||
+      !info[9]->IsFunction()) {
     return Nan::ThrowError(
-      "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, onexit)");
+        "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, onexit)");
   }
 
   // Make sure the process still listens to SIGINT
@@ -308,17 +302,12 @@ NAN_METHOD(PtyFork) {
   return info.GetReturnValue().SetUndefined();
 }
 
-/**
- * PtyOpen
- * pty.open(cols, rows)
- */
-
 NAN_METHOD(PtyOpen) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 2
-      || !info[0]->IsNumber()
-      || !info[1]->IsNumber()) {
+  if (info.Length() != 2 ||
+      !info[0]->IsNumber() ||
+      !info[1]->IsNumber()) {
     return Nan::ThrowError("Usage: pty.open(cols, rows)");
   }
 
@@ -359,18 +348,13 @@ NAN_METHOD(PtyOpen) {
   return info.GetReturnValue().Set(obj);
 }
 
-/**
- * Resize Functionality
- * pty.resize(fd, cols, rows)
- */
-
 NAN_METHOD(PtyResize) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 3
-      || !info[0]->IsNumber()
-      || !info[1]->IsNumber()
-      || !info[2]->IsNumber()) {
+  if (info.Length() != 3 ||
+      !info[0]->IsNumber() ||
+      !info[1]->IsNumber() ||
+      !info[2]->IsNumber()) {
     return Nan::ThrowError("Usage: pty.resize(fd, cols, rows)");
   }
 
@@ -390,17 +374,14 @@ NAN_METHOD(PtyResize) {
 }
 
 /**
- * PtyGetProc
  * Foreground Process Name
- * pty.process(fd, tty)
  */
-
 NAN_METHOD(PtyGetProc) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 2
-      || !info[0]->IsNumber()
-      || !info[1]->IsString()) {
+  if (info.Length() != 2 ||
+      !info[0]->IsNumber() ||
+      !info[1]->IsString()) {
     return Nan::ThrowError("Usage: pty.process(fd, tty)");
   }
 
@@ -625,7 +606,9 @@ pty_getproc(int fd, char *tty) {
  */
 
 static int
-pty_openpty(int *amaster, int *aslave, char *name,
+pty_openpty(int *amaster,
+            int *aslave,
+            char *name,
             const struct termios *termp,
             const struct winsize *winp) {
 #if defined(__sun)
@@ -664,7 +647,8 @@ err:
 }
 
 static pid_t
-pty_forkpty(int *amaster, char *name,
+pty_forkpty(int *amaster,
+            char *name,
             const struct termios *termp,
             const struct winsize *winp) {
 #if defined(__sun)
@@ -718,17 +702,17 @@ pty_forkpty(int *amaster, char *name,
 NAN_MODULE_INIT(init) {
   Nan::HandleScope scope;
   Nan::Set(target,
-    Nan::New<v8::String>("fork").ToLocalChecked(),
-    Nan::New<v8::FunctionTemplate>(PtyFork)->GetFunction());
+           Nan::New<v8::String>("fork").ToLocalChecked(),
+           Nan::New<v8::FunctionTemplate>(PtyFork)->GetFunction());
   Nan::Set(target,
-    Nan::New<v8::String>("open").ToLocalChecked(),
-    Nan::New<v8::FunctionTemplate>(PtyOpen)->GetFunction());
+           Nan::New<v8::String>("open").ToLocalChecked(),
+           Nan::New<v8::FunctionTemplate>(PtyOpen)->GetFunction());
   Nan::Set(target,
-    Nan::New<v8::String>("resize").ToLocalChecked(),
-    Nan::New<v8::FunctionTemplate>(PtyResize)->GetFunction());
+           Nan::New<v8::String>("resize").ToLocalChecked(),
+           Nan::New<v8::FunctionTemplate>(PtyResize)->GetFunction());
   Nan::Set(target,
-    Nan::New<v8::String>("process").ToLocalChecked(),
-    Nan::New<v8::FunctionTemplate>(PtyGetProc)->GetFunction());
+           Nan::New<v8::String>("process").ToLocalChecked(),
+           Nan::New<v8::FunctionTemplate>(PtyGetProc)->GetFunction());
 }
 
 NODE_MODULE(pty, init)
