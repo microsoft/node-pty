@@ -30,7 +30,6 @@ if (process.platform !== 'win32') {
       it('should default to utf8', (done) => {
         const term = new UnixTerminal('/bin/bash', [ '-c', `cat "${FIXTURES_PATH}"` ]);
         term.on('data', (data) => {
-          console.log('data', data);
           assert.equal(typeof data, 'string');
           assert.equal(data, '\u00E6');
           done();
