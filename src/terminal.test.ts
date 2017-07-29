@@ -1,12 +1,21 @@
-var assert = require("assert");
-var Terminal = process.platform === 'win32' ? require('../lib/windowsTerminal').WindowsTerminal : require('../lib/unixTerminal').UnixTerminal;
+import * as assert from 'assert';
+import { WindowsTerminal } from './windowsTerminal';
+import { UnixTerminal } from './unixTerminal';
 
-describe("Terminal", function() {
-  describe("constructor", function() {
-    it("should do basic type checks", function() {
-      assert.throws(() => {
-        new Terminal('a', 'b', { 'name': {} });
-      }, 'name must be a string (not a object)');
+let PlatformTerminal: WindowsTerminal | UnixTerminal;
+if (process.platform === 'win32') {
+  PlatformTerminal = require('./windowsTerminal');
+} else {
+  PlatformTerminal = require('./unixTerminal');
+}
+
+describe('Terminal', () => {
+  describe('constructor', () => {
+    it('should do basic type checks', () => {
+      assert.throws(
+        () => new (<any>PlatformTerminal)('a', 'b', { 'name': {} }),
+        'name must be a string (not a object)'
+      );
     });
   });
 });
