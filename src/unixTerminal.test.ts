@@ -1,7 +1,10 @@
 import { UnixTerminal } from './unixTerminal';
 import * as assert from 'assert';
-import pollUntil from 'pollUntil';
+import pollUntil = require('pollUntil');
 import * as tty from 'tty';
+import * as path from 'path';
+
+const FIXTURES_PATH = path.normalize(path.join(__dirname, '..', 'fixtures', 'utf8-character.txt'));
 
 if (process.platform !== 'win32') {
   describe('UnixTerminal', () => {
@@ -25,15 +28,16 @@ if (process.platform !== 'win32') {
 
     describe('PtyForkEncodingOption', () => {
       it('should default to utf8', (done) => {
-        const term = new UnixTerminal('/bin/bash', [ '-c', 'cat "' + __dirname + '/utf8-character.txt"' ]);
+        const term = new UnixTerminal('/bin/bash', [ '-c', `cat "${FIXTURES_PATH}"` ]);
         term.on('data', (data) => {
+          console.log('data', data);
           assert.equal(typeof data, 'string');
           assert.equal(data, '\u00E6');
           done();
         });
       });
       it('should return a Buffer when encoding is null', (done) => {
-        const term = new UnixTerminal(null, [ '-c', 'cat "' + __dirname + '/utf8-character.txt"' ], {
+        const term = new UnixTerminal('/bin/bash', [ '-c', `cat "${FIXTURES_PATH}"` ], {
           encoding: null,
         });
         term.on('data', (data) => {
@@ -88,7 +92,7 @@ if (process.platform !== 'win32') {
           masterbuf += data;
         });
 
-        pollUntil(() => {
+        (<any>pollUntil)(() => {
           if (masterbuf === 'slave\r\nmaster\r\n' && slavebuf === 'master\n') {
             done();
           }
