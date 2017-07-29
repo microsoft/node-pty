@@ -1,6 +1,7 @@
 # node-pty
 
-[![Build Status](https://travis-ci.org/Tyriar/node-pty.svg?branch=master)](https://travis-ci.org/Tyriar/node-pty)
+[![Travis CI build status](https://travis-ci.org/Tyriar/node-pty.svg?branch=master)](https://travis-ci.org/Tyriar/node-pty)
+[![Appveyor build status](https://ci.appveyor.com/api/projects/status/1064dcr2t2r90q4n/branch/master?svg=true)](https://ci.appveyor.com/project/Tyriar/node-pty/branch/master)
 
 `forkpty(3)` bindings for node.js. This allows you to fork processes with pseudoterminal file descriptors. It returns a terminal object which allows reads and writes.
 
