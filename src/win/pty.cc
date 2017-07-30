@@ -18,6 +18,8 @@
 #include <iostream>
 #include <vector>
 
+#include "util.h"
+
 /**
 * Misc
 */
@@ -35,15 +37,6 @@ static volatile LONG ptyCounter;
 /**
 * Helpers
 */
-
-const wchar_t* to_wstring(const v8::String::Utf8Value& str)
-{
-  const char *bytes = *str;
-  unsigned int sizeOfStr = MultiByteToWideChar(CP_UTF8, 0, bytes, -1, NULL, 0);
-  wchar_t *output = new wchar_t[sizeOfStr];
-  MultiByteToWideChar(CP_UTF8, 0, bytes, -1, output, sizeOfStr);
-  return output;
-}
 
 static winpty_t *get_pipe_handle(int handle) {
   for (size_t i = 0; i < ptyHandles.size(); ++i) {
