@@ -1,4 +1,8 @@
-import * as assert from 'assert';
+/**
+ * Copyright (c) 2017, Daniel Imms (MIT License).
+ */
+
+ import * as assert from 'assert';
 import { argsToCommandLine } from './windowsPtyAgent';
 
 function check(file: string, args: string | string[], expected: string): void {

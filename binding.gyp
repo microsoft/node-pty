@@ -16,7 +16,8 @@
           'deps/winpty/src/winpty.gyp:winpty',
         ],
         'sources' : [
-          'src/win/pty.cc'
+          'src/win/pty.cc',
+          'src/win/path_util.cc'
         ],
         'libraries': [
           'shlwapi.lib'
