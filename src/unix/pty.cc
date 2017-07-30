@@ -17,8 +17,7 @@
  * Includes
  */
 
-#include "nan.h"
-
+#include <nan.h>
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>

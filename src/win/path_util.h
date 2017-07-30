@@ -6,7 +6,7 @@
 #ifndef NODE_PTY_PATH_UTIL_H_
 #define NODE_PTY_PATH_UTIL_H_
 
-#include "nan.h"
+#include <nan.h>
 
 #define MAX_ENV 65536
 
