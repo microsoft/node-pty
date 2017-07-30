@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2017, Daniel Imms (MIT License).
+ */
+
 import { UnixTerminal } from './unixTerminal';
 import * as assert from 'assert';
 import pollUntil = require('pollUntil');

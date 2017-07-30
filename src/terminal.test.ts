@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2017, Daniel Imms (MIT License).
+ */
+
 import * as assert from 'assert';
 import { WindowsTerminal } from './windowsTerminal';
 import { UnixTerminal } from './unixTerminal';
