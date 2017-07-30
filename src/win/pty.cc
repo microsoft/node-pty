@@ -12,13 +12,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <winpty.h>
-#include <Shlwapi.h> // PathCombine
+#include <Shlwapi.h> // PathCombine, PathIsRelative
 #include <string>
 #include <sstream>
 #include <iostream>
 #include <vector>
 
-#include "util.h"
+#include "path_util.h"
 
 /**
 * Misc
@@ -26,7 +26,6 @@
 extern "C" void init(v8::Handle<v8::Object>);
 
 #define WINPTY_DBG_VARIABLE TEXT("WINPTYDBG")
-#define MAX_ENV 65536
 
 /**
 * winpty
@@ -60,58 +59,6 @@ static bool remove_pipe_handle(int handle) {
     }
   }
   return false;
-}
-
-static bool file_exists(std::wstring filename) {
-  DWORD attr = ::GetFileAttributesW(filename.c_str());
-  if (attr == INVALID_FILE_ATTRIBUTES || (attr & FILE_ATTRIBUTE_DIRECTORY)) {
-    return false;
-  }
-  return true;
-}
-
-// cmd.exe -> C:\Windows\system32\cmd.exe
-static std::wstring get_shell_path(std::wstring filename)  {
-
-  std::wstring shellpath;
-
-  if (file_exists(filename)) {
-    return shellpath;
-  }
-
-  wchar_t buffer_[MAX_ENV];
-  int read = ::GetEnvironmentVariableW(L"Path", buffer_, MAX_ENV);
-  if (!read) {
-    return shellpath;
-  }
-
-  std::wstring delimiter = L";";
-  size_t pos = 0;
-  std::vector<std::wstring> paths;
-  std::wstring buffer(buffer_);
-  while ((pos = buffer.find(delimiter)) != std::wstring::npos) {
-    paths.push_back(buffer.substr(0, pos));
-    buffer.erase(0, pos + delimiter.length());
-  }
-
-  const wchar_t *filename_ = filename.c_str();
-
-  for (int i = 0; i < paths.size(); ++i) {
-    std::wstring path = paths[i];
-    wchar_t searchPath[MAX_PATH];
-    ::PathCombineW(searchPath, const_cast<wchar_t*>(path.c_str()), filename_);
-
-    if (searchPath == NULL) {
-      continue;
-    }
-
-    if (file_exists(searchPath)) {
-      shellpath = searchPath;
-      break;
-    }
-  }
-
-  return shellpath;
 }
 
 void throw_winpty_error(const char *generalMsg, winpty_error_ptr_t error_ptr) {
@@ -155,9 +102,9 @@ static NAN_METHOD(PtyStartProcess) {
 
   std::stringstream why;
 
-  const wchar_t *filename = to_wstring(v8::String::Utf8Value(info[0]->ToString()));
-  const wchar_t *cmdline = to_wstring(v8::String::Utf8Value(info[1]->ToString()));
-  const wchar_t *cwd = to_wstring(v8::String::Utf8Value(info[3]->ToString()));
+  const wchar_t *filename = path_util::to_wstring(v8::String::Utf8Value(info[0]->ToString()));
+  const wchar_t *cmdline = path_util::to_wstring(v8::String::Utf8Value(info[1]->ToString()));
+  const wchar_t *cwd = path_util::to_wstring(v8::String::Utf8Value(info[3]->ToString()));
 
   // create environment block
   std::wstring env;
@@ -167,7 +114,7 @@ static NAN_METHOD(PtyStartProcess) {
     std::wstringstream envBlock;
 
     for(uint32_t i = 0; i < envValues->Length(); i++) {
-      std::wstring envValue(to_wstring(v8::String::Utf8Value(envValues->Get(i)->ToString())));
+      std::wstring envValue(path_util::to_wstring(v8::String::Utf8Value(envValues->Get(i)->ToString())));
       envBlock << envValue << L'\0';
     }
 
@@ -178,14 +125,14 @@ static NAN_METHOD(PtyStartProcess) {
   // the relative path that we have recieved (e.g cmd.exe)
   std::wstring shellpath;
   if (::PathIsRelativeW(filename)) {
-    shellpath = get_shell_path(filename);
+    shellpath = path_util::get_shell_path(filename);
   } else {
     shellpath = filename;
   }
 
   std::string shellpath_(shellpath.begin(), shellpath.end());
 
-  if (shellpath.empty() || !file_exists(shellpath)) {
+  if (shellpath.empty() || !path_util::file_exists(shellpath)) {
     why << "File not found: " << shellpath_;
     Nan::ThrowError(why.str().c_str());
     goto cleanup;

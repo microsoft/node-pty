@@ -17,7 +17,7 @@
         ],
         'sources' : [
           'src/win/pty.cc',
-          'src/win/util.cc'
+          'src/win/path_util.cc'
         ],
         'libraries': [
           'shlwapi.lib'
