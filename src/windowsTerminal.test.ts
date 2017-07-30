@@ -1,4 +1,8 @@
-import * as fs from 'fs';
+/**
+ * Copyright (c) 2017, Daniel Imms (MIT License).
+ */
+
+ import * as fs from 'fs';
 import * as assert from 'assert';
 import { WindowsTerminal } from './windowsTerminal';
 
