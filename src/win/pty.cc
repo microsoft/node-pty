@@ -7,16 +7,15 @@
  *   with pseudo-terminal file descriptors.
  */
 
-#include "nan.h"
-
-#include <string.h>
-#include <stdlib.h>
-#include <winpty.h>
-#include <Shlwapi.h> // PathCombine, PathIsRelative
-#include <string>
-#include <sstream>
 #include <iostream>
+#include <nan.h>
+#include <Shlwapi.h> // PathCombine, PathIsRelative
+#include <sstream>
+#include <stdlib.h>
+#include <string.h>
+#include <string>
 #include <vector>
+#include <winpty.h>
 
 #include "path_util.h"
 

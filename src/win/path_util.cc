@@ -3,7 +3,7 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
-#include "nan.h"
+#include <nan.h>
 #include <Shlwapi.h> // PathCombine
 #include <winpty.h>
 
