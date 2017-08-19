@@ -17,6 +17,23 @@ if (process.platform === 'win32') {
       });
     });
 
+    describe('resize', () => {
+      it('should throw a non-native exception when resizing an invalid value', () => {
+        const term = new WindowsTerminal('cmd.exe', [], {});
+        assert.throws(() => term.resize(-1, -1));
+        assert.throws(() => term.resize(0, 0));
+        assert.doesNotThrow(() => term.resize(1, 1));
+      });
+      it('should throw an non-native exception when resizing a killed terminal', (done) => {
+        const term = new WindowsTerminal('cmd.exe', [], {});
+        (<any>term)._defer(() => {
+          term.destroy();
+          assert.throws(() => term.resize(1, 1));
+          done();
+        });
+      });
+    });
+
     describe('Args as CommandLine', () => {
       it('should not fail running a shell containing a space in the path', (done) => {
         const gitBashDefaultPath = 'C:\\Program Files\\Git\\bin\\bash.exe';

@@ -230,9 +230,15 @@ static NAN_METHOD(PtyResize) {
 
   winpty_t *pc = get_pipe_handle(handle);
 
-  assert(pc != nullptr);
+  if (pc == nullptr) {
+    Nan::ThrowError("The pty doesn't appear to exist");
+    return;
+  }
   BOOL success = winpty_set_size(pc, cols, rows, nullptr);
-  assert(success);
+  if (!success) {
+    Nan::ThrowError("The pty could not be resized");
+    return;
+  }
 
   return info.GetReturnValue().SetUndefined();
 }

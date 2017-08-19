@@ -143,6 +143,9 @@ export class WindowsTerminal extends Terminal {
    */
 
   public resize(cols: number, rows: number): void {
+    if (cols <= 0 || rows <= 0) {
+      throw new Error('resizing must be done using positive cols and rows');
+    }
     this._defer(() => {
       this._agent.resize(cols, rows);
     });
