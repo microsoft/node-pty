@@ -343,12 +343,38 @@ void ConsoleInput::doWrite(bool isEof)
         idx += charSize;
     }
     m_byteQueue.erase(0, idx);
-    DWORD actual = 0;
-    if (records.size() > 0) {
-        if (!WriteConsoleInputW(m_conin, records.data(), records.size(), &actual)) {
-            trace("WriteConsoleInputW failed");
-        }
+    flushInputRecords(records);
+}
+
+void ConsoleInput::flushInputRecords(std::vector<INPUT_RECORD> &records)
+{
+    if (records.size() == 0) {
+        return;
     }
+    DWORD actual = 0;
+    if (!WriteConsoleInputW(m_conin, records.data(), records.size(), &actual)) {
+        trace("WriteConsoleInputW failed");
+    }
+    records.clear();
+}
+
+// This behavior isn't strictly correct, because the keypresses (probably?)
+// adopt the keyboard state (e.g. Ctrl/Alt/Shift modifiers) of the current
+// window station's keyboard, which has no necessary relationship to the winpty
+// instance.  It's unlikely to be an issue in practice, but it's conceivable.
+// (Imagine a foreground SSH server, where the local user holds down Ctrl,
+// while the remote user tries to use WSL navigation keys.)  I suspect using
+// the BackgroundDesktop mechanism in winpty would fix the problem.
+//
+// https://github.com/rprichard/winpty/issues/116
+static void sendKeyMessage(HWND hwnd, bool isKeyDown, uint16_t virtualKey)
+{
+    uint32_t scanCode = MapVirtualKey(virtualKey, MAPVK_VK_TO_VSC);
+    if (scanCode > 255) {
+        scanCode = 0;
+    }
+    SendMessage(hwnd, isKeyDown ? WM_KEYDOWN : WM_KEYUP, virtualKey,
+        (scanCode << 16) | 1u | (isKeyDown ? 0u : 0xc0000000u));
 }
 
 int ConsoleInput::scanInput(std::vector<INPUT_RECORD> &records,
@@ -359,9 +385,20 @@ int ConsoleInput::scanInput(std::vector<INPUT_RECORD> &records,
     ASSERT(inputSize >= 1);
 
     // Ctrl-C.
+    //
+    // In processed mode, use GenerateConsoleCtrlEvent so that Ctrl-C handlers
+    // are called.  GenerateConsoleCtrlEvent unfortunately doesn't interrupt
+    // ReadConsole calls[1].  Using WM_KEYDOWN/UP fixes the ReadConsole
+    // problem, but breaks in background window stations/desktops.
+    //
+    // In unprocessed mode, there's an entry for Ctrl-C in the SimpleEncoding
+    // table in DefaultInputMap.
+    //
+    // [1] https://github.com/rprichard/winpty/issues/116
     if (input[0] == '\x03' && (inputConsoleMode() & ENABLE_PROCESSED_INPUT)) {
+        flushInputRecords(records);
         trace("Ctrl-C");
-        BOOL ret = GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0);
+        const BOOL ret = GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0);
         trace("GenerateConsoleCtrlEvent: %d", ret);
         return 1;
     }
@@ -652,17 +689,12 @@ void ConsoleInput::appendKeyPress(std::vector<INPUT_RECORD> &records,
                 virtualKey == VK_HOME ||
                 virtualKey == VK_END) &&
             !ctrl && !leftAlt && !rightAlt && !shift) {
+        flushInputRecords(records);
         if (hasDebugInput) {
             trace("sending keypress to console HWND");
         }
-        uint32_t scanCode = MapVirtualKey(virtualKey, MAPVK_VK_TO_VSC);
-        if (scanCode > 255) {
-            scanCode = 0;
-        }
-        SendMessage(m_console.hwnd(), WM_KEYDOWN, virtualKey,
-            (scanCode << 16) | 1u);
-        SendMessage(m_console.hwnd(), WM_KEYUP, virtualKey,
-            (scanCode << 16) | (1u | (1u << 30) | (1u << 31)));
+        sendKeyMessage(m_console.hwnd(), true, virtualKey);
+        sendKeyMessage(m_console.hwnd(), false, virtualKey);
         return;
     }
 
