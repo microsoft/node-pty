@@ -1,3 +1,15 @@
+# Next Version
+
+Input handling changes:
+
+ * Improve Ctrl-C handling with programs that use unprocessed input. (e.g.
+   Ctrl-C now cancels input with PowerShell on Windows 10.)
+   [#116](https://github.com/rprichard/winpty/issues/116)
+ * Fix a theoretical issue with input event ordering.
+   [#117](https://github.com/rprichard/winpty/issues/117)
+ * Ctrl/Shift+{Arrow,Home,End} keys now work with IntelliJ.
+   [#118](https://github.com/rprichard/winpty/issues/118)
+
 # Version 0.4.3 (2017-05-17)
 
 Input handling changes:
