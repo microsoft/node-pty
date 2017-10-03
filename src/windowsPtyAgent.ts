@@ -88,7 +88,15 @@ export class WindowsPtyAgent {
     this._inSocket.writable = false;
     this._outSocket.readable = false;
     this._outSocket.writable = false;
+    const processList: number[] = pty.getProcessList(this._pid);
+    // Tell the agent to kill the pty, this releases handles to the process
     pty.kill(this._pid, this._innerPidHandle);
+    // Since pty.kill will kill most processes by itself and process IDs can be
+    // reused as soon as all handles to them are dropped, we want to immediately
+    // kill the entire console process list. If we do not force kill all
+    // processes here, node servers in particular seem to become detached and
+    // remain running (see Microsoft/vscode#26807).
+    processList.forEach(pid => process.kill(pid));
   }
 
   public getExitCode(): number {
