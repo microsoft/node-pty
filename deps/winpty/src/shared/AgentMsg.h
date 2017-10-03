@@ -26,6 +26,7 @@ struct AgentMsg
     enum Type {
         StartProcess,
         SetSize,
+        GetConsoleProcessList,
     };
 };
 

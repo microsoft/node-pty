@@ -218,6 +218,11 @@ WINPTY_API BOOL
 winpty_set_size(winpty_t *wp, int cols, int rows,
                 winpty_error_ptr_t *err /*OPTIONAL*/);
 
+/* Gets a list of processes attached to the console. */
+WINPTY_API int
+winpty_get_console_process_list(winpty_t *wp, int *processList, const int processCount,
+                                winpty_error_ptr_t *err /*OPTIONAL*/);
+
 /* Frees the winpty_t object and the OS resources contained in it.  This
  * call breaks the connection with the agent, which should then close its
  * console, terminating the processes attached to it.
