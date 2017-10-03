@@ -935,6 +935,33 @@ winpty_set_size(winpty_t *wp, int cols, int rows,
     } API_CATCH(FALSE)
 }
 
+WINPTY_API int
+winpty_get_console_process_list(winpty_t *wp, int *processList, const int processCount,
+                                winpty_error_ptr_t *err /*OPTIONAL*/) {
+    API_TRY {
+        ASSERT(wp != nullptr);
+        ASSERT(processList != nullptr);
+        LockGuard<Mutex> lock(wp->mutex);
+        RpcOperation rpc(*wp);
+        auto packet = newPacket();
+        packet.putInt32(AgentMsg::GetConsoleProcessList);
+        writePacket(*wp, packet);
+        auto reply = readPacket(*wp);
+
+        auto actualProcessCount = reply.getInt32();
+
+        if (actualProcessCount <= processCount) {
+            for (auto i = 0; i < actualProcessCount; i++) {
+                processList[i] = reply.getInt32();
+            }
+        }
+
+        reply.assertEof();
+        rpc.success();
+        return actualProcessCount;
+    } API_CATCH(0)
+}
+
 WINPTY_API void winpty_free(winpty_t *wp) {
     // At least in principle, CloseHandle can fail, so this deletion can
     // fail.  It won't throw an exception, but maybe there's an error that
