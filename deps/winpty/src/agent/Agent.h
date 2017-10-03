@@ -59,6 +59,7 @@ private:
     void writePacket(WriteBuffer &packet);
     void handleStartProcessPacket(ReadBuffer &packet);
     void handleSetSizePacket(ReadBuffer &packet);
+    void handleGetConsoleProcessListPacket(ReadBuffer &packet);
     void pollConinPipe();
 
 protected:
