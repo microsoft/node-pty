@@ -3,6 +3,7 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
+import * as path from 'path';
 import { Terminal as BaseTerminal } from './terminal';
 import { ITerminal, IPtyOpenOptions, IPtyForkOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
@@ -42,3 +43,9 @@ export function createTerminal(file?: string, args?: ArgvOrCommandLine, opt?: IP
 export function open(options: IPtyOpenOptions): ITerminal {
   return Terminal.open(options);
 }
+
+/**
+ * Expose the native API when not Windows, note that this is not public API and
+ * could be removed at any time.
+ */
+export const native = (process.platform !== 'win32' ? require(path.join('..', 'build', 'Release', 'pty.node')) : null);
