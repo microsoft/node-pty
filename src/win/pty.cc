@@ -96,6 +96,10 @@ static NAN_METHOD(PtyGetProcessList) {
   int pid = info[0]->Int32Value();
 
   winpty_t *pc = get_pipe_handle(pid);
+  if (pc == nullptr) {
+    info.GetReturnValue().Set(Nan::New<v8::Array>(0));
+    return;
+  }
   int processList[64];
   const int processCount = 64;
   int actualCount = winpty_get_console_process_list(pc, processList, processCount, nullptr);
@@ -280,8 +284,11 @@ static NAN_METHOD(PtyKill) {
   HANDLE innerPidHandle = (HANDLE)info[1]->Int32Value();
 
   winpty_t *pc = get_pipe_handle(handle);
+  if (pc == nullptr) {
+    Nan::ThrowError("Pty seems to have been killed already");
+    return;
+  }
 
-  assert(pc != nullptr);
   assert(remove_pipe_handle(handle));
   CloseHandle(innerPidHandle);
 
