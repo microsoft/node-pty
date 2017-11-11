@@ -96,7 +96,13 @@ export class WindowsPtyAgent {
     // kill the entire console process list. If we do not force kill all
     // processes here, node servers in particular seem to become detached and
     // remain running (see Microsoft/vscode#26807).
-    processList.forEach(pid => process.kill(pid));
+    processList.forEach(pid => {
+      try {
+        process.kill(pid);
+      } catch (e) {
+        // Ignore if process cannot be found (kill ESRCH error)
+      }
+    });
   }
 
   public getExitCode(): number {
