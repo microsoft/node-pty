@@ -196,7 +196,7 @@ export class UnixTerminal extends Terminal {
     });
 
     return self;
-  };
+  }
 
   public write(data: string): void {
     this._socket.write(data);
