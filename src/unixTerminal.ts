@@ -80,23 +80,24 @@ export class UnixTerminal extends Terminal {
           return;
         }
         this._boundClose = true;
-        this.once('close', () => {
-          console.log('once close exit', code, signal);
-          this.emit('exit', code, signal);
-        });
         // From macOS High Sierra 10.13.2 sometimes the socket never gets
         // closed. A timeout is applied here to avoid the terminal never being
         // destroyed when this occurs.
-        setTimeout(() => {
-          if (this._boundClose) {
-            return;
-          }
+        let timeout = setTimeout(() => {
+          timeout = null;
           // this._boundClose = true;
           console.log('timeout hit!, destroy socket');
           this._socket.destroy();
           // TODO: clearTimeout when 'close' is fired?
           // this.emit('exit', code, signal);
         }, 1000);
+        this.once('close', () => {
+          if (timeout !== null) {
+            window.clearTimeout(<number><any>timeout);
+          }
+          console.log('once close exit', code, signal);
+          this.emit('exit', code, signal);
+        });
         return;
       }
       console.log('emit exit', code, signal);
