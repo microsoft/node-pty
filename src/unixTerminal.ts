@@ -21,6 +21,7 @@ const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
+const DESTROY_SOCKET_TIMEOUT_MS = 200;
 
 export class UnixTerminal extends Terminal {
   protected _fd: number;
@@ -85,7 +86,7 @@ export class UnixTerminal extends Terminal {
           timeout = null;
           // Destroying the socket now will cause the close event to fire
           this._socket.destroy();
-        }, 1000);
+        }, DESTROY_SOCKET_TIMEOUT_MS);
         this.once('close', () => {
           if (timeout !== null) {
             clearTimeout(timeout);
