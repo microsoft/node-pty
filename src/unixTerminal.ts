@@ -71,14 +71,35 @@ export class UnixTerminal extends Terminal {
     const encoding = (opt.encoding === undefined ? 'utf8' : opt.encoding);
 
     const onexit = (code: any, signal: any) => {
+      console.log('onexit', code, signal);
       // XXX Sometimes a data event is emitted after exit. Wait til socket is
       // destroyed.
       if (!this._emittedClose) {
-        if (this._boundClose) return;
+        console.log('!this._emittedClose');
+        if (this._boundClose) {
+          return;
+        }
         this._boundClose = true;
-        this.once('close', () => this.emit('exit', code, signal));
+        this.once('close', () => {
+          console.log('once close exit', code, signal);
+          this.emit('exit', code, signal);
+        });
+        // From macOS High Sierra 10.13.2 sometimes the socket never gets
+        // closed. A timeout is applied here to avoid the terminal never being
+        // destroyed when this occurs.
+        setTimeout(() => {
+          if (this._boundClose) {
+            return;
+          }
+          // this._boundClose = true;
+          console.log('timeout hit!, destroy socket');
+          this._socket.destroy();
+          // TODO: clearTimeout when 'close' is fired?
+          // this.emit('exit', code, signal);
+        }, 1000);
         return;
       }
+      console.log('emit exit', code, signal);
       this.emit('exit', code, signal);
     };
 
@@ -92,6 +113,7 @@ export class UnixTerminal extends Terminal {
 
     // setup
     this._socket.on('error', (err: any) => {
+      console.log('error', err);
       // NOTE: fs.ReadStream gets EAGAIN twice at first:
       if (err.code) {
         if (~err.code.indexOf('EAGAIN')) {
@@ -104,6 +126,7 @@ export class UnixTerminal extends Terminal {
       // EIO on exit from fs.ReadStream:
       if (!this._emittedClose) {
         this._emittedClose = true;
+        console.log('emit close in socket error handler');
         this.emit('close');
       }
 
@@ -134,11 +157,13 @@ export class UnixTerminal extends Terminal {
     this._writable = true;
 
     this._socket.on('close', () => {
+      console.log('socket close');
       if (this._emittedClose) {
         return;
       }
       this._emittedClose = true;
       this._close();
+      console.log('emit close in socket close handler');
       this.emit('close');
     });
   }
