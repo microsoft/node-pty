@@ -21,6 +21,7 @@ const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
+const DESTROY_SOCKET_TIMEOUT_MS = 200;
 
 export class UnixTerminal extends Terminal {
   protected _fd: number;
@@ -74,9 +75,24 @@ export class UnixTerminal extends Terminal {
       // XXX Sometimes a data event is emitted after exit. Wait til socket is
       // destroyed.
       if (!this._emittedClose) {
-        if (this._boundClose) return;
+        if (this._boundClose) {
+          return;
+        }
         this._boundClose = true;
-        this.once('close', () => this.emit('exit', code, signal));
+        // From macOS High Sierra 10.13.2 sometimes the socket never gets
+        // closed. A timeout is applied here to avoid the terminal never being
+        // destroyed when this occurs.
+        let timeout = setTimeout(() => {
+          timeout = null;
+          // Destroying the socket now will cause the close event to fire
+          this._socket.destroy();
+        }, DESTROY_SOCKET_TIMEOUT_MS);
+        this.once('close', () => {
+          if (timeout !== null) {
+            clearTimeout(timeout);
+          }
+          this.emit('exit', code, signal);
+        });
         return;
       }
       this.emit('exit', code, signal);
