@@ -16,7 +16,7 @@ This is useful for:
 
 `node-pty` powers many different terminal emulators, including:
 
-- [Microsoft Visual Studio Code](code.visualstudio.com)
+- [Microsoft Visual Studio Code](https://code.visualstudio.com)
 - [Hyper](https://hyper.is/)
 - [Upterm](https://github.com/railsware/upterm)
 - [Script Runner](https://github.com/ioquatix/script-runner) for Atom.
