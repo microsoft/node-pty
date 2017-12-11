@@ -71,7 +71,7 @@ export class UnixTerminal extends Terminal {
 
     const encoding = (opt.encoding === undefined ? 'utf8' : opt.encoding);
 
-    const onexit = (code: any, signal: any) => {
+    const onexit = (code: number, signal: number) => {
       // XXX Sometimes a data event is emitted after exit. Wait til socket is
       // destroyed.
       if (!this._emittedClose) {
