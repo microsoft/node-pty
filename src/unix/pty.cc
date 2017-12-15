@@ -90,6 +90,7 @@ struct pty_baton {
 
 NAN_METHOD(PtyFork);
 NAN_METHOD(PtyOpen);
+NAN_METHOD(PtyKill);
 NAN_METHOD(PtyResize);
 NAN_METHOD(PtyGetProc);
 
@@ -345,6 +346,27 @@ NAN_METHOD(PtyOpen) {
     Nan::New<v8::String>(ptsname(master)).ToLocalChecked());
 
   return info.GetReturnValue().Set(obj);
+}
+
+NAN_METHOD(PtyKill) {
+  Nan::HandleScope scope;
+
+  if (info.Length() != 2 || !info[0]->IsNumber()) {
+    return Nan::ThrowError("Usage: pty.kill(fd, signal)");
+  }
+
+  int fd = info[0]->IntegerValue();
+  int signal = info[1]->IntegerValue();
+
+#if defined(TIOCSIG)
+  if (ioctl(fd, TIOCSIG, signal) == -1)
+    return Nan::ThrowError("ioctl(2) failed.");
+#elif defined(TIOCSIGNAL)
+  if (ioctl(fd, TIOCSIGNAL, signal) == -1)
+    return Nan::ThrowError("ioctl(2) failed.");
+#else
+#error "The ioctls TIOCSIG and TIOCSIGNAL aren't available"
+#endif
 }
 
 NAN_METHOD(PtyResize) {
@@ -706,6 +728,9 @@ NAN_MODULE_INIT(init) {
   Nan::Set(target,
            Nan::New<v8::String>("open").ToLocalChecked(),
            Nan::New<v8::FunctionTemplate>(PtyOpen)->GetFunction());
+  Nan::Set(target,
+           Nan::New<v8::String>("kill").ToLocalChecked(),
+           Nan::New<v8::FunctionTemplate>(PtyKill)->GetFunction());
   Nan::Set(target,
            Nan::New<v8::String>("resize").ToLocalChecked(),
            Nan::New<v8::FunctionTemplate>(PtyResize)->GetFunction());

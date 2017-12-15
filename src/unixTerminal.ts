@@ -6,6 +6,7 @@
 import * as net from 'net';
 import * as path from 'path';
 import * as tty from 'tty';
+import * as os from 'os';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { ProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
@@ -231,9 +232,18 @@ export class UnixTerminal extends Terminal {
   }
 
   public kill(signal?: string): void {
-    try {
-      process.kill(this.pid, signal || 'SIGHUP');
-    } catch (e) { /* swallow */ }
+    signal = signal || 'SIGHUP';
+    if (signal == 'SIGHUP') {
+      try {
+        process.kill(this.pid, 'SIGHUP');
+      } catch (e) { /* swallow */ }
+    }else if(signal in os.constants.signals){
+      try {
+        pty.kill(this._fd, os.constants.signals[signal]);
+      } catch (e) { /* swallow */ }
+    }else{
+      // Unknown signal
+    }
   }
 
   /**
