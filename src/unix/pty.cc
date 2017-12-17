@@ -90,9 +90,15 @@ struct pty_baton {
 
 NAN_METHOD(PtyFork);
 NAN_METHOD(PtyOpen);
-NAN_METHOD(PtyKill);
 NAN_METHOD(PtyResize);
 NAN_METHOD(PtyGetProc);
+
+#if defined(TIOCSIG) || defined(TIOCSIGNAL)
+#define DEFINE_PTY_KILL
+NAN_METHOD(PtyKill);
+#else
+#warning "The function PtyKill will be unavailable because the ioctls TIOCSIG and TIOCSIGNAL don't exist"
+#endif
 
 /**
  * Functions
@@ -348,6 +354,7 @@ NAN_METHOD(PtyOpen) {
   return info.GetReturnValue().Set(obj);
 }
 
+#ifdef DEFINE_PTY_KILL
 NAN_METHOD(PtyKill) {
   Nan::HandleScope scope;
 
@@ -364,10 +371,9 @@ NAN_METHOD(PtyKill) {
 #elif defined(TIOCSIGNAL)
   if (ioctl(fd, TIOCSIGNAL, signal) == -1)
     return Nan::ThrowError("ioctl(2) failed.");
-#else
-#error "The ioctls TIOCSIG and TIOCSIGNAL aren't available"
 #endif
 }
+#endif
 
 NAN_METHOD(PtyResize) {
   Nan::HandleScope scope;
@@ -728,9 +734,11 @@ NAN_MODULE_INIT(init) {
   Nan::Set(target,
            Nan::New<v8::String>("open").ToLocalChecked(),
            Nan::New<v8::FunctionTemplate>(PtyOpen)->GetFunction());
+#ifdef DEFINE_PTY_KILL
   Nan::Set(target,
            Nan::New<v8::String>("kill").ToLocalChecked(),
            Nan::New<v8::FunctionTemplate>(PtyKill)->GetFunction());
+#endif
   Nan::Set(target,
            Nan::New<v8::String>("resize").ToLocalChecked(),
            Nan::New<v8::FunctionTemplate>(PtyResize)->GetFunction());

@@ -233,13 +233,13 @@ export class UnixTerminal extends Terminal {
 
   public kill(signal?: string): void {
     signal = signal || 'SIGHUP';
-    if (signal === 'SIGHUP') {
+    if (signal in os.constants.signals) {
       try {
-        process.kill(this.pid, 'SIGHUP');
-      } catch (e) { /* swallow */ }
-    } else if (signal in os.constants.signals) {
-      try {
-        pty.kill(this._fd, os.constants.signals[signal]);
+        if (pty.kill && signal !== 'SIGHUP') {
+          pty.kill(this._fd, os.constants.signals[signal]);
+        } else {
+          process.kill(this.pid, signal);
+        }
       } catch (e) { /* swallow */ }
     } else {
       // Unknown signal
