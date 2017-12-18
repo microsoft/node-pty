@@ -235,6 +235,8 @@ export class UnixTerminal extends Terminal {
     signal = signal || 'SIGHUP';
     if (signal in os.constants.signals) {
       try {
+        // pty.kill will not be available on systems which don't support
+        // the TIOCSIG/TIOCSIGNAL ioctl
         if (pty.kill && signal !== 'SIGHUP') {
           pty.kill(this._fd, os.constants.signals[signal]);
         } else {
@@ -242,7 +244,7 @@ export class UnixTerminal extends Terminal {
         }
       } catch (e) { /* swallow */ }
     } else {
-      // Unknown signal
+      throw new Error('Unknown signal: ' + signal);
     }
   }
 

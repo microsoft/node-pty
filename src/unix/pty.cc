@@ -358,7 +358,9 @@ NAN_METHOD(PtyOpen) {
 NAN_METHOD(PtyKill) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 2 || !info[0]->IsNumber()) {
+  if (info.Length() != 2 ||
+      !info[0]->IsNumber() ||
+      !info[1]->IsNumber()) {
     return Nan::ThrowError("Usage: pty.kill(fd, signal)");
   }
 
