@@ -6,6 +6,7 @@
 import * as net from 'net';
 import * as path from 'path';
 import * as tty from 'tty';
+import * as os from 'os';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { ProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
@@ -231,9 +232,20 @@ export class UnixTerminal extends Terminal {
   }
 
   public kill(signal?: string): void {
-    try {
-      process.kill(this.pid, signal || 'SIGHUP');
-    } catch (e) { /* swallow */ }
+    signal = signal || 'SIGHUP';
+    if (signal in os.constants.signals) {
+      try {
+        // pty.kill will not be available on systems which don't support
+        // the TIOCSIG/TIOCSIGNAL ioctl
+        if (pty.kill && signal !== 'SIGHUP') {
+          pty.kill(this._fd, os.constants.signals[signal]);
+        } else {
+          process.kill(this.pid, signal);
+        }
+      } catch (e) { /* swallow */ }
+    } else {
+      throw new Error('Unknown signal: ' + signal);
+    }
   }
 
   /**
