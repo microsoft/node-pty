@@ -21,6 +21,7 @@ This is useful for:
 - [Upterm](https://github.com/railsware/upterm)
 - [Script Runner](https://github.com/ioquatix/script-runner) for Atom.
 - [Theia](https://github.com/theia-ide/theia)
+- [FreeMAN](https://github.com/matthew-matvei/freeman) file manager
 
 Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
 
@@ -76,5 +77,5 @@ This project is forked from [chjj/pty.js](https://github.com/chjj/pty.js) with t
 
 ## License
 
-Copyright (c) 2012-2015, Christopher Jeffrey (MIT License).  
+Copyright (c) 2012-2015, Christopher Jeffrey (MIT License).
 Copyright (c) 2016, Daniel Imms (MIT License).
