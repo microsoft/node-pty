@@ -8,15 +8,15 @@ import * as path from 'path';
 import * as tty from 'tty';
 import * as os from 'os';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
-import { ProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
+import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 import { assign } from './utils';
 
-declare type NativePty = {
+declare interface INativePty {
   master: number;
   slave: number;
   pty: string;
-};
+}
 
 const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
 
@@ -180,7 +180,7 @@ export class UnixTerminal extends Terminal {
     const encoding = opt.encoding ? 'utf8' : opt.encoding;
 
     // open
-    const term: NativePty = pty.open(cols, rows);
+    const term: INativePty = pty.open(cols, rows);
 
     self._master = new PipeSocket(<number>term.master);
     self._master.setEncoding(encoding);
@@ -263,7 +263,7 @@ export class UnixTerminal extends Terminal {
     pty.resize(this._fd, cols, rows);
   }
 
-  private _sanitizeEnv(env: ProcessEnv): void {
+  private _sanitizeEnv(env: IProcessEnv): void {
       // Make sure we didn't start our server from inside tmux.
       delete env['TMUX'];
       delete env['TMUX_PANE'];
