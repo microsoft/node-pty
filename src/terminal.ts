@@ -56,7 +56,7 @@ export abstract class Terminal implements ITerminal {
   }
 
   /** See net.Socket.end */
-  public end(data: string): void{
+  public end(data: string): void {
     this._socket.end(data);
   }
 
