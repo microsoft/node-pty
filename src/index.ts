@@ -28,17 +28,17 @@ if (process.platform === 'win32') {
  */
 export function spawn(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
-};
+}
 
 /** @deprecated */
 export function fork(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
-};
+}
 
 /** @deprecated */
 export function createTerminal(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions): ITerminal {
   return new Terminal(file, args, opt);
-};
+}
 
 export function open(options: IPtyOpenOptions): ITerminal {
   return Terminal.open(options);

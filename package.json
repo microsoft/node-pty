@@ -48,7 +48,7 @@
     "cross-env": "^3.2.4",
     "mocha": "^3.1.2",
     "pollUntil": "^1.0.3",
-    "tslint": "^4.3.1",
+    "tslint": "^5.9.1",
     "typescript": "^2.1.4"
   }
 }
