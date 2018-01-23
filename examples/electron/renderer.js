@@ -1,6 +1,6 @@
 var os = require('os');
 var pty = require('node-pty');
-var Terminal = require('xterm');
+var Terminal = require('xterm').Terminal;
 
 // Initialize node-pty with an appropriate shell
 const shell = process.env[os.platform() === 'win32' ? 'COMSPEC' : 'SHELL'];
