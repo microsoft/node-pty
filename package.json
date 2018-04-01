@@ -10,7 +10,7 @@
   "types": "./lib/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "git://github.com/Tyriar/node-pty.git"
+    "url": "git://github.com/amejia1/node-pty.git"
   },
   "files": [
     "binding.gyp",
@@ -34,13 +34,16 @@
   "scripts": {
     "tsc": "tsc",
     "lint": "tslint src/**/*.ts",
-    "install": "node scripts/install.js",
-    "postinstall": "node scripts/post-install.js",
+    "install": "prebuild --install",
+    "rebuild": "prebuild --compile",
     "test": "cross-env NODE_ENV=test mocha -R spec lib/*.test.js",
+    "prebuild": "prebuild --all --strip --verbose",
+    "prebuild-ia32": "prebuild --all --arch ia32 --strip --verbose",
     "prepublish": "npm run tsc"
   },
   "dependencies": {
-    "nan": "^2.6.2"
+    "nan": "^2.6.2",
+    "prebuild": "^7.4.0"
   },
   "devDependencies": {
     "@types/mocha": "^2.2.41",

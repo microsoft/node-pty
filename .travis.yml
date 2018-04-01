@@ -10,8 +10,11 @@ install:
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test ; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -qq update ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -qq install g++-4.8 ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -qq install g++-4.8 g++-multilib; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CXX=g++-4.8 ; fi
 script:
   - npm test
   - npm run lint
+  - export prebuild_upload=8be245871ec3b75e49b5284a5b416691d5ee8d29
+  - npm run prebuild
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then npm run prebuild-ia32; fi
