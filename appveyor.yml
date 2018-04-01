@@ -8,6 +8,6 @@ test_script:
   - node --version
   - npm --version
   - npm test
-  - set prebuild_upload=8be245871ec3b75e49b5284a5b416691d5ee8d29
+  - set prebuild_upload=3627f77733decdea6e1dd938b82a485221678ef0
   - npm run prebuild
   - npm run prebuild-ia32
