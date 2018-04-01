@@ -34,7 +34,7 @@
   "scripts": {
     "tsc": "tsc",
     "lint": "tslint src/**/*.ts",
-    "install": "prebuild --install",
+    "install": "prebuild-install || prebuild --install",
     "rebuild": "prebuild --compile",
     "test": "cross-env NODE_ENV=test mocha -R spec lib/*.test.js",
     "prebuild": "prebuild --all --strip --verbose",
@@ -43,7 +43,8 @@
   },
   "dependencies": {
     "nan": "^2.6.2",
-    "prebuild": "^7.4.0"
+    "prebuild": "^7.4.0",
+    "prebuild-install": "^2.5.1"
   },
   "devDependencies": {
     "@types/mocha": "^2.2.41",
