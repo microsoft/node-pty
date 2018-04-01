@@ -10,7 +10,7 @@
   "types": "./lib/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "git://github.com/amejia1/node-pty.git"
+    "url": "git://github.com/Tyriar/node-pty.git"
   },
   "files": [
     "binding.gyp",
