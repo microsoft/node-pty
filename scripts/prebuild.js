@@ -6,8 +6,6 @@ const pkg = require(path.resolve('package.json'));
 const regex = new RegExp('^\\d+\.\\d+\.\\d+$');
 
 function spawnPrebuild(args) {
-  console.log(process.arch);
-  console.log(args);
   let command = 'prebuild';
   if (process.platform === 'win32') {
     command = 'prebuild.cmd';
