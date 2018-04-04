@@ -51,6 +51,15 @@ ptyProcess.resize(100, 40);
 ptyProcess.write('ls\r');
 ```
 
+## Building
+
+```bash
+# Install dependencies and build C++
+npm install
+# Compile TypeScript -> JavaScript
+npm run tsc
+```
+
 ## Prebuilt Binaries
 
 This package makes use of [prebuild](https://www.npmjs.com/package/prebuild) to
@@ -65,15 +74,6 @@ AppVeyor. The token is set via the `PREBUILD_UPLOAD_TOKEN` environment variable.
 The environment variable is set through the settings of the Travis CI and
 AppVeyor builds. The script handling prebuilds ensures that only releases will
 have prebuilt binaries uploaded for it.
-
-## Building
-
-```bash
-# Install dependencies and build C++
-npm install
-# Compile TypeScript -> JavaScript
-npm run tsc
-```
 
 ## Debugging
 
