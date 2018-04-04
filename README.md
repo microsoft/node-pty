@@ -61,9 +61,10 @@ scratch.
 ### Admins
 
 Note that uploads of generated prebuilt binaries is done via Travis CI and
-AppVeyor. The token is set via the `prebuild_upload` environment variable. The
-environment variable is set through the settings of the Travis CI and AppVeyor
-builds.
+AppVeyor. The token is set via the `PREBUILD_UPLOAD_TOKEN` environment variable.
+The environment variable is set through the settings of the Travis CI and
+AppVeyor builds. The script handling prebuilds ensures that only releases will
+have prebuilt binaries uploaded for it.
 
 ## Building
 
