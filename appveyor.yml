@@ -9,4 +9,3 @@ test_script:
   - npm --version
   - npm test
   - npm run prebuild
-  - npm run prebuild-ia32

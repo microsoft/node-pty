@@ -37,8 +37,7 @@
     "install": "prebuild-install || prebuild --install",
     "rebuild": "prebuild --compile",
     "test": "cross-env NODE_ENV=test mocha -R spec lib/*.test.js",
-    "prebuild": "prebuild --all --strip --verbose",
-    "prebuild-ia32": "prebuild --all --arch ia32 --strip --verbose",
+    "prebuild": "node scripts/prebuild.js",
     "prepublish": "npm run tsc"
   },
   "dependencies": {
