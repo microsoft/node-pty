@@ -10,6 +10,11 @@ function spawnPrebuild(args) {
   if (process.platform === 'win32') {
     command = 'prebuild.cmd';
   }
+  command = path.join(
+    'node_modules',
+    '.bin',
+    command
+  );
   let p = spawnSync(
     command,
     args,
