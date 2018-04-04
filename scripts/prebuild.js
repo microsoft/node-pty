@@ -23,11 +23,17 @@ function spawnPrebuild(args) {
 }
 
 function main() {
+  let nodeMajorVersionRegex = new RegExp('^([^.]+)\..*$');
+  let nodeMajorVersion = process.versions.node.replace(nodeMajorVersionRegex, '$1');
   let baseArgs = [
-    '--all',
     '--strip',
     '--verbose'
   ];
+  // This is here to ensure only one major version builds for all supported
+  // prebuild targets.
+  if (nodeMajorVersion === "8") {
+    baseArgs = baseArgs.concat(['--all']);
+  }
   if (pkg.version.match(regex) && process.env.PREBUILD_UPLOAD_TOKEN) {
     baseArgs = baseArgs.concat([
       '--upload',
@@ -36,7 +42,7 @@ function main() {
   }
   let args = baseArgs;
   spawnPrebuild(args);
-  if (process.arch === 'x64' && (process.platform === 'linux' || process.platform === 'win32')) {
+  if (process.arch === 'x64' && process.platform === 'linux') {
     args = args.concat([
       '--arch',
       'ia32'

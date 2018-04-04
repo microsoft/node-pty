@@ -1,5 +1,16 @@
+environment:
+  matrix:
+    - nodejs_version: "9"
+    - nodejs_version: "8"
+    - nodejs_version: "7"
+    - nodejs_version: "6"
+
+platform:
+  - x86
+  - x64
+
 install:
-  - ps: Install-Product node 7.4.0 x64
+  - ps: Update-NodeJsInstallation (Get-NodeJsLatestBuild $env:nodejs_version) $env:platform
 
 build_script:
   - npm install
