@@ -231,8 +231,7 @@ export class UnixTerminal extends Terminal {
     this._socket.destroy();
   }
 
-  public kill(signal?: string): void {
-    signal = signal || 'SIGHUP';
+  public kill(signal: string = 'SIGHUP'): void {
     if (signal in os.constants.signals) {
       try {
         // pty.kill will not be available on systems which don't support
