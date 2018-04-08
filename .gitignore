@@ -9,3 +9,4 @@ builderror.log
 lib/
 npm-debug.log
 prebuilds/
+package-lock.json
