@@ -8,4 +8,8 @@ node_modules/
 builderror.log
 lib/
 npm-debug.log
+<<<<<<< HEAD
 docs/
+=======
+package-lock.json
+>>>>>>> upstream/master
