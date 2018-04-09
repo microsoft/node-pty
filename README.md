@@ -60,6 +60,17 @@ npm install
 npm run tsc
 ```
 
+## API reference documentation
+
+In the previous example [[spawn]] was called which return an instance of [[ITerminal]]. 
+
+This documentation can be generated with the following commands:
+
+```sh
+npm run doc
+firefox docs/index.html
+```
+
 ## Debugging
 
 On Windows, you can show the winpty agent console window by adding the environment variable `WINPTY_SHOW_CONSOLE=1` to the pty's environment. See https://github.com/rprichard/winpty#debugging-winpty for more information.

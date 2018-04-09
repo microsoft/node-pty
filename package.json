@@ -37,7 +37,8 @@
     "install": "node scripts/install.js",
     "postinstall": "node scripts/post-install.js",
     "test": "cross-env NODE_ENV=test mocha -R spec lib/*.test.js",
-    "prepublish": "npm run tsc"
+    "prepublish": "npm run tsc",
+    "doc": "typedoc --exclude \"**/*test.ts\" --out docs src"
   },
   "dependencies": {
     "nan": "^2.6.2"
@@ -49,6 +50,7 @@
     "mocha": "^3.1.2",
     "pollUntil": "^1.0.3",
     "tslint": "^5.9.1",
+    "typedoc": "^0.11.1",
     "typescript": "^2.1.4"
   }
 }
