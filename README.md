@@ -60,6 +60,12 @@ npm install
 npm run tsc
 ```
 
+`npm install` requires some tools to be present in the system like Python and C++ compiler. Windows users can easily install them by running the following command in PowerShell as administrator. For more information see https://github.com/felixrieseberg/windows-build-tools: 
+
+```sh
+npm install --global --production windows-build-tools
+```
+
 ## Debugging
 
 On Windows, you can show the winpty agent console window by adding the environment variable `WINPTY_SHOW_CONSOLE=1` to the pty's environment. See https://github.com/rprichard/winpty#debugging-winpty for more information.
