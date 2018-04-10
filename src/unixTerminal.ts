@@ -215,8 +215,8 @@ export class UnixTerminal extends Terminal {
     return self;
   }
 
-  public write(data: string): void {
-    this._socket.write(data);
+  public write(data: string, callback?: (flushed: boolean) => any): void {
+    return callback ? callback(this._socket.write(data, () => callback(true))) : this._socket.write(data);
   }
 
   public destroy(): void {

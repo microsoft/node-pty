@@ -132,9 +132,14 @@ export class WindowsTerminal extends Terminal {
    * Events
    */
 
-  public write(data: string): void {
+  public write(data: string, callback?: (flushed: boolean) => any): void {
     this._defer(() => {
-      this._agent.inSocket.write(data);
+      if (callback) {
+        callback(this._agent.inSocket.write(data, () => callback(true)));
+      }
+      else {
+        this._agent.inSocket.write(data);
+      }
     });
   }
 
