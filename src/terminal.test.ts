@@ -15,7 +15,6 @@ if (process.platform === 'win32') {
   PlatformTerminal = require('./unixTerminal');
 }
 
-let terminalWriteDescribe;
 function newTerminal(): Terminal {
   return process.platform === 'win32' ? new WindowsTerminal() : new UnixTerminal();
 }
@@ -31,6 +30,7 @@ describe('Terminal', () => {
     });
   });
 
+  let terminalWriteDescribe;
   describe('terminal write()', terminalWriteDescribe = () => {
 
     it('should emit "data"', (done) => {
@@ -88,7 +88,6 @@ describe('Terminal', () => {
           if (!flushedAlready && flushed) {
             flushedAlready = true;
             longTime = Date.now() - longTime;
-            console.log({longTime, shortTime});
             terminal.destroy();
             assert.ok(longTime > shortTime, 'inputs considerably bigger should take more time to flush');
             done && done();
