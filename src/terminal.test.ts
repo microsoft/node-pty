@@ -30,8 +30,7 @@ describe('Terminal', () => {
     });
   });
 
-  let terminalWriteDescribe;
-  describe('terminal write()', terminalWriteDescribe = () => {
+  describe('terminal write()',  () => {
 
     it('should emit "data"', (done) => {
       const terminal: Terminal = newTerminal();
@@ -51,45 +50,53 @@ describe('Terminal', () => {
       terminal.write('world');
     });
 
-    describe('write callback', () => {
-      let shortTime;
-      let longTime;
+    describe('write() callback, input consumption and "drain" event', () => {
+    //   // let shortTime;
+    //   // let longTime;
+
+    //   it('should notify if the was completely consumed', (done) => {
+    //     const shortString = 'echo 1\f';
+    //     terminal = newTerminal();
+    //     let flushedAlready = false;
+    //     // shortTime = Date.now();
+    //     terminal.write(shortString, (flushed: boolean) => {
+    //       if (!flushedAlready && flushed) {
+    //         flushedAlready = true;
+    //         // shortTime = Date.now() - shortTime;
+    //         terminal.destroy();
+    //         done && done();
+    //         done = null;
+    //       }
+    //     });
+    //   });
+
+      let terminalWriteDescribe;
+      function buildLongInput(): string {
+        const count = process.platform === 'win32' ? 8 : 4;
+        let s = terminalWriteDescribe.toString() + '\f';
+        for (let i = 0; i < count; i++) {
+          s += s;
+        }
+        return s;
+      }
       let shouldEmitDrain = false;
       let drainEmitted = false;
+      let terminal;
 
-      it('should flush quickly short strings', (done) => {
-        const shortString = 'ls\f';
-        const terminal = newTerminal();
-        let flushedAlready = false;
-        shortTime = Date.now();
-        terminal.write(shortString, (flushed: boolean) => {
-          if (!flushedAlready && flushed) {
-            flushedAlready = true;
-            shortTime = Date.now() - shortTime;
-            terminal.destroy();
-            done && done();
-            done = null;
-          }
-        });
-      });
-
-      it('long strings should take longer', (done) => {
-        let longString = terminalWriteDescribe.toString() + '\f';
-        for (let i = 0; i < 3; i++) {
-          longString += longString;
-        }
-        const terminal = newTerminal();
+      it('should provide meanings to know if the entire data was flushed successfully to the kernel buffer or was queued in user memory', terminalWriteDescribe = (done) => {
+        let longString = buildLongInput();
+        terminal = newTerminal();
         terminal.on('drain', () => {
           drainEmitted = true;
         });
         let flushedAlready = false;
-        longTime = Date.now();
+        // longTime = Date.now();
         terminal.write(longString, (flushed: boolean) => {
           if (!flushedAlready && flushed) {
             flushedAlready = true;
-            longTime = Date.now() - longTime;
-            terminal.destroy();
-            assert.ok(longTime > shortTime, 'inputs considerably bigger should take more time to flush');
+            // longTime = Date.now() - longTime;
+            // assert.ok(longTime > shortTime, 'inputs considerably bigger should take more time to flush');
+            // terminal.destroy();// dont destroy the terminal not yet because it could still emit some events we are interested on
             done && done();
             done = null;
           }
@@ -99,13 +106,20 @@ describe('Terminal', () => {
         });
       }).timeout(4000);
 
-      it('should emit ""drain" event when data could not be flushed entirely', () => {
-        if (shouldEmitDrain) {
+      it('should emit "drain" event to know when the kernel buffer is free again', () => {
+        if (process.platform === 'win32') {
+          assert.ok(true, 'winpty doesn\'t support "drain" event');
+        }
+        else if (shouldEmitDrain) {
           assert.ok(drainEmitted, '"drain" event should be emitted when input to write cannot be flushed entirely');
         }
         else {
           assert.ok(!drainEmitted, '"drain" event shouldn\'t be emitted if write input was flushed entirely');
         }
+      });
+
+      it('clean up', () => {
+        terminal.destroy();
       });
 
     });
