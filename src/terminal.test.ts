@@ -31,16 +31,17 @@ describe('Terminal', () => {
   });
 
 
-  describe('write() basics',  () => {
+  describe('write basics',  () => {
+
     it('should emit "data"', (done) => {
-      const terminal: Terminal = newTerminal();
+      const terminal = newTerminal();
       let allTheData = '';
       terminal.on('data', (chunk) => {
         allTheData += chunk;
       });
       (<any>pollUntil)(() => {
         if (allTheData.indexOf('hello') !== -1 && allTheData.indexOf('world') !== -1) {
-          terminal.destroy();
+          // terminal.destroy();
           done();
           return true;
         }
@@ -51,12 +52,12 @@ describe('Terminal', () => {
     });
 
     it('should let us know if the entire data was flushed successfully to the kernel buffer or was queued in user memory and in the later case when it finish to be consumed', (done) => {
-      const shortString = 'ls\f';
+      const shortString = 'ls';
       const terminal = newTerminal();
       terminal.write(shortString, (flushed: boolean) => {
-          terminal.destroy();
           done && done(); // because we are notified several times and we want to call done once
           done = null;
+          // terminal.destroy();
       });
     });
   });
@@ -73,6 +74,7 @@ describe('Terminal', () => {
     let shouldEmitDrain = false;
     let drainEmitted = false;
 
+
     it('should provide meanings to know if the entire data was flushed successfully to the kernel buffer or was queued in user memory', (done) => {
       let longString = buildLongInput();
       const terminal = newTerminal();
@@ -83,7 +85,6 @@ describe('Terminal', () => {
       terminal.write(longString, (flushed: boolean) => {
         if (!flushedAlready && flushed) {
           flushedAlready = true;
-          terminal.destroy();
           done && done();
           done = null;
         }
