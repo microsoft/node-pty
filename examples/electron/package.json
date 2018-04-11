@@ -4,7 +4,7 @@
   "description": "A minimal node-pty Electron example",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron . --ignore-gpu-blacklist"
   },
   "repository": "https://github.com/Tyriar/node-pty",
   "author": "Tyriar",
@@ -13,6 +13,6 @@
   },
   "dependencies": {
     "node-pty": "^0.7.4",
-    "xterm": "^3.0.2"
+    "xterm": "^3.3.0"
   }
 }
