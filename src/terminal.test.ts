@@ -5,6 +5,7 @@
 import * as assert from 'assert';
 import { WindowsTerminal } from './windowsTerminal';
 import { UnixTerminal } from './unixTerminal';
+import { spawn } from '.';
 
 let PlatformTerminal: WindowsTerminal | UnixTerminal;
 if (process.platform === 'win32') {
@@ -22,4 +23,15 @@ describe('Terminal', () => {
       );
     });
   });
+
+  describe('getSocket', () => {
+    it('should return a Socket instance', () => {
+      const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
+      const client = spawn(shell, [], {});
+      assert.equal( client.getSocket().destroyed, false, 'socket shouldn\'t be destroyed yet' );
+      client.destroy();
+      assert.equal( client.getSocket().destroyed, true, 'socket should be destroyed' );
+    });
+  });
+
 });

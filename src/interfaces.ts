@@ -104,6 +104,11 @@ export interface ITerminal {
    * time eventName is triggered, this listener is removed and then invoked.
    */
   once(eventName: string, listener: (...args: any[]) => any): void;
+
+  /**
+   * Return the socket this instance is using to communicate with the internal pty. Use at your own risk!
+   */
+  getSocket(): net.Socket;
 }
 
 export interface IPtyForkOptions {
