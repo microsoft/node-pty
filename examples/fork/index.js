@@ -19,4 +19,6 @@ ptyProcess.write('ls\r');
 ptyProcess.resize(100, 40);
 ptyProcess.write('ls\r');
 
-setTimeout(ptyProcess.kill.bind(ptyProcess), 5000);
+setTimeout(() => {
+  ptyProcess.kill()
+}, 5000);
