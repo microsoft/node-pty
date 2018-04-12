@@ -25,12 +25,15 @@ describe('Terminal', () => {
   });
 
   describe('getSocket', () => {
-    it('should return a Socket instance', () => {
+    it('should return a Socket instance', (done) => {
       const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
       const client = spawn(shell, [], {});
       assert.equal( client.getSocket().destroyed, false, 'socket shouldn\'t be destroyed yet' );
       client.destroy();
-      assert.equal( client.getSocket().destroyed, true, 'socket should be destroyed' );
+      setTimeout(() => { // need to wait a little so the socket get's destroyed in windows
+        assert.equal(client.getSocket().destroyed, true, 'socket should be destroyed');
+        done();
+      }, 100);
     });
   });
 
