@@ -1,4 +1,7 @@
 {
+  "rulesDirectory": [
+    "tslint-consistent-codestyle"
+  ],
   "rules": {
     "array-type": [
       true,
@@ -8,6 +11,10 @@
     "comment-format": [
       true,
       "check-space"
+    ],
+    "curly": [
+      true,
+      "ignore-same-line"
     ],
     "indent": [
       true,
@@ -24,6 +31,7 @@
       "parameter"
     ],
     "eofline": true,
+    "no-duplicate-imports": true,
     "no-eval": true,
     "no-internal-module": true,
     "no-trailing-whitespace": true,
@@ -37,6 +45,18 @@
     "semicolon": [
       true,
       "always"
+    ],
+    "trailing-comma": [
+      true,
+      {
+        "multiline": {
+          "objects": "never",
+          "arrays": "never",
+          "functions": "never",
+          "typeLiterals": "ignore"
+        },
+        "esSpecCompliant": true
+      }
     ],
     "triple-equals": [
       true,
@@ -56,8 +76,7 @@
       true,
       "ban-keywords",
       "check-format",
-      "allow-leading-underscore",
-      "allow-pascal-case"
+      "allow-leading-underscore"
     ],
     "whitespace": [
       true,
@@ -70,6 +89,24 @@
       "check-type",
       "check-type-operator",
       "check-preblock"
+    ],
+
+    "naming-convention": [
+      true,
+      {"type": "default", "format": "camelCase", "leadingUnderscore": "forbid"},
+      {"type": "type", "format": "PascalCase"},
+      {"type": "class", "format": "PascalCase"},
+      {"type": "property", "modifiers": ["const"], "format": "UPPER_CASE"},
+      {"type": "member", "modifiers": ["protected"], "format": "camelCase", "leadingUnderscore": "require"},
+      {"type": "member", "modifiers": ["private"], "format": "camelCase", "leadingUnderscore": "require"},
+      {"type": "variable", "modifiers": ["const"], "format": ["camelCase", "UPPER_CASE"]},
+      {"type": "interface", "prefix": "I"}
+    ],
+    "no-else-after-return": {
+      "options": "allow-else-if"
+    },
+    "prefer-const-enum": [
+      true
     ]
   }
 }
