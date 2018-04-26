@@ -40,7 +40,7 @@ if (process.platform !== 'win32') {
       });
       it('should return a Buffer when encoding is null', (done) => {
         const term = new UnixTerminal('/bin/bash', [ '-c', `cat "${FIXTURES_PATH}"` ], {
-          encoding: null,
+          encoding: null
         });
         term.on('data', (data) => {
           assert.equal(typeof data, 'object');
