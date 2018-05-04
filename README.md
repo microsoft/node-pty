@@ -1,7 +1,6 @@
 # node-pty
 
-[![Travis CI build status](https://travis-ci.org/Tyriar/node-pty.svg?branch=master)](https://travis-ci.org/Tyriar/node-pty)
-[![Appveyor build status](https://ci.appveyor.com/api/projects/status/1064dcr2t2r90q4n/branch/master?svg=true)](https://ci.appveyor.com/project/Tyriar/node-pty/branch/master)
+[![Build status](https://tyriar.visualstudio.com/_apis/public/build/definitions/2d361770-e039-4acc-b2b2-ef8396473589/1/badge)](https://tyriar.visualstudio.com/node-pty/_build/index?definitionId=1)
 
 `forkpty(3)` bindings for node.js. This allows you to fork processes with pseudoterminal file descriptors. It returns a terminal object which allows reads and writes.
 
@@ -62,7 +61,7 @@ npm run tsc
 
 ### Dependencies on Windows
 
-`npm install` requires some tools to be present in the system like Python and C++ compiler. Windows users can easily install them by running the following command in PowerShell as administrator. For more information see https://github.com/felixrieseberg/windows-build-tools: 
+`npm install` requires some tools to be present in the system like Python and C++ compiler. Windows users can easily install them by running the following command in PowerShell as administrator. For more information see https://github.com/felixrieseberg/windows-build-tools:
 
 ```sh
 npm install --global --production windows-build-tools
