@@ -60,9 +60,24 @@ npm install
 npm run tsc
 ```
 
+## Prebuilt Binaries
+
+This package makes use of [prebuild](https://www.npmjs.com/package/prebuild) to
+provide prebuilt binaries for various versions of Node and Electron. When
+prebuilt binaries are available, those are used instead of compiling from
+scratch.
+
+### Admins
+
+Note that uploads of generated prebuilt binaries is done via Travis CI and
+AppVeyor. The token is set via the `PREBUILD_UPLOAD_TOKEN` environment variable.
+The environment variable is set through the settings of the Travis CI and
+AppVeyor builds. The script handling prebuilds ensures that only releases will
+have prebuilt binaries uploaded for it.
+
 ### Dependencies on Windows
 
-`npm install` requires some tools to be present in the system like Python and C++ compiler. Windows users can easily install them by running the following command in PowerShell as administrator. For more information see https://github.com/felixrieseberg/windows-build-tools: 
+`npm install` requires some tools to be present in the system like Python and C++ compiler. Windows users can easily install them by running the following command in PowerShell as administrator. For more information see https://github.com/felixrieseberg/windows-build-tools:
 
 ```sh
 npm install --global --production windows-build-tools

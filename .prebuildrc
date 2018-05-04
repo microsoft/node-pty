@@ -1,0 +1,1 @@
+include-regex=\.(node|pdb|exe|dll)$
