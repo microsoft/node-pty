@@ -22,6 +22,13 @@ export class WindowsPtyAgent {
   private _outSocket: Socket;
   private _pid: number;
   private _innerPid: number;
+  private _fd: any;
+  private _pty: number;
+
+  public get inSocket(): net.Socket { return this._inSocket; }
+  public get outSocket(): net.Socket { return this._outSocket; }
+  public get pid(): number { return this._pid; }
+  public get innerPid(): number { return this._innerPid; }
   private _innerPidHandle: number;
 
   private _fd: any;
@@ -55,6 +62,8 @@ export class WindowsPtyAgent {
     this._pid = term.pid;
     this._innerPid = term.innerPid;
     this._innerPidHandle = term.innerPidHandle;
+
+    this._innerPid = term.innerPid;
 
     // Not available on windows.
     this._fd = term.fd;
