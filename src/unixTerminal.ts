@@ -6,34 +6,44 @@
 import * as net from 'net';
 import * as path from 'path';
 import * as tty from 'tty';
-import { Terminal } from './terminal';
-import { ProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
+import * as os from 'os';
+import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
+import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 import { assign } from './utils';
+
+declare interface INativePty {
+  master: number;
+  slave: number;
+  pty: string;
+}
 
 const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
+const DESTROY_SOCKET_TIMEOUT_MS = 200;
 
 export class UnixTerminal extends Terminal {
-  protected pid: number;
-  protected fd: number;
-  protected pty: any;
+  protected _fd: number;
+  protected _pty: string;
 
-  protected file: string;
-  protected name: string;
+  protected _file: string;
+  protected _name: string;
 
-  protected readable: boolean;
-  protected writable: boolean;
+  protected _readable: boolean;
+  protected _writable: boolean;
 
   private _boundClose: boolean;
   private _emittedClose: boolean;
-  private master: any;
-  private slave: any;
+  private _master: net.Socket;
+  private _slave: net.Socket;
+
+  public get master(): net.Socket { return this._master; }
+  public get slave(): net.Socket { return this._slave; }
 
   constructor(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions) {
-    super();
+    super(opt);
 
     if (typeof args === 'string') {
       throw new Error('args as a string is not supported on unix.');
@@ -45,8 +55,8 @@ export class UnixTerminal extends Terminal {
     opt = opt || {};
     opt.env = opt.env || process.env;
 
-    const cols = opt.cols || Terminal.DEFAULT_COLS;
-    const rows = opt.rows || Terminal.DEFAULT_ROWS;
+    const cols = opt.cols || DEFAULT_COLS;
+    const rows = opt.rows || DEFAULT_ROWS;
     const uid = opt.uid || -1;
     const gid = opt.gid || -1;
     const env = assign({}, opt.env);
@@ -60,27 +70,45 @@ export class UnixTerminal extends Terminal {
     env.TERM = name;
     const parsedEnv = this._parseEnv(env);
 
-    const onexit = (code: any, signal: any) => {
+    const encoding = (opt.encoding === undefined ? 'utf8' : opt.encoding);
+
+    const onexit = (code: number, signal: number) => {
       // XXX Sometimes a data event is emitted after exit. Wait til socket is
       // destroyed.
       if (!this._emittedClose) {
-        if (this._boundClose) return;
+        if (this._boundClose) {
+          return;
+        }
         this._boundClose = true;
-        this.once('close', () => this.emit('exit', code, signal));
+        // From macOS High Sierra 10.13.2 sometimes the socket never gets
+        // closed. A timeout is applied here to avoid the terminal never being
+        // destroyed when this occurs.
+        let timeout = setTimeout(() => {
+          timeout = null;
+          // Destroying the socket now will cause the close event to fire
+          this._socket.destroy();
+        }, DESTROY_SOCKET_TIMEOUT_MS);
+        this.once('close', () => {
+          if (timeout !== null) {
+            clearTimeout(timeout);
+          }
+          this.emit('exit', code, signal);
+        });
         return;
       }
       this.emit('exit', code, signal);
     };
 
     // fork
-    const term = pty.fork(file, args, parsedEnv, cwd, cols, rows, uid, gid, onexit);
+    const term = pty.fork(file, args, parsedEnv, cwd, cols, rows, uid, gid, (encoding === 'utf8'), onexit);
 
-    this.socket = new PipeSocket(term.fd);
-    this.socket.setEncoding('utf8');
-    this.socket.resume();
+    this._socket = new PipeSocket(term.fd);
+    if (encoding !== null) {
+      this._socket.setEncoding(encoding);
+    }
 
     // setup
-    this.socket.on('error', (err: any) => {
+    this._socket.on('error', (err: any) => {
       // NOTE: fs.ReadStream gets EAGAIN twice at first:
       if (err.code) {
         if (~err.code.indexOf('EAGAIN')) {
@@ -112,17 +140,17 @@ export class UnixTerminal extends Terminal {
       }
     });
 
-    this.pid = term.pid;
-    this.fd = term.fd;
-    this.pty = term.pty;
+    this._pid = term.pid;
+    this._fd = term.fd;
+    this._pty = term.pty;
 
-    this.file = file;
-    this.name = name;
+    this._file = file;
+    this._name = name;
 
-    this.readable = true;
-    this.writable = true;
+    this._readable = true;
+    this._writable = true;
 
-    this.socket.on('close', () => {
+    this._socket.on('close', () => {
       if (this._emittedClose) {
         return;
       }
@@ -137,7 +165,7 @@ export class UnixTerminal extends Terminal {
    */
 
   public static open(opt: IPtyOpenOptions): UnixTerminal {
-    const self = Object.create(UnixTerminal.prototype);
+    const self: UnixTerminal = Object.create(UnixTerminal.prototype);
     opt = opt || {};
 
     if (arguments.length > 1) {
@@ -147,47 +175,48 @@ export class UnixTerminal extends Terminal {
       };
     }
 
-    const cols = opt.cols || Terminal.DEFAULT_COLS;
-    const rows = opt.rows || Terminal.DEFAULT_ROWS;
+    const cols = opt.cols || DEFAULT_COLS;
+    const rows = opt.rows || DEFAULT_ROWS;
+    const encoding = opt.encoding ? 'utf8' : opt.encoding;
 
     // open
-    const term = pty.open(cols, rows);
+    const term: INativePty = pty.open(cols, rows);
 
-    self.master = new PipeSocket(term.master);
-    self.master.setEncoding('utf8');
-    self.master.resume();
+    self._master = new PipeSocket(<number>term.master);
+    self._master.setEncoding(encoding);
+    self._master.resume();
 
-    self.slave = new PipeSocket(term.slave);
-    self.slave.setEncoding('utf8');
-    self.slave.resume();
+    self._slave = new PipeSocket(term.slave);
+    self._slave.setEncoding(encoding);
+    self._slave.resume();
 
-    self.socket = self.master;
-    self.pid = null;
-    self.fd = term.master;
-    self.pty = term.pty;
+    self._socket = self._master;
+    self._pid = null;
+    self._fd = term.master;
+    self._pty = term.pty;
 
-    self.file = process.argv[0] || 'node';
-    self.name = process.env.TERM || '';
+    self._file = process.argv[0] || 'node';
+    self._name = process.env.TERM || '';
 
-    self.readable = true;
-    self.writable = true;
+    self._readable = true;
+    self._writable = true;
 
-    self.socket.on('error', err => {
+    self._socket.on('error', err => {
       self._close();
       if (self.listeners('error').length < 2) {
         throw err;
       }
     });
 
-    self.socket.on('close', () => {
+    self._socket.on('close', () => {
       self._close();
     });
 
     return self;
-  };
+  }
 
   public write(data: string): void {
-    this.socket.write(data);
+    this._socket.write(data);
   }
 
   public destroy(): void {
@@ -195,24 +224,34 @@ export class UnixTerminal extends Terminal {
 
     // Need to close the read stream so node stops reading a dead file
     // descriptor. Then we can safely SIGHUP the shell.
-    this.socket.once('close', () => {
+    this._socket.once('close', () => {
       this.kill('SIGHUP');
     });
 
-    this.socket.destroy();
+    this._socket.destroy();
   }
 
-  public kill(signal?: string): void {
-    try {
-      process.kill(this.pid, signal || 'SIGHUP');
-    } catch (e) { /* swallow */ }
+  public kill(signal: string = 'SIGHUP'): void {
+    if (signal in os.constants.signals) {
+      try {
+        // pty.kill will not be available on systems which don't support
+        // the TIOCSIG/TIOCSIGNAL ioctl
+        if (pty.kill && signal !== 'SIGHUP') {
+          pty.kill(this._fd, os.constants.signals[signal]);
+        } else {
+          process.kill(this.pid, signal);
+        }
+      } catch (e) { /* swallow */ }
+    } else {
+      throw new Error('Unknown signal: ' + signal);
+    }
   }
 
   /**
    * Gets the name of the process.
    */
   public get process(): string {
-    return pty.process(this.fd, this.pty) || this.file;
+    return pty.process(this._fd, this._pty) || this._file;
   }
 
   /**
@@ -220,10 +259,10 @@ export class UnixTerminal extends Terminal {
    */
 
   public resize(cols: number, rows: number): void {
-    pty.resize(this.fd, cols, rows);
+    pty.resize(this._fd, cols, rows);
   }
 
-  private _sanitizeEnv(env: ProcessEnv): void {
+  private _sanitizeEnv(env: IProcessEnv): void {
       // Make sure we didn't start our server from inside tmux.
       delete env['TMUX'];
       delete env['TMUX_PANE'];
@@ -247,11 +286,12 @@ export class UnixTerminal extends Terminal {
  * See: https://github.com/chjj/pty.js/issues/103
  */
 class PipeSocket extends net.Socket {
-  constructor(fd: any) {
+  constructor(fd: number) {
     const tty = (<any>process).binding('tty_wrap');
     const guessHandleType = tty.guessHandleType;
     tty.guessHandleType = () => 'PIPE';
-    super({ fd });
+    // @types/node has fd as string? https://github.com/DefinitelyTyped/DefinitelyTyped/pull/18275
+    super({ fd: <any>fd });
     tty.guessHandleType = guessHandleType;
   }
 }

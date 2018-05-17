@@ -3,16 +3,16 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
-import * as os from 'os';
+import * as path from 'path';
 import { Terminal as BaseTerminal } from './terminal';
 import { ITerminal, IPtyOpenOptions, IPtyForkOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 
-let Terminal: any;
-if (os.platform() === 'win32') {
-  Terminal = require('./windowsTerminal').WindowsTerminal;
+let terminalCtor: any;
+if (process.platform === 'win32') {
+  terminalCtor = require('./windowsTerminal').WindowsTerminal;
 } else {
-  Terminal = require('./unixTerminal').UnixTerminal;
+  terminalCtor = require('./unixTerminal').UnixTerminal;
 }
 
 /**
@@ -27,19 +27,25 @@ if (os.platform() === 'win32') {
  * @see GetCommandLine https://msdn.microsoft.com/en-us/library/windows/desktop/ms683156.aspx
  */
 export function spawn(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions): ITerminal {
-  return new Terminal(file, args, opt);
-};
+  return new terminalCtor(file, args, opt);
+}
 
 /** @deprecated */
 export function fork(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions): ITerminal {
-  return new Terminal(file, args, opt);
-};
+  return new terminalCtor(file, args, opt);
+}
 
 /** @deprecated */
 export function createTerminal(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions): ITerminal {
-  return new Terminal(file, args, opt);
-};
+  return new terminalCtor(file, args, opt);
+}
 
 export function open(options: IPtyOpenOptions): ITerminal {
-  return Terminal.open(options);
+  return terminalCtor.open(options);
 }
+
+/**
+ * Expose the native API when not Windows, note that this is not public API and
+ * could be removed at any time.
+ */
+export const native = (process.platform !== 'win32' ? require(path.join('..', 'build', 'Release', 'pty.node')) : null);

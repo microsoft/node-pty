@@ -60,10 +60,10 @@ void reencodeEscapedKeyPress(
         case VK_F10:    escapeCode = { EscapedKey::Numeric, {'2', '1'} }; break;
         case VK_F11:    escapeCode = { EscapedKey::Numeric, {'2', '3'} }; break;
         case VK_F12:    escapeCode = { EscapedKey::Numeric, {'2', '4'} }; break;
-        case VK_HOME:   escapeCode = { EscapedKey::Numeric, {'1'} }; break;
+        case VK_HOME:   escapeCode = { EscapedKey::Letter, {'H'} }; break;
         case VK_INSERT: escapeCode = { EscapedKey::Numeric, {'2'} }; break;
         case VK_DELETE: escapeCode = { EscapedKey::Numeric, {'3'} }; break;
-        case VK_END:    escapeCode = { EscapedKey::Numeric, {'4'} }; break;
+        case VK_END:    escapeCode = { EscapedKey::Letter, {'F'} }; break;
         case VK_PRIOR:  escapeCode = { EscapedKey::Numeric, {'5'} }; break;
         case VK_NEXT:   escapeCode = { EscapedKey::Numeric, {'6'} }; break;
     }

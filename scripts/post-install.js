@@ -4,8 +4,11 @@ var path = require('path');
 var RELEASE_DIR = path.join(__dirname, '..', 'build', 'Release');
 var BUILD_FILES = [
   path.join(RELEASE_DIR, 'pty.node'),
+  path.join(RELEASE_DIR, 'pty.pdb'),
   path.join(RELEASE_DIR, 'winpty-agent.exe'),
-  path.join(RELEASE_DIR, 'winpty.dll')
+  path.join(RELEASE_DIR, 'winpty-agent.pdb'),
+  path.join(RELEASE_DIR, 'winpty.dll'),
+  path.join(RELEASE_DIR, 'winpty.pdb')
 ];
 
 cleanFolderRecursive = function(folder) {

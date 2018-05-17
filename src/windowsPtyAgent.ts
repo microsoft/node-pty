@@ -3,8 +3,8 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
-import * as net from 'net';
 import * as path from 'path';
+import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
 
 const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
@@ -18,8 +18,8 @@ const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
  */
 
 export class WindowsPtyAgent {
-  private _inSocket: net.Socket;
-  private _outSocket: net.Socket;
+  private _inSocket: Socket;
+  private _outSocket: Socket;
   private _pid: number;
   private _innerPid: number;
   private _fd: any;
@@ -29,7 +29,15 @@ export class WindowsPtyAgent {
   public get outSocket(): net.Socket { return this._outSocket; }
   public get pid(): number { return this._pid; }
   public get innerPid(): number { return this._innerPid; }
+  private _innerPidHandle: number;
+
+  private _fd: any;
+  private _pty: number;
+
+  public get inSocket(): Socket { return this._inSocket; }
+  public get outSocket(): Socket { return this._outSocket; }
   public get fd(): any { return this._fd; }
+  public get innerPid(): number { return this._innerPid; }
   public get pty(): number { return this._pty; }
 
   constructor(
@@ -52,6 +60,8 @@ export class WindowsPtyAgent {
 
     // Terminal pid.
     this._pid = term.pid;
+    this._innerPid = term.innerPid;
+    this._innerPidHandle = term.innerPidHandle;
 
     this._innerPid = term.innerPid;
 
@@ -63,7 +73,7 @@ export class WindowsPtyAgent {
     this._pty = term.pty;
 
     // Create terminal pipe IPC channel and forward to a local unix socket.
-    this._outSocket = new net.Socket();
+    this._outSocket = new Socket();
     this._outSocket.setEncoding('utf8');
     this._outSocket.connect(term.conout, () => {
       // TODO: Emit event on agent instead of socket?
@@ -72,14 +82,14 @@ export class WindowsPtyAgent {
       this._outSocket.emit('ready_datapipe');
     });
 
-    this._inSocket = new net.Socket();
+    this._inSocket = new Socket();
     this._inSocket.setEncoding('utf8');
     this._inSocket.connect(term.conin);
     // TODO: Wait for ready event?
   }
 
   public resize(cols: number, rows: number): void {
-    pty.resize(this.pid, cols, rows);
+    pty.resize(this._pid, cols, rows);
   }
 
   public kill(): void {
@@ -87,7 +97,25 @@ export class WindowsPtyAgent {
     this._inSocket.writable = false;
     this._outSocket.readable = false;
     this._outSocket.writable = false;
-    pty.kill(this.pid);
+    const processList: number[] = pty.getProcessList(this._pid);
+    // Tell the agent to kill the pty, this releases handles to the process
+    pty.kill(this._pid, this._innerPidHandle);
+    // Since pty.kill will kill most processes by itself and process IDs can be
+    // reused as soon as all handles to them are dropped, we want to immediately
+    // kill the entire console process list. If we do not force kill all
+    // processes here, node servers in particular seem to become detached and
+    // remain running (see Microsoft/vscode#26807).
+    processList.forEach(pid => {
+      try {
+        process.kill(pid);
+      } catch (e) {
+        // Ignore if process cannot be found (kill ESRCH error)
+      }
+    });
+  }
+
+  public getExitCode(): number {
+    return pty.getExitCode(this._innerPidHandle);
   }
 }
 
@@ -99,7 +127,7 @@ export function argsToCommandLine(file: string, args: ArgvOrCommandLine): string
     if (args.length === 0) {
       return file;
     }
-    return `${file} ${args}`;
+    return `${argsToCommandLine(file, [])} ${args}`;
   }
   const argv = [file];
   Array.prototype.push.apply(argv, args);

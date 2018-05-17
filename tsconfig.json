@@ -4,8 +4,7 @@
     "target": "es5",
     "rootDir": "src",
     "outDir": "lib",
-    "sourceMap": true,
-    "removeComments": true
+    "sourceMap": true
   },
   "exclude": [
     "node_modules",
@@ -14,6 +13,6 @@
     "demo.js",
     "lib",
     "test",
-    "demo"
+    "examples"
   ]
 }

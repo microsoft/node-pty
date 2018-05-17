@@ -123,7 +123,7 @@ std::string InputMap::Key::toString() const {
                (virtualKey >= '0' && virtualKey <= '9')) {
         ret += static_cast<char>(virtualKey);
     } else {
-        winpty_snprintf(buf, "0x%x", virtualKey);
+        winpty_snprintf(buf, "%#x", virtualKey);
         ret += buf;
     }
     if (unicodeChar >= 32 && unicodeChar <= 126) {

@@ -1,3 +1,45 @@
+# Version 0.4.3 (2017-05-17)
+
+Input handling changes:
+
+ * winpty sets `ENHANCED_KEY` for arrow and navigation keys.  This fixes an
+   issue with the Ruby REPL.
+   [#99](https://github.com/rprichard/winpty/issues/99)
+ * AltGr keys are handled better now.
+   [#109](https://github.com/rprichard/winpty/issues/109)
+ * In `ENABLE_VIRTUAL_TERMINAL_INPUT` mode, when typing Home/End with a
+   modifier (e.g. Ctrl), winpty now generates an H/F escape sequence like
+   `^[[1;5F` rather than a 1/4 escape like `^[[4;5~`.
+   [#114](https://github.com/rprichard/winpty/issues/114)
+
+Resizing and scraping fixes:
+
+ * winpty now synthesizes a `WINDOW_BUFFER_SIZE_EVENT` event after resizing
+   the console to better propagate window size changes to console programs.
+   In particular, this affects WSL and Cygwin.
+   [#110](https://github.com/rprichard/winpty/issues/110)
+ * Better handling of resizing for certain full-screen programs, like
+   WSL less.
+   [#112](https://github.com/rprichard/winpty/issues/112)
+ * Hide the cursor if it's currently outside the console window.  This change
+   fixes an issue with Far Manager.
+   [#113](https://github.com/rprichard/winpty/issues/113)
+ * winpty now avoids using console fonts smaller than 5px high to improve
+   half-vs-full-width character handling.  See
+   https://github.com/Microsoft/vscode/issues/19665.
+   [b4db322010](https://github.com/rprichard/winpty/commit/b4db322010d2d897e6c496fefc4f0ecc9b84c2f3)
+
+Cygwin/MSYS adapter fix:
+
+ * The way the `winpty` Cygwin/MSYS2 adapter searches for the program to
+   launch changed.  It now resolves symlinks and searches the PATH explicitly.
+   [#81](https://github.com/rprichard/winpty/issues/81)
+   [#98](https://github.com/rprichard/winpty/issues/98)
+
+This release does not include binaries for the old MSYS1 project anymore.
+MSYS2 will continue to be supported.  See
+https://github.com/rprichard/winpty/issues/97.
+
 # Version 0.4.2 (2017-01-18)
 
 This release improves WSL support (i.e. Bash-on-Windows):

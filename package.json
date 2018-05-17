@@ -4,9 +4,10 @@
   "author": {
     "name": "Daniel Imms"
   },
-  "version": "0.6.2",
+  "version": "0.7.3",
   "license": "MIT",
   "main": "./lib/index.js",
+  "types": "./typings/node-pty.d.ts",
   "repository": {
     "type": "git",
     "url": "git://github.com/Tyriar/node-pty.git"
@@ -32,19 +33,23 @@
   ],
   "scripts": {
     "tsc": "tsc",
-    "tslint": "tslint src/**/*.ts",
+    "lint": "tslint 'src/**/*.ts'",
     "install": "node scripts/install.js",
     "postinstall": "node scripts/post-install.js",
-    "test": "cross-env NODE_ENV=test mocha -R spec test"
+    "test": "cross-env NODE_ENV=test mocha -R spec --exit lib/*.test.js",
+    "prepublish": "npm run tsc"
   },
   "dependencies": {
-    "nan": "2.5.0"
+    "nan": "^2.6.2"
   },
   "devDependencies": {
-    "@types/node": "^6.0.58",
-    "cross-env": "^3.1.3",
-    "mocha": "^3.1.2",
-    "tslint": "^4.3.1",
-    "typescript": "^2.1.4"
+    "@types/mocha": "^5.0.0",
+    "@types/node": "^6.0.104",
+    "cross-env": "^5.1.4",
+    "mocha": "^5.0.5",
+    "pollUntil": "^1.0.3",
+    "tslint": "^5.9.1",
+    "tslint-consistent-codestyle": "^1.13.0",
+    "typescript": "^2.8.1"
   }
 }

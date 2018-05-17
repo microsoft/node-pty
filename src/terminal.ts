@@ -6,93 +6,115 @@
 import * as path from 'path';
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
-import { ITerminal } from './interfaces';
+import { ITerminal, IPtyForkOptions } from './interfaces';
+
+export const DEFAULT_COLS: number = 80;
+export const DEFAULT_ROWS: number = 24;
 
 export abstract class Terminal implements ITerminal {
-  protected static readonly DEFAULT_COLS: number = 80;
-  protected static readonly DEFAULT_ROWS: number = 24;
+  protected _socket: Socket;
+  protected _pid: number;
+  protected _fd: number;
+  protected _pty: any;
 
-  protected socket: Socket;
-  protected pid: number;
-  protected fd: number;
-  protected pty: any;
+  protected _file: string;
+  protected _name: string;
+  protected _cols: number;
+  protected _rows: number;
 
-  protected file: string;
-  protected name: string;
-  protected cols: number;
-  protected rows: number;
-
-  protected readable: boolean;
-  protected writable: boolean;
+  protected _readable: boolean;
+  protected _writable: boolean;
 
   protected _internalee: EventEmitter;
 
-  constructor() {
+  public get pid(): number { return this._pid; }
+
+  constructor(opt?: IPtyForkOptions) {
     // for 'close'
     this._internalee = new EventEmitter();
+
+    if (!opt) {
+      return;
+    }
+
+    // Do basic type checks here in case node-pty is being used within JavaScript. If the wrong
+    // types go through to the C++ side it can lead to hard to diagnose exceptions.
+    this._checkType('name', opt.name ? opt.name : null, 'string');
+    this._checkType('cols', opt.cols ? opt.cols : null, 'number');
+    this._checkType('rows', opt.rows ? opt.rows : null, 'number');
+    this._checkType('cwd', opt.cwd ? opt.cwd : null, 'string');
+    this._checkType('env', opt.env ? opt.env : null, 'object');
+    this._checkType('uid', opt.uid ? opt.uid : null, 'number');
+    this._checkType('gid', opt.gid ? opt.gid : null, 'number');
+    this._checkType('encoding', opt.encoding ? opt.encoding : null, 'string');
+  }
+
+  private _checkType(name: string, value: any, type: string): void {
+    if (value && typeof value !== type) {
+      throw new Error(`${name} must be a ${type} (not a ${typeof value})`);
+    }
   }
 
   /** See net.Socket.end */
-  public end(data: string): void{
-    this.socket.end(data);
+  public end(data: string): void {
+    this._socket.end(data);
   }
 
   /** See stream.Readable.pipe */
   public pipe(dest: any, options: any): any {
-    return this.socket.pipe(dest, options);
+    return this._socket.pipe(dest, options);
   }
 
   /** See net.Socket.pause */
   public pause(): Socket {
-    return this.socket.pause();
+    return this._socket.pause();
   }
 
   /** See net.Socket.resume */
   public resume(): Socket {
-    // TODO: Type with Socket
-    return this.socket.resume();
+    return this._socket.resume();
   }
 
   /** See net.Socket.setEncoding */
   public setEncoding(encoding: string): void {
-    if ((<any>this.socket)._decoder) {
-      delete (<any>this.socket)._decoder;
+    if ((<any>this._socket)._decoder) {
+      delete (<any>this._socket)._decoder;
     }
     if (encoding) {
-      this.socket.setEncoding(encoding);
+      this._socket.setEncoding(encoding);
     }
   }
 
-  public addListener(type: string, listener: (...args: any[]) => any): void { this.on(type, listener); }
-  public on(type: string, listener: (...args: any[]) => any): void {
-    if (type === 'close') {
+  public addListener(eventName: string, listener: (...args: any[]) => any): void { this.on(eventName, listener); }
+  public on(eventName: string, listener: (...args: any[]) => any): void {
+    if (eventName === 'close') {
       this._internalee.on('close', listener);
       return;
     }
-    this.socket.on(type, listener);
+    this._socket.on(eventName, listener);
   }
 
-  public emit(event: string, ...args: any[]): any {
-    if (event === 'close') {
+  public emit(eventName: string, ...args: any[]): any {
+    if (eventName === 'close') {
       return this._internalee.emit.apply(this._internalee, arguments);
     }
-    return this.socket.emit.apply(this.socket, arguments);
+    return this._socket.emit.apply(this._socket, arguments);
   }
 
-  public listeners(type: string): Function[] {
-    return this.socket.listeners(type);
+  public listeners(eventName: string): Function[] {
+    return this._socket.listeners(eventName);
   }
 
-  public removeListener(type: string, listener: (...args: any[]) => any): void {
-    this.socket.removeListener(type, listener);
+  public removeListener(eventName: string, listener: (...args: any[]) => any): void {
+    this._socket.removeListener(eventName, listener);
   }
 
-  public removeAllListeners(type: string): void {
-    this.socket.removeAllListeners(type);
+  public removeAllListeners(eventName: string): void {
+    this._socket.removeAllListeners(eventName);
   }
 
-  public once(type: string, listener: (...args: any[]) => any): void {
-    this.socket.once(type, listener);
+  public once(eventName: string, listener: (...args: any[]) => any): void {
+    this._socket.once(eventName, listener);
   }
 
   public abstract write(data: string): void;
@@ -100,15 +122,14 @@ export abstract class Terminal implements ITerminal {
   public abstract destroy(): void;
   public abstract kill(signal?: string): void;
 
-  /**
-   * Gets the name of the process.
-   */
   public abstract get process(): string;
+  public abstract get master(): Socket;
+  public abstract get slave(): Socket;
 
   // TODO: Should this be in the API?
   public redraw(): void {
-    let cols = this.cols;
-    let rows = this.rows;
+    let cols = this._cols;
+    let rows = this._rows;
 
     // We could just send SIGWINCH, but most programs will  ignore it if the
     // size hasn't actually changed.
@@ -119,12 +140,12 @@ export abstract class Terminal implements ITerminal {
   }
 
   protected _close(): void {
-    this.socket.writable = false;
-    this.socket.readable = false;
+    this._socket.writable = false;
+    this._socket.readable = false;
     this.write = () => {};
     this.end = () => {};
-    this.writable = false;
-    this.readable = false;
+    this._writable = false;
+    this._readable = false;
   }
 
   protected _parseEnv(env: {[key: string]: string}): string[] {

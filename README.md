@@ -1,6 +1,6 @@
 # node-pty
 
-[![Build Status](https://travis-ci.org/Tyriar/node-pty.svg?branch=master)](https://travis-ci.org/Tyriar/node-pty)
+[![Build status](https://tyriar.visualstudio.com/_apis/public/build/definitions/2d361770-e039-4acc-b2b2-ef8396473589/1/badge)](https://tyriar.visualstudio.com/node-pty/_build/index?definitionId=1)
 
 `forkpty(3)` bindings for node.js. This allows you to fork processes with pseudoterminal file descriptors. It returns a terminal object which allows reads and writes.
 
@@ -10,6 +10,20 @@ This is useful for:
 - Getting certain programs to *think* you're a terminal, such as when you need a program to send you control sequences.
 
 `node-pty` supports Linux, macOS and Windows. Windows support is possible by utilizing the [winpty](https://github.com/rprichard/winpty) library.
+
+## Real-world Uses
+
+`node-pty` powers many different terminal emulators, including:
+
+- [Microsoft Visual Studio Code](https://code.visualstudio.com)
+- [Hyper](https://hyper.is/)
+- [Upterm](https://github.com/railsware/upterm)
+- [Script Runner](https://github.com/ioquatix/script-runner) for Atom.
+- [Theia](https://github.com/theia-ide/theia)
+- [FreeMAN](https://github.com/matthew-matvei/freeman) file manager
+- [atom-xterm](https://atom.io/packages/atom-xterm) - Atom plugin for providing terminals inside your Atom workspace.
+
+Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
 
 ## Example Usage
 
@@ -45,6 +59,14 @@ npm install
 npm run tsc
 ```
 
+### Dependencies on Windows
+
+`npm install` requires some tools to be present in the system like Python and C++ compiler. Windows users can easily install them by running the following command in PowerShell as administrator. For more information see https://github.com/felixrieseberg/windows-build-tools:
+
+```sh
+npm install --global --production windows-build-tools
+```
+
 ## Debugging
 
 On Windows, you can show the winpty agent console window by adding the environment variable `WINPTY_SHOW_CONSOLE=1` to the pty's environment. See https://github.com/rprichard/winpty#debugging-winpty for more information.
@@ -63,5 +85,5 @@ This project is forked from [chjj/pty.js](https://github.com/chjj/pty.js) with t
 
 ## License
 
-Copyright (c) 2012-2015, Christopher Jeffrey (MIT License).<br>
+Copyright (c) 2012-2015, Christopher Jeffrey (MIT License).
 Copyright (c) 2016, Daniel Imms (MIT License).

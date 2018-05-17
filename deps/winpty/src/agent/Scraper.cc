@@ -55,7 +55,7 @@ Scraper::Scraper(
 {
     m_consoleBuffer = &buffer;
 
-    resetConsoleTracking(Terminal::OmitClear, buffer.windowRect());
+    resetConsoleTracking(Terminal::OmitClear, buffer.windowRect().top());
 
     m_bufferData.resize(BUFFER_LINE_COUNT);
 
@@ -114,13 +114,13 @@ void Scraper::scrapeBuffer(Win32ConsoleBuffer &buffer,
 }
 
 void Scraper::resetConsoleTracking(
-    Terminal::SendClearFlag sendClear, const SmallRect &windowRect)
+    Terminal::SendClearFlag sendClear, int64_t scrapedLineCount)
 {
     for (ConsoleLine &line : m_bufferData) {
         line.reset();
     }
     m_syncRow = -1;
-    m_scrapedLineCount = windowRect.top();
+    m_scrapedLineCount = scrapedLineCount;
     m_scrolledCount = 0;
     m_maxBufferedLine = -1;
     m_dirtyWindowTop = -1;
@@ -205,7 +205,11 @@ void Scraper::resizeImpl(const ConsoleScreenBufferInfo &origInfo)
         const Coord origBufferSize = origInfo.bufferSize();
         const SmallRect origWindowRect = origInfo.windowRect();
 
-        if (!m_directMode) {
+        if (m_directMode) {
+            for (ConsoleLine &line : m_bufferData) {
+                line.reset();
+            }
+        } else {
             m_consoleBuffer->clearLines(0, origWindowRect.Top, origInfo);
             clearBufferLines(0, origWindowRect.Top);
             if (m_syncRow != -1) {
@@ -343,7 +347,8 @@ void Scraper::syncConsoleContentAndSize(
     const bool newDirectMode = (info.bufferSize().Y != BUFFER_LINE_COUNT);
     if (newDirectMode != m_directMode) {
         trace("Entering %s mode", newDirectMode ? "direct" : "scrolling");
-        resetConsoleTracking(Terminal::SendClear, info.windowRect());
+        resetConsoleTracking(Terminal::SendClear,
+                             newDirectMode ? 0 : info.windowRect().top());
         m_directMode = newDirectMode;
 
         // When we switch from direct->scrolling mode, make sure the console is
@@ -355,6 +360,11 @@ void Scraper::syncConsoleContentAndSize(
     }
 
     if (m_directMode) {
+        // In direct-mode, resizing the console redraws the terminal, so do it
+        // before scraping.
+        if (forceResize) {
+            resizeImpl(info);
+        }
         directScrapeOutput(info, cursorVisible);
     } else {
         if (!m_console.frozen()) {
@@ -365,14 +375,15 @@ void Scraper::syncConsoleContentAndSize(
         if (m_console.frozen()) {
             scrollingScrapeOutput(info, cursorVisible, false);
         }
+        // In scrolling mode, we want to scrape before resizing, because we'll
+        // erase everything in the console buffer up to the top of the console
+        // window.
+        if (forceResize) {
+            resizeImpl(info);
+        }
     }
 
-    if (forceResize) {
-        resizeImpl(info);
-        finalInfoOut = m_consoleBuffer->bufferInfo();
-    } else {
-        finalInfoOut = info;
-    }
+    finalInfoOut = forceResize ? m_consoleBuffer->bufferInfo() : info;
 }
 
 // Try to match Windows' behavior w.r.t. to the LVB attribute flags.  In some
@@ -421,7 +432,7 @@ WORD Scraper::attributesMask()
 }
 
 void Scraper::directScrapeOutput(const ConsoleScreenBufferInfo &info,
-                                 bool cursorVisible)
+                                 bool consoleCursorVisible)
 {
     const SmallRect windowRect = info.windowRect();
 
@@ -435,40 +446,35 @@ void Scraper::directScrapeOutput(const ConsoleScreenBufferInfo &info,
     const int h = scrapeRect.height();
 
     const Coord cursor = info.cursorPosition();
-    const int cursorColumn = !cursorVisible ? -1 :
-        constrained(0, cursor.X - scrapeRect.Left, w - 1);
-    const int cursorLine = !cursorVisible ? -1 :
-        constrained(0, cursor.Y - scrapeRect.Top, h - 1);
-    if (!cursorVisible) {
+    const bool showTerminalCursor =
+        consoleCursorVisible && scrapeRect.contains(cursor);
+    const int cursorColumn = !showTerminalCursor ? -1 : cursor.X - scrapeRect.Left;
+    const int cursorLine = !showTerminalCursor ? -1 : cursor.Y - scrapeRect.Top;
+
+    if (!showTerminalCursor) {
         m_terminal->hideTerminalCursor();
     }
 
     largeConsoleRead(m_readBuffer, *m_consoleBuffer, scrapeRect, attributesMask());
 
-    bool sawModifiedLine = false;
     for (int line = 0; line < h; ++line) {
-        const CHAR_INFO *curLine =
+        const CHAR_INFO *const curLine =
             m_readBuffer.lineData(scrapeRect.top() + line);
         ConsoleLine &bufLine = m_bufferData[line];
-        if (sawModifiedLine) {
-            bufLine.setLine(curLine, w);
-        } else {
-            sawModifiedLine = bufLine.detectChangeAndSetLine(curLine, w);
-        }
-        if (sawModifiedLine) {
+        if (bufLine.detectChangeAndSetLine(curLine, w)) {
             const int lineCursorColumn =
                 line == cursorLine ? cursorColumn : -1;
             m_terminal->sendLine(line, curLine, w, lineCursorColumn);
         }
     }
 
-    if (cursorVisible) {
+    if (showTerminalCursor) {
         m_terminal->showTerminalCursor(cursorColumn, cursorLine);
     }
 }
 
 bool Scraper::scrollingScrapeOutput(const ConsoleScreenBufferInfo &info,
-                                    bool cursorVisible,
+                                    bool consoleCursorVisible,
                                     bool tentative)
 {
     const Coord cursor = info.cursorPosition();
@@ -488,7 +494,7 @@ bool Scraper::scrollingScrapeOutput(const ConsoleScreenBufferInfo &info,
             trace("Sync marker has disappeared -- resetting the terminal"
                   " (m_syncCounter=%u)",
                   m_syncCounter);
-            resetConsoleTracking(Terminal::SendClear, windowRect);
+            resetConsoleTracking(Terminal::SendClear, windowRect.top());
         } else if (markerRow != m_syncRow) {
             ASSERT(markerRow < m_syncRow);
             m_scrolledCount += (m_syncRow - markerRow);
@@ -531,7 +537,7 @@ bool Scraper::scrollingScrapeOutput(const ConsoleScreenBufferInfo &info,
             trace("Window moved upward -- resetting the terminal"
                   " (m_syncCounter=%u)",
                   m_syncCounter);
-            resetConsoleTracking(Terminal::SendClear, windowRect);
+            resetConsoleTracking(Terminal::SendClear, windowRect.top());
         }
     }
     m_dirtyWindowTop = windowRect.top();
@@ -600,9 +606,12 @@ bool Scraper::scrollingScrapeOutput(const ConsoleScreenBufferInfo &info,
         std::min(m_dirtyLineCount, windowRect.top() + windowRect.height()) +
             m_scrolledCount;
 
-    const int64_t cursorLine = !cursorVisible ? -1 : cursor.Y + m_scrolledCount;
-    const int cursorColumn = !cursorVisible ? -1 : cursor.X;
-    if (!cursorVisible) {
+    const bool showTerminalCursor =
+        consoleCursorVisible && windowRect.contains(cursor);
+    const int64_t cursorLine = !showTerminalCursor ? -1 : cursor.Y + m_scrolledCount;
+    const int cursorColumn = !showTerminalCursor ? -1 : cursor.X;
+
+    if (!showTerminalCursor) {
         m_terminal->hideTerminalCursor();
     }
 
@@ -631,7 +640,7 @@ bool Scraper::scrollingScrapeOutput(const ConsoleScreenBufferInfo &info,
 
     m_scrapedLineCount = windowRect.top() + m_scrolledCount;
 
-    if (cursorVisible) {
+    if (showTerminalCursor) {
         m_terminal->showTerminalCursor(cursorColumn, cursorLine);
     }
 
