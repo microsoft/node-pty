@@ -16,7 +16,6 @@
     "binding.gyp",
     "lib/",
     "scripts/",
-    "src/",
     "deps/"
   ],
   "homepage": "https://github.com/Tyriar/node-pty",
