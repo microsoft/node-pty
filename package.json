@@ -17,7 +17,8 @@
     "lib/",
     "scripts/",
     "src/",
-    "deps/"
+    "deps/",
+    "typings/"
   ],
   "homepage": "https://github.com/Tyriar/node-pty",
   "bugs": {
