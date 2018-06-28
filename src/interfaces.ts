@@ -51,7 +51,8 @@ export interface ITerminal {
   /**
    * Send a signal to the ptys' processes. This is not supported on Windows.
    * @param signal The signal to send, by default this is SIGHUP.
-   * @param sendToProcessGroup Wheter to send the signal to all processes in the terminals process group or just the initially started one.
+   * @param sendToProcessGroup Whether to send the signal to all processes in
+   * the terminals process group or just the root process.
    */
   kill(signal?: string, sendToProcessGroup?: boolean): void;
 
