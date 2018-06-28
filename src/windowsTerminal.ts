@@ -157,7 +157,7 @@ export class WindowsTerminal extends Terminal {
     });
   }
 
-  public kill(signal?: string): void {
+  public kill(signal?: string, sendToProcessGroup?: boolean): void {
     this._defer(() => {
       if (signal) {
         throw new Error('Signals not supported on windows.');

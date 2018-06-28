@@ -17,6 +17,7 @@
  * Includes
  */
 
+#include <sstream>
 #include <nan.h>
 #include <errno.h>
 #include <string.h>
@@ -93,11 +94,11 @@ NAN_METHOD(PtyOpen);
 NAN_METHOD(PtyResize);
 NAN_METHOD(PtyGetProc);
 
-#if defined(TIOCSIG) || defined(TIOCSIGNAL)
+#if defined(TIOCSIG) || defined(TIOCSIGNAL) || defined(TIOCGPGRP)
 #define DEFINE_PTY_KILL
 NAN_METHOD(PtyKill);
 #else
-#warning "The function PtyKill will be unavailable because the ioctls TIOCSIG and TIOCSIGNAL don't exist"
+#warning "The function PtyKill will be unavailable because the ioctls TIOCSIG, TIOCSIGNAL and TIOCGPGRP don't exist"
 #endif
 
 /**
@@ -368,11 +369,34 @@ NAN_METHOD(PtyKill) {
   int signal = info[1]->IntegerValue();
 
 #if defined(TIOCSIG)
-  if (ioctl(fd, TIOCSIG, signal) == -1)
-    return Nan::ThrowError("ioctl(2) failed.");
+  if (ioctl(fd, TIOCSIG, signal) != -1)
+    return;
 #elif defined(TIOCSIGNAL)
-  if (ioctl(fd, TIOCSIGNAL, signal) == -1)
-    return Nan::ThrowError("ioctl(2) failed.");
+  if (ioctl(fd, TIOCSIGNAL, signal) != -1)
+    return;
+#endif
+#ifndef TIOCGPGRP
+  int error = errno;
+  std::ostringstream oss;
+  oss << "ioctl(2) failed: " << error << ": " << strerror(errno);
+  return Nan::ThrowError(oss.str().c_str());
+#else
+  pid_t group = 0;
+  if (ioctl(fd, TIOCGPGRP, &group) == -1){
+    int error = errno;
+    std::ostringstream oss;
+    oss << "ioctl(2) failed: " << error << ": " << strerror(errno);
+    return Nan::ThrowError(oss.str().c_str());
+  }
+  if (group <= 1) {
+    return Nan::ThrowError("Impossible process group returned by ioctl.");
+  }
+  if (kill(-group, signal) == -1) {
+    int error = errno;
+    std::ostringstream oss;
+    oss << "kill(2) failed: " << error << ": " << strerror(errno);
+    return Nan::ThrowError(oss.str().c_str());
+  }
 #endif
 }
 #endif

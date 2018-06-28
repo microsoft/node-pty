@@ -120,7 +120,7 @@ export abstract class Terminal implements ITerminal {
   public abstract write(data: string): void;
   public abstract resize(cols: number, rows: number): void;
   public abstract destroy(): void;
-  public abstract kill(signal?: string): void;
+  public abstract kill(signal?: string, sendToProcessGroup?: boolean): void;
 
   public abstract get process(): string;
   public abstract get master(): Socket;

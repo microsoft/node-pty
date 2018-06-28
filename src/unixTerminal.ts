@@ -231,17 +231,15 @@ export class UnixTerminal extends Terminal {
     this._socket.destroy();
   }
 
-  public kill(signal: string = 'SIGHUP'): void {
+  public kill(signal: string = 'SIGHUP', sendToProcessGroup: boolean = false): void {
     if (signal in os.constants.signals) {
-      try {
-        // pty.kill will not be available on systems which don't support
-        // the TIOCSIG/TIOCSIGNAL ioctl
-        if (pty.kill && signal !== 'SIGHUP') {
-          pty.kill(this._fd, os.constants.signals[signal]);
-        } else {
-          process.kill(this.pid, signal);
-        }
-      } catch (e) { /* swallow */ }
+      // pty.kill will not be available on systems which don't support
+      // the TIOCSIG/TIOCSIGNAL ioctl
+      if (sendToProcessGroup && pty.kill) {
+        pty.kill(this._fd, os.constants.signals[signal]);
+      } else {
+        process.kill(this.pid, signal);
+      }
     } else {
       throw new Error('Unknown signal: ' + signal);
     }
