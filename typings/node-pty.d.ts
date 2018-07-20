@@ -71,10 +71,9 @@ declare module 'node-pty' {
 
     /**
      * Kills the pty.
-     * @param signal The signal to use, defaults to SIGHUP. If the TIOCSIG/TIOCSIGNAL ioctl is not
-     * supported then the process will be killed instead. This parameter is not supported on
+     * @param signal The signal to use, defaults to SIGHUP. This parameter is not supported on
      * Windows.
-     * @throws Will throw when signal is used on Windows. 
+     * @throws Will throw when signal is used on Windows.
      */
     kill(signal?: string): void;
   }
