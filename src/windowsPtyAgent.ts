@@ -7,7 +7,7 @@ import * as path from 'path';
 import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
 
-const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
+const pty = require(path.join('..', 'build', 'Debug', 'pty.node'));
 
 /**
  * Agent. Internal class.
@@ -77,6 +77,11 @@ export class WindowsPtyAgent {
     this._inSocket.setEncoding('utf8');
     this._inSocket.connect(term.conin);
     // TODO: Wait for ready event?
+
+    // TODO: Do we *need* to timeout here or wait for the sockets to connect?
+    //    or can we do this synchronously like this?
+    pty.connect();
+
   }
 
   public resize(cols: number, rows: number): void {

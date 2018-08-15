@@ -12,12 +12,17 @@ var ptyProcess = pty.spawn(shell, [], {
 });
 
 ptyProcess.on('data', function(data) {
-  console.log(data);
+  // console.log(data);
+  process.stdout.write(data);
 });
 
 ptyProcess.write('ls\r');
-ptyProcess.resize(100, 40);
-ptyProcess.write('ls\r');
+// ptyProcess.resize(100, 40);
+// ptyProcess.write('ls\r');
+
+setTimeout(() => {
+  ptyProcess.write('ls\r');
+}, 2000);
 
 setTimeout(() => {
   ptyProcess.kill()
