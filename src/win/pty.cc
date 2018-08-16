@@ -28,6 +28,18 @@ extern "C" void init(v8::Handle<v8::Object>);
 
 #define WINPTY_DBG_VARIABLE TEXT("WINPTYDBG")
 
+#ifndef PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE
+// Taken from the RS5 Windows SDK, but redefined here in case we're targeting <= 17134
+#define PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE \
+  ProcThreadAttributeValue(22, FALSE, TRUE, FALSE)
+
+typedef VOID* HPCON;
+typedef HRESULT (*PFNCREATEPSEUDOCONSOLE)(COORD c, HANDLE hIn, HANDLE hOut, DWORD dwFlags, HPCON* phpcon);
+typedef HRESULT (*PFNRESIZEPSEUDOCONSOLE)(HPCON hpc, COORD newSize);
+typedef void (*PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
+
+#endif
+
 /**
 * winpty
 */
@@ -113,21 +125,24 @@ static NAN_METHOD(PtyGetProcessList) {
   info.GetReturnValue().Set(result);
 }
 
-HANDLE hIn, hOut, hpc;
+// TODO these should probably not be globals
+HANDLE hIn, hOut;
+HPCON hpc;
 
 // Returns a new server named pipe.  It has not yet been connected.
-bool createDataServerPipe(bool write, std::wstring kind, HANDLE *hRead, HANDLE *hWrite, std::wstring &name)
+bool createDataServerPipe(bool write, std::wstring kind, HANDLE* hServer, std::wstring &name)
 {
+  *hServer = INVALID_HANDLE_VALUE;
+
+  // TODO generate unique names for each pipe
   name = L"\\\\.\\pipe\\conpty2-" + kind;
 
-  // const DWORD winOpenMode = ((openMode & OpenMode::Reading) ? PIPE_ACCESS_INBOUND : 0) | ((openMode & OpenMode::Writing) ? PIPE_ACCESS_OUTBOUND : 0) | FILE_FLAG_FIRST_PIPE_INSTANCE | FILE_FLAG_OVERLAPPED;
   const DWORD winOpenMode =  PIPE_ACCESS_INBOUND | PIPE_ACCESS_OUTBOUND | FILE_FLAG_FIRST_PIPE_INSTANCE/*  | FILE_FLAG_OVERLAPPED */;
-  // const auto sd = createPipeSecurityDescriptorOwnerFullControl();
-  // ASSERT(sd && "error creating data pipe SECURITY_DESCRIPTOR");
+
   SECURITY_ATTRIBUTES sa = {};
   sa.nLength = sizeof(sa);
-  // sa.lpSecurityDescriptor = sd.get();
-  *hRead = CreateNamedPipeW(
+
+  *hServer = CreateNamedPipeW(
       name.c_str(),
       /*dwOpenMode=*/winOpenMode,
       /*dwPipeMode=*/PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
@@ -137,66 +152,19 @@ bool createDataServerPipe(bool write, std::wstring kind, HANDLE *hRead, HANDLE *
       /*nDefaultTimeOut=*/30000,
       &sa);
 
-  // *hWrite = CreateFileW(name.c_str(), GENERIC_READ|GENERIC_WRITE, 0, 0, OPEN_EXISTING, 0, 0);
-  wprintf(L"%s:%x\n", name.c_str(), *hRead);
-  // Start an asynchronous connection attempt.
-  // m_connectEvent = createEvent();
-
-  // HANDLE ret = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-  // OVERLAPPED m_connectOver = {};
-  // memset(&m_connectOver, 0, sizeof(m_connectOver));
-  // m_connectOver.hEvent = ret;
-  // BOOL success = ConnectNamedPipe(*hRead, &m_connectOver);
-  // printf("ConnectNamedPipe: %d\n", success);
-  // const auto err = GetLastError();
-  // printf("ConnectNamedPipe: %d\n", err);
-
-  // if (!success && err == ERROR_PIPE_CONNECTED)
-  // {
-  //   success = TRUE;
-  // }
-  // if (success)
-  // {
-  //   // TRACE("Server pipe [%s] connected", utf8FromWide(name).c_str());
-  //   // m_connectEvent.dispose();
-  //   CloseHandle(ret);
-  //   // startPipeWorkers();
-  // }
-  // else if (err != ERROR_IO_PENDING)
-  // {
-  //   // ASSERT(false && "ConnectNamedPipe call failed");
-  //   // return false;
-  // }
-
-  // ConnectNamedPipe(*hRead, nullptr);
-  // return success;
-  return true;
-  // NamedPipe &pipe = createNamedPipe();
-  // pipe.openServerPipe(
-  //     name.c_str(),
-  //     write ? NamedPipe::OpenMode::Writing
-  //           : NamedPipe::OpenMode::Reading,
-  //     write ? 8192 : 0,
-  //     write ? 0 : 256);
-  // if (!write)
-  // {
-  //   pipe.setReadBufferSize(64 * 1024);
-  // }
-  // return pipe;
+  return *hServer != INVALID_HANDLE_VALUE;
 }
 
-typedef bool (*PFNCREATEPSEUDOCONSOLE)(COORD c, HANDLE hin, HANDLE hout, DWORD dwFlags, void* phpcon);
-
-HRESULT CreatePseudoConsoleAndHandles(COORD size,
-                                      _In_ DWORD dwFlags,
-                                      _Out_ HANDLE *phInput,
-                                      _Out_ HANDLE *phOutput,
-                                      _Out_ void *phPC, std::wstring& inName, std::wstring& outName)
+HRESULT CreateNamedPipesAndPseudoConsole(COORD size,
+                                         DWORD dwFlags,
+                                         HANDLE *phInput,
+                                         HANDLE *phOutput,
+                                         HPCON* phPC,
+                                         std::wstring& inName,
+                                         std::wstring& outName)
 {
-
   HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
   bool fLoadedDll = hLibrary != nullptr;
-  bool success = false;
   if (fLoadedDll)
   {
     PFNCREATEPSEUDOCONSOLE const pfnCreate = (PFNCREATEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "CreatePseudoConsole");
@@ -207,38 +175,35 @@ HRESULT CreatePseudoConsoleAndHandles(COORD size,
         return E_INVALIDARG;
       }
 
-      HANDLE outPipeOurSide;
-      HANDLE inPipeOurSide;
-      // HANDLE outPipePseudoConsoleSide;
-      // HANDLE inPipePseudoConsoleSide;
-      success = createDataServerPipe(true, L"in", &hIn, &inPipeOurSide, inName);
-      printf("createDataServerPipe0 %d;\n", success);
-      success = createDataServerPipe(true, L"out", &hOut, &outPipeOurSide, outName);
-      printf("createDataServerPipe1 %d;\n", success);
-
-      return pfnCreate(size, hIn, hOut, dwFlags, phPC);
+      bool success = createDataServerPipe(true, L"in", phInput, inName);
+      if (!success)
+      {
+        return HRESULT_FROM_WIN32(GetLastError());
+      }
+      success = createDataServerPipe(false, L"out", phOutput, outName);
+      if (!success)
+      {
+        return HRESULT_FROM_WIN32(GetLastError());
+      }
+      return pfnCreate(size, *phInput, *phOutput, dwFlags, phPC);
     }
-    else{
-
-      printf("Failed to load PFNCREATEPSEUDOCONSOLE\n");
+    else
+    {
+      // Failed to find CreatePseudoConsole in kernel32. This is likely because
+      //    the user is not running a build of Windows that supports that API.
+      //    We should fall back to winpty in this case.
+      return HRESULT_FROM_WIN32(GetLastError());
     }
-
   }
 
-  else
-  {
-    printf("Failed to load kernel32.dll\n");
-  }
-
-  return E_FAIL;
-
+  // Failed to find  kernel32. This is realy unlikely - honestly no idea how
+  //    this is even possible to hit. But if it does happen, fall back to winpty.
+  return HRESULT_FROM_WIN32(GetLastError());
 }
 
 static NAN_METHOD(PtyStartProcess) {
   Nan::HandleScope scope;
 
-  // HANDLE hpc;
-  HANDLE hIn, hOut;
   std::wstring inName, outName, str_cmdline;
   BOOL fSuccess = FALSE;
   std::unique_ptr<wchar_t[]> mutableCommandline;
@@ -300,18 +265,18 @@ static NAN_METHOD(PtyStartProcess) {
   int rows = info[5]->Int32Value();
   bool debug = info[6]->ToBoolean()->IsTrue();
 
-  fSuccess = CreatePseudoConsoleAndHandles({(SHORT)cols, (SHORT)rows}, 0, &hIn, &hOut, (void *)&hpc, inName, outName);
-  if (fSuccess)
+  HRESULT hr = CreateNamedPipesAndPseudoConsole({(SHORT)cols, (SHORT)rows}, 0, &hIn, &hOut, &hpc, inName, outName);
+
+  if (SUCCEEDED(hr))
   {
-    wprintf(L"succeeded:CreatePseudoConsoleAndHandles\n");
+    // We were able to instantiate a conpty, yay!
+    // TODO
   }
   else
   {
-    auto gle = GetLastError();
-    wprintf(L"CreatePseudoConsoleAndHandles GLE:%d\n", gle);
+    // We weren't able to start conpty. Fall back to winpty.
+    // TODO
   }
-
-
 
   // Enable/disable debugging
   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
@@ -369,12 +334,11 @@ static NAN_METHOD(PtyStartProcess) {
     // LPCWSTR coninPipeName = winpty_conin_name(pc);
     // std::wstring coninPipeNameWStr(coninPipeName);
     std::string coninPipeNameStr(inName.begin(), inName.end());
-    // marshal->Set(Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(coninPipeNameStr).ToLocalChecked());
     marshal->Set(Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(coninPipeNameStr).ToLocalChecked());
+
     // LPCWSTR conoutPipeName = winpty_conout_name(pc);
     // std::wstring conoutPipeNameWStr(conoutPipeName);
     std::string conoutPipeNameStr(outName.begin(), outName.end());
-    // marshal->Set(Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
     marshal->Set(Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
   }
   info.GetReturnValue().Set(marshal);
@@ -388,109 +352,62 @@ cleanup:
 }
 
 static NAN_METHOD(PtyConnect) {
+  // If we're working with conpty's we need to call ConnectNamedPipe here AFTER
+  //    the Socket has attempted to connect to the other end, then actually
+  //    spawn the process here.
+
   std::wstring str_cmdline;
   BOOL fSuccess = FALSE;
   std::unique_ptr<wchar_t[]> mutableCommandline;
   PROCESS_INFORMATION _piClient{};
   BOOL success = ConnectNamedPipe(hIn, nullptr);
-  // if (success)
-  // {
-  //   wprintf(L"succeeded:ConnectNamedPipe\n");
-  // }
-  // else
-  // {
-  //   wprintf(L"GLE:ConnectNamedPipe%d\n", GetLastError());
-  // }
   success = ConnectNamedPipe(hOut, nullptr);
-  // if (success)
-  // {
-  //   wprintf(L"succeeded:ConnectNamedPipe\n");
-  // }
-  // else
-  // {
-  //   wprintf(L"GLE:ConnectNamedPipe%d\n", GetLastError());
-  // }
 
-  auto foo = ProcThreadAttributeValue(22, FALSE, TRUE, FALSE);
-
+  // Attach the pseudoconsole to the client application we're creating
   STARTUPINFOEXW siEx;
   siEx = {0};
   siEx.StartupInfo.cb = sizeof(STARTUPINFOEXW);
   size_t size;
   InitializeProcThreadAttributeList(NULL, 1, 0, &size);
   BYTE *attrList = new BYTE[size];
-  printf("size:%d", size);
   siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(attrList);
 
   fSuccess = InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, (PSIZE_T)&size);
-  // if (fSuccess)
-  // {
-  //   wprintf(L"succeeded:InitializeProcThreadAttributeList\n");
-  // }
-  // else
-  // {
-  //   auto gle = GetLastError();
-  //   wprintf(L"InitializeProcThreadAttributeList GLE:%d\n", gle);
-  // }
-
   fSuccess = UpdateProcThreadAttribute(siEx.lpAttributeList,
                                        0,
-                                       foo,
+                                       PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
                                        hpc,
-                                       sizeof(void*),
+                                       sizeof(HPCON),
                                        NULL,
                                        NULL);
-  if (fSuccess)
-  {
-    wprintf(L"succeeded:UpdateProcThreadAttribute\n");
-  }
-  else
-  {
-    auto gle = GetLastError();
-    wprintf(L"UpdateProcThreadAttribute GLE:%d\n", gle);
-  }
 
-  // str_cmdline = cmdline;
-  // str_cmdline = L"c:\\windows\\system32\\cmd.exe";
+  // You need to pass a MUTABLE commandline to CreateProcess, so convert our const wchar_t* here.
   str_cmdline = L"powershell.exe";
   mutableCommandline = std::make_unique<wchar_t[]>(str_cmdline.length() + 1);
-  // THROW_IF_NULL_ALLOC(mutableCommandline);
-
   HRESULT hr = StringCchCopyW(mutableCommandline.get(), str_cmdline.length() + 1, str_cmdline.c_str());
-  // THROW_IF_FAILED(hr);
-  // DebugBreak();
 
   fSuccess = !!CreateProcessW(
       nullptr,
       mutableCommandline.get(),
       nullptr,                      // lpProcessAttributes
       nullptr,                      // lpThreadAttributes
-      false,                         // bInheritHandles
+      false,                        // bInheritHandles VERY IMPORTANT that this is false
       EXTENDED_STARTUPINFO_PRESENT, // dwCreationFlags
       nullptr,                      // lpEnvironment
       nullptr,                      // lpCurrentDirectory
       &siEx.StartupInfo,            // lpStartupInfo
       &_piClient                    // lpProcessInformation
   );
-  // if (fSuccess)
-  // {
-  //   wprintf(L"succeeded:CreateProcessW\n");
-  // }
-  // else
-  // {
-  //   wprintf(L"GLE:CreateProcessW%d\n", GetLastError());
-  // }
-  // wprintf(L"_piClient.hProcess %x\n", _piClient.hProcess);
-  // wprintf(L"_piClient.hThread %x\n", _piClient.hThread);
-  // wprintf(L"_piClient.dwProcessId %d\n", _piClient.dwProcessId);
-  // wprintf(L"_piClient.dwThreadId %d\n", _piClient.dwThreadId);
-  // WaitForSingleObject(_piClient.hProcess, 2000);
-  // GetExitCodeProcess(_piClient.hProcess, &dwExit);
-  // wprintf(L"_piClient.dwExit %d\n", dwExit);
+
+  // TODO: return the information about the client application out to the caller?
 
 }
 
 static NAN_METHOD(PtyResize) {
+
+  // TODO: If the pty is backed by conpty, call ResizePseudoConsole
+  // (using LoadLibrary/GetProcAddress to find ResizePseudoConsole if it exists)
+
   Nan::HandleScope scope;
 
   if (info.Length() != 3 ||
@@ -521,6 +438,10 @@ static NAN_METHOD(PtyResize) {
 }
 
 static NAN_METHOD(PtyKill) {
+
+  // TODO: If the pty is backed by conpty, call ClosePseudoConsole
+  // (using LoadLibrary/GetProcAddress to find ClosePseudoConsole if it exists)
+
   Nan::HandleScope scope;
 
   if (info.Length() != 2 ||
