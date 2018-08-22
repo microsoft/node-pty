@@ -422,6 +422,20 @@ static NAN_METHOD(PtyResize) {
   int cols = info[1]->Int32Value();
   int rows = info[2]->Int32Value();
 
+
+  // TODO: Share hLibrary between functions
+  HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
+  bool fLoadedDll = hLibrary != nullptr;
+  if (fLoadedDll)
+  {
+    PFNRESIZEPSEUDOCONSOLE const pfnResizePseudoConsole = (PFNRESIZEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ResizePseudoConsole");
+    if (pfnResizePseudoConsole)
+    {
+      COORD size = {cols, rows};
+      pfnResizePseudoConsole(hpc, size);
+    }
+  }
+
   winpty_t *pc = get_pipe_handle(handle);
 
   if (pc == nullptr) {
