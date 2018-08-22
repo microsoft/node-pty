@@ -67,6 +67,8 @@ npm run tsc
 npm install --global --production windows-build-tools
 ```
 
+The Windows SDK is also needed which can be [downloaded here](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk). Only the "Desktop C++ Apps" components are needed to be installed.
+
 ## Debugging
 
 [The wiki](https://github.com/Microsoft/node-pty/wiki/Debugging) contains instructions for debugging node-pty.
