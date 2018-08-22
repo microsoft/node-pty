@@ -6,7 +6,6 @@
 import * as net from 'net';
 import * as os from 'os';
 import * as path from 'path';
-import * as tty from 'tty';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
@@ -33,7 +32,7 @@ function errnoToString(errno: number): string {
   return errno.toString();
 }
 
-const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
+const pty = require(path.join('..', 'build', 'Debug', 'pty.node'));
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
