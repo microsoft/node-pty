@@ -442,6 +442,18 @@ static NAN_METHOD(PtyKill) {
   // TODO: If the pty is backed by conpty, call ClosePseudoConsole
   // (using LoadLibrary/GetProcAddress to find ClosePseudoConsole if it exists)
 
+  // TODO: Share hLibrary between functions
+  HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
+  bool fLoadedDll = hLibrary != nullptr;
+  if (fLoadedDll)
+  {
+    PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "CreatePseudoConsole");
+    if (pfnClosePseudoConsole)
+    {
+      pfnClosePseudoConsole(hpc);
+    }
+  }
+
   Nan::HandleScope scope;
 
   if (info.Length() != 2 ||
