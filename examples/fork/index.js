@@ -24,6 +24,10 @@ setTimeout(() => {
   ptyProcess.write('ls\r');
 }, 2000);
 
+process.on('exit', () => {
+  ptyProcess.kill();
+});
+
 setTimeout(() => {
-  ptyProcess.kill()
+  process.exit();
 }, 5000);
