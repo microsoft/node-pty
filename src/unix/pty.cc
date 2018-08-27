@@ -28,6 +28,7 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <signal.h>
 
 /* forkpty */
 /* http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html */
@@ -243,13 +244,13 @@ NAN_METHOD(PtyFork) {
   // and to avoid running signal handlers in the child
   // before exec* happened
   sigfillset(&newmask);
-  sigprocmask(SIG_SETMASK, &newmask, &oldmask);
+  pthread_sigmask(SIG_SETMASK, &newmask, &oldmask);
 
   pid_t pid = pty_forkpty(&master, nullptr, term, &winp);
 
   if (!pid) {
     // remove all signal handler from child
-    sig_action.sa_handler = SIG_DFL;  // set default as fallback
+    sig_action.sa_handler = SIG_DFL;
     sig_action.sa_flags = 0;
     sigemptyset(&sig_action.sa_mask);
     for (int i = 0 ; i < NSIG ; i++) {    // NSIG is a macro for all signals + 1
@@ -257,7 +258,7 @@ NAN_METHOD(PtyFork) {
     }
   }
   // reenable signals
-  sigprocmask(SIG_SETMASK, &oldmask, NULL);
+  pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
 
   if (pid) {
     for (i = 0; i < argl; i++) free(argv[i]);
