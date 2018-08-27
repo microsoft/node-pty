@@ -71,6 +71,11 @@ extern char **environ;
 #include <libproc.h>
 #endif
 
+/* NSIG - macro for highest signal + 1, should be defined */
+#ifndef NSIG
+#define NSIG 32
+#endif
+
 /**
  * Structs
  */
@@ -229,7 +234,30 @@ NAN_METHOD(PtyFork) {
 
   // fork the pty
   int master = -1;
+
+  sigset_t newmask, oldmask;
+  struct sigaction sig_action;
+
+  // temporarily block all signals
+  // this is needed due to a race condition in openpty
+  // and to avoid running signal handlers in the child
+  // before exec* happened
+  sigfillset(&newmask);
+  sigprocmask(SIG_SETMASK, &newmask, &oldmask);
+
   pid_t pid = pty_forkpty(&master, nullptr, term, &winp);
+
+  if (!pid) {
+    // remove all signal handler from child
+    sig_action.sa_handler = SIG_DFL;  // set default as fallback
+    sig_action.sa_flags = 0;
+    sigemptyset(&sig_action.sa_mask);
+    for (int i = 0 ; i < NSIG ; i++) {    // NSIG is a macro for all signals + 1
+      sigaction(i, &sig_action, NULL);
+    }
+  }
+  // reenable signals
+  sigprocmask(SIG_SETMASK, &oldmask, NULL);
 
   if (pid) {
     for (i = 0; i < argl; i++) free(argv[i]);
@@ -642,10 +670,6 @@ err:
 #endif
 }
 
-#ifndef NSIG
-#  define NSIG 32
-#endif
-
 static pid_t
 pty_forkpty(int *amaster,
             char *name,
@@ -653,14 +677,6 @@ pty_forkpty(int *amaster,
             const struct winsize *winp) {
 #if defined(__sun)
   int master, slave;
-  sigset_t newmask, oldmask;
-
-  // temporarily block all signals
-  // this is needed due to a race condition in openpty
-  // and to avoid running signal handlers in the child
-  // before exec* happened
-  sigfillset(&newmask);
-  sigprocmask(SIG_SETMASK, &newmask, &oldmask);
 
   int ret = pty_openpty(&master, &slave, name, termp, winp);
   if (ret == -1) return -1;
@@ -670,22 +686,10 @@ pty_forkpty(int *amaster,
 
   switch (pid) {
     case -1:  // error in fork, we are still in parent
-      sigprocmask(SIG_SETMASK, &oldmask, NULL);
       close(master);
       close(slave);
       return -1;
     case 0:  // we are in the child process
-      // remove all signal handler from child
-      struct sigaction sig_action;
-      sig_action.sa_handler = SIG_DFL;  // set default as fallback
-      sig_action.sa_flags = 0;
-      sigemptyset(&sig_action.sa_mask);
-      for (i = 0 ; i < NSIG ; i++) {    // NSIG is a macro for all signals + 1
-        sigaction(i, &sig_action, NULL);
-      }
-      // reenable signals
-      sigprocmask(SIG_SETMASK, &oldmask, NULL);
-
       close(master);
       setsid();
 
@@ -702,12 +706,8 @@ pty_forkpty(int *amaster,
 
       if (slave > 2) close(slave);
 
-
-
       return 0;
     default:  // we are in the parent process
-      // reenable signals
-      sigprocmask(SIG_SETMASK, &oldmask, NULL);
       close(slave);
       return pid;
   }
@@ -717,6 +717,7 @@ pty_forkpty(int *amaster,
   return forkpty(amaster, name, (termios *)termp, (winsize *)winp);
 #endif
 }
+
 
 /**
  * Init
