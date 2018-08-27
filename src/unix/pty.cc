@@ -147,9 +147,6 @@ NAN_METHOD(PtyFork) {
         "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, onexit)");
   }
 
-  // Make sure the process still listens to SIGINT
-  signal(SIGINT, SIG_DFL);
-
   // file
   v8::String::Utf8Value file(info[0]->ToString());
 
@@ -645,6 +642,10 @@ err:
 #endif
 }
 
+#ifndef NSIG
+#  define NSIG 32
+#endif
+
 static pid_t
 pty_forkpty(int *amaster,
             char *name,
@@ -652,6 +653,14 @@ pty_forkpty(int *amaster,
             const struct winsize *winp) {
 #if defined(__sun)
   int master, slave;
+  sigset_t newmask, oldmask;
+
+  // temporarily block all signals
+  // this is needed due to a race condition in openpty
+  // and to avoid running signal handlers in the child
+  // before exec* happened
+  sigfillset(&newmask);
+  sigprocmask(SIG_SETMASK, &newmask, &oldmask);
 
   int ret = pty_openpty(&master, &slave, name, termp, winp);
   if (ret == -1) return -1;
@@ -660,13 +669,24 @@ pty_forkpty(int *amaster,
   pid_t pid = fork();
 
   switch (pid) {
-    case -1:
+    case -1:  // error in fork, we are still in parent
+      sigprocmask(SIG_SETMASK, &oldmask, NULL);
       close(master);
       close(slave);
       return -1;
-    case 0:
-      close(master);
+    case 0:  // we are in the child process
+      // remove all signal handler from child
+      struct sigaction sig_action;
+      sig_action.sa_handler = SIG_DFL;  // set default as fallback
+      sig_action.sa_flags = 0;
+      sigemptyset(&sig_action.sa_mask);
+      for (i = 0 ; i < NSIG ; i++) {    // NSIG is a macro for all signals + 1
+        sigaction(i, &sig_action, NULL);
+      }
+      // reenable signals
+      sigprocmask(SIG_SETMASK, &oldmask, NULL);
 
+      close(master);
       setsid();
 
 #if defined(TIOCSCTTY)
@@ -682,8 +702,12 @@ pty_forkpty(int *amaster,
 
       if (slave > 2) close(slave);
 
+
+
       return 0;
-    default:
+    default:  // we are in the parent process
+      // reenable signals
+      sigprocmask(SIG_SETMASK, &oldmask, NULL);
       close(slave);
       return pid;
   }
