@@ -103,44 +103,45 @@ if (process.platform !== 'win32') {
         term.master.write('master\n');
       });
     });
-    describe('signals in parent and child - TEST SHOULD NOT WITH THIS LINE', function(): void {
+    describe('signals in parent and child', function(): void {
       it('SIGINT', function(done): void {
-        let pHandlerCalled = 0;
-        // tricky one: we have to remove all SIGINT listeners
-        // so mocha will not stop here due to some other listener
-        const listeners = process.listeners('SIGINT');
-        const handleSigInt = function(h: any): any {
-          return function(): void {
-              pHandlerCalled += 1;
-              process.removeListener('SIGINT', h);
-              for (let i = 0; i < listeners.length; ++i) {
-                process.on('SIGINT', listeners[i]);
-              }
-          }
-        };
-        process.removeAllListeners('SIGINT');
-        process.on('SIGINT', handleSigInt(handleSigInt));
-
-        const term = new UnixTerminal('node', [ '-e', `
-          process.on('SIGINT', () => {
-            console.log('SIGINT in child');
-          });
-          console.log('ready');
-          setTimeout(()=>null, 200);`
-        ]);
-        let buffer = '';
-        term.on('data', (data) => {
-          if (data === 'ready\r\n') {
-            process.kill(process.pid, 'SIGINT');
-            term.kill('SIGINT');
+        // this test is cumbersome - we have to run it in a sub process to
+        // see behavior of SIGINT handlers
+        const data = `
+        var pty = require('./lib/index');
+        process.on('SIGINT', () => console.log('SIGINT in parent'));
+        var ptyProcess = pty.spawn('node', ['-e', 'process.on("SIGINT", ()=>console.log("SIGINT in child"));setTimeout(() => null, 300);'], {
+          name: 'xterm-color',
+          cols: 80,
+          rows: 30,
+          cwd: process.env.HOME,
+          env: process.env
+        });
+        ptyProcess.on('data', function (data) {
+          console.log(data);
+        });
+        setTimeout(() => null, 500);
+        console.log('ready', ptyProcess.pid);
+        `;
+        let buffer: string[] = [];
+        const cp = require('child_process');
+        const p = cp.spawn('node', ['-e', data]);
+        let sub = '';
+        p.stdout.on('data', (data) => {
+          if (!data.toString().indexOf('ready')) {
+            sub = data.toString().split(' ')[1].slice(0, -1);
+            setTimeout(() => {
+              process.kill(parseInt(sub), 'SIGINT');  // SIGINT to child
+              p.kill('SIGINT');                       // SIGINT to parent
+              }, 200);
           } else {
-            buffer += data;
+            buffer.push(data.toString().replace(/^\s+|\s+$/g, ''));
           }
         });
-        term.on('exit', () => {
-          // should have called both handlers
-          assert.equal(pHandlerCalled, 1);
-          assert.equal(buffer, 'SIGINT in child\r\n');
+        p.on('close', () => {
+          // handlers in parent and child should have been triggered
+          assert.equal(buffer.indexOf('SIGINT in child') !== -1, true);
+          assert.equal(buffer.indexOf('SIGINT in parent') !== -1, true);
           done();
         });
       });
