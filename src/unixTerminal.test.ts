@@ -103,5 +103,99 @@ if (process.platform !== 'win32') {
         term.master.write('master\n');
       });
     });
+    describe('signals in parent and child - TEST SHOULD NOT WITH THIS LINE', function(): void {
+      it('SIGINT', function(done): void {
+        let pHandlerCalled = 0;
+        // tricky one: we have to remove all SIGINT listeners
+        // so mocha will not stop here due to some other listener
+        const listeners = process.listeners('SIGINT');
+        const handleSigInt = function(h: any): any {
+          return function(): void {
+              pHandlerCalled += 1;
+              process.removeListener('SIGINT', h);
+              for (let i = 0; i < listeners.length; ++i) {
+                process.on('SIGINT', listeners[i]);
+              }
+          }
+        };
+        process.removeAllListeners('SIGINT');
+        process.on('SIGINT', handleSigInt(handleSigInt));
+
+        const term = new UnixTerminal('node', [ '-e', `
+          process.on('SIGINT', () => {
+            console.log('SIGINT in child');
+          });
+          console.log('ready');
+          setTimeout(()=>null, 200);`
+        ]);
+        let buffer = '';
+        term.on('data', (data) => {
+          if (data === 'ready\r\n') {
+            process.kill(process.pid, 'SIGINT');
+            term.kill('SIGINT');
+          } else {
+            buffer += data;
+          }
+        });
+        term.on('exit', () => {
+          // should have called both handlers
+          assert.equal(pHandlerCalled, 1);
+          assert.equal(buffer, 'SIGINT in child\r\n');
+          done();
+        });
+      });
+      it('SIGHUP (child only)', function(done): void {
+        const term = new UnixTerminal('node', [ '-e', `
+        console.log('ready');
+        setTimeout(()=>console.log('timeout'), 200);`
+        ]);
+        let buffer = '';
+        term.on('data', (data) => {
+          if (data === 'ready\r\n') {
+            term.kill();
+          } else {
+            buffer += data;
+          }
+        });
+        term.on('exit', () => {
+          // no timeout in buffer
+          assert.equal(buffer, '');
+          done();
+        });
+      });
+      it('SIGUSR1', function(done): void {
+        let pHandlerCalled = 0;
+        const handleSigUsr = function(h: any): any {
+          return function(): void {
+            pHandlerCalled += 1;
+            process.removeListener('SIGUSR1', h);
+          }
+        };
+        process.on('SIGUSR1', handleSigUsr(handleSigUsr));
+
+        const term = new UnixTerminal('node', [ '-e', `
+        process.on('SIGUSR1', () => {
+          console.log('SIGUSR1 in child');
+        });
+        console.log('ready');
+        setTimeout(()=>null, 200);`
+        ]);
+        let buffer = '';
+        term.on('data', (data) => {
+          if (data === 'ready\r\n') {
+            process.kill(process.pid, 'SIGUSR1');
+            term.kill('SIGUSR1');
+          } else {
+            buffer += data;
+          }
+        });
+        term.on('exit', () => {
+          // should have called both handlers and only once
+          assert.equal(pHandlerCalled, 1);
+          assert.equal(buffer, 'SIGUSR1 in child\r\n');
+          done();
+        });
+      });
+    });
   });
 }
