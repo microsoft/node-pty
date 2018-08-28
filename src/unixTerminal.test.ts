@@ -104,7 +104,7 @@ if (process.platform !== 'win32') {
       });
     });
     describe('signals in parent and child', function(): void {
-      it('SIGINT', function(done): void {
+      it('SIGINT - custom in parent and child', function(done): void {
         // this test is cumbersome - we have to run it in a sub process to
         // see behavior of SIGINT handlers
         const data = `
@@ -145,7 +145,49 @@ if (process.platform !== 'win32') {
           done();
         });
       });
-      it('SIGHUP (child only)', function(done): void {
+      it('SIGINT - custom in parent, default in child', function(done): void {
+        // this tests the original idea of the signal(...) change in pty.cc:
+        // to make sure the SIGINT handler of a pty child is reset to default
+        // and does not interfere with the handler in the parent
+        const data = `
+        var pty = require('./lib/index');
+        process.on('SIGINT', () => console.log('SIGINT in parent'));
+        var ptyProcess = pty.spawn('node', ['-e', 'setTimeout(() => console.log("should not be printed"), 300);'], {
+          name: 'xterm-color',
+          cols: 80,
+          rows: 30,
+          cwd: process.env.HOME,
+          env: process.env
+        });
+        ptyProcess.on('data', function (data) {
+          console.log(data);
+        });
+        setTimeout(() => null, 500);
+        console.log('ready', ptyProcess.pid);
+        `;
+        let buffer: string[] = [];
+        const cp = require('child_process');
+        const p = cp.spawn('node', ['-e', data]);
+        let sub = '';
+        p.stdout.on('data', (data) => {
+          if (!data.toString().indexOf('ready')) {
+            sub = data.toString().split(' ')[1].slice(0, -1);
+            setTimeout(() => {
+              process.kill(parseInt(sub), 'SIGINT');  // SIGINT to child
+              p.kill('SIGINT');                       // SIGINT to parent
+            }, 200);
+          } else {
+            buffer.push(data.toString().replace(/^\s+|\s+$/g, ''));
+          }
+        });
+        p.on('close', () => {
+          // handlers in parent and child should have been triggered
+          assert.equal(buffer.indexOf('should not be printed') !== -1, false);
+          assert.equal(buffer.indexOf('SIGINT in parent') !== -1, true);
+          done();
+        });
+      });
+      it('SIGHUP default (child only)', function(done): void {
         const term = new UnixTerminal('node', [ '-e', `
         console.log('ready');
         setTimeout(()=>console.log('timeout'), 200);`
@@ -164,7 +206,7 @@ if (process.platform !== 'win32') {
           done();
         });
       });
-      it('SIGUSR1', function(done): void {
+      it('SIGUSR1 - custom in parent and child', function(done): void {
         let pHandlerCalled = 0;
         const handleSigUsr = function(h: any): any {
           return function(): void {
