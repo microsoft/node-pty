@@ -136,7 +136,9 @@ export function argsToCommandLine(file: string, args: ArgvOrCommandLine): string
       result += '\"';
     }
     let bsCount = 0;
-    for (let i = 0; i < arg.length; i++) {
+    let loopStart = quote ? 1 : 0;
+    let loopStop = quote ? arg.length - 1 : arg.length;
+    for (let i = loopStart; i < loopStop; i++) {
       const p = arg[i];
       if (p === '\\') {
         bsCount++;
