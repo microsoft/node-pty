@@ -2,9 +2,10 @@
  * Copyright (c) 2017, Daniel Imms (MIT License).
  */
 
- import * as fs from 'fs';
+import * as fs from 'fs';
 import * as assert from 'assert';
 import { WindowsTerminal } from './windowsTerminal';
+import * as path from 'path';
 
 if (process.platform === 'win32') {
   describe('WindowsTerminal', () => {
@@ -35,19 +36,27 @@ if (process.platform === 'win32') {
     });
 
     describe('Args as CommandLine', () => {
-      it('should not fail running a shell containing a space in the path', (done) => {
-        const gitBashDefaultPath = 'C:\\Program Files\\Git\\bin\\bash.exe';
-        if (!fs.existsSync(gitBashDefaultPath)) {
+      it('should not fail running a file containing a space in the path', (done) => {
+        const spaceFolder = path.resolve(__dirname, '..', 'fixtures', 'space folder');
+        if (!fs.existsSync(spaceFolder)) {
+          fs.mkdirSync(spaceFolder);
+        }
+
+        const cmdCopiedPath = path.resolve(spaceFolder, 'cmd.exe');
+        const data = fs.readFileSync(`${process.env.windir}\\System32\\cmd.exe`);
+        fs.writeFileSync(cmdCopiedPath, data);
+
+        if (!fs.existsSync(cmdCopiedPath)) {
           // Skip test if git bash isn't installed
           return;
         }
-        const term = new WindowsTerminal(gitBashDefaultPath, '-c "echo helloworld"', {});
+        const term = new WindowsTerminal(cmdCopiedPath, '/c echo "hello world"', {});
         let result = '';
         term.on('data', (data) => {
           result += data;
         });
         term.on('exit', () => {
-          assert.ok(result.indexOf('helloworld') >= 0);
+          assert.ok(result.indexOf('hello world') >= 1);
           done();
         });
       });
