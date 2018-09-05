@@ -128,17 +128,19 @@ export function argsToCommandLine(file: string, args: ArgvOrCommandLine): string
       result += ' ';
     }
     const arg = argv[argIndex];
+    // if it is empty or it contains whitespace and is not already quoted
     const quote =
-      arg.indexOf(' ') !== -1 ||
-      arg.indexOf('\t') !== -1 ||
-      arg === '';
+      arg === '' ||
+      (arg.indexOf(' ') !== -1 ||
+      arg.indexOf('\t') !== -1) &&
+      ((arg.length > 1) &&
+      ((arg[0] !== '"') &&
+      (arg[arg.length - 1] !== '"')));
     if (quote) {
       result += '\"';
     }
     let bsCount = 0;
-    let loopStart = quote ? 1 : 0;
-    let loopStop = quote ? arg.length - 1 : arg.length;
-    for (let i = loopStart; i < loopStop; i++) {
+    for (let i = 0; i < arg.length; i++) {
       const p = arg[i];
       if (p === '\\') {
         bsCount++;
