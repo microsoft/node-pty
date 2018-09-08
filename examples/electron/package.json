@@ -13,6 +13,6 @@
   },
   "dependencies": {
     "node-pty": "^0.7.4",
-    "xterm": "^3.6.0"
+    "xterm": "3.7.0"
   }
 }
