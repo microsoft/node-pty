@@ -69,7 +69,7 @@ npm install --global --production windows-build-tools
 
 ## Debugging
 
-On Windows, you can show the winpty agent console window by adding the environment variable `WINPTY_SHOW_CONSOLE=1` to the pty's environment. See https://github.com/rprichard/winpty#debugging-winpty for more information.
+[The wiki](https://github.com/Microsoft/node-pty/wiki/Debugging) contains instructions for debugging node-pty.
 
 ## Troubleshooting
 
