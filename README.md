@@ -59,7 +59,15 @@ npm install
 npm run tsc
 ```
 
-### Dependencies on Windows
+## Dependencies
+
+### Linux/Ubuntu
+
+```
+sudo apt install -y make python build-essential
+```
+
+### Windows
 
 `npm install` requires some tools to be present in the system like Python and C++ compiler. Windows users can easily install them by running the following command in PowerShell as administrator. For more information see https://github.com/felixrieseberg/windows-build-tools:
 
