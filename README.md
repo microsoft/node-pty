@@ -71,6 +71,10 @@ npm install --global --production windows-build-tools
 
 [The wiki](https://github.com/Microsoft/node-pty/wiki/Debugging) contains instructions for debugging node-pty.
 
+## Security
+
+All processes launched from node-pty will launch at the same permission level of the parent process. Take care particularly when using node-pty inside a server that's accessible on the internet. We recommend launching the pty inside a container to protect your host machine.
+
 ## Troubleshooting
 
 **Powershell gives error 8009001d**
