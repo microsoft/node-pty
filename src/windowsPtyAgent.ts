@@ -129,13 +129,14 @@ export function argsToCommandLine(file: string, args: ArgvOrCommandLine): string
     }
     const arg = argv[argIndex];
     // if it is empty or it contains whitespace and is not already quoted
+    const hasLopsidedEnclosingQuote = xOr((arg[0] !== '"'), (arg[arg.length - 1] !== '"'));
+    const hasNoEnclosingQuotes = ((arg[0] !== '"') && (arg[arg.length - 1] !== '"'));
     const quote =
       arg === '' ||
       (arg.indexOf(' ') !== -1 ||
       arg.indexOf('\t') !== -1) &&
       ((arg.length > 1) &&
-      ((arg[0] !== '"') &&
-      (arg[arg.length - 1] !== '"')));
+      (hasLopsidedEnclosingQuote || hasNoEnclosingQuotes));
     if (quote) {
       result += '\"';
     }
@@ -174,4 +175,8 @@ function repeatText(text: string, count: number): string {
     result += text;
   }
   return result;
+}
+
+function xOr(arg1: boolean, arg2: boolean): boolean {
+  return ((arg1 && !arg2) || (!arg1 && arg2));
 }
