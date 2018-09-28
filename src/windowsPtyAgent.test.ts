@@ -64,10 +64,10 @@ if (process.platform === 'win32') {
         check('asdf', ['quotes "in the" middle'], 'asdf "quotes \\"in the\\" middle"');
       });
       it('array argument quotes near start', () => {
-        check('asdf', ['"quotes" near start'], 'asdf \\"quotes\\" near start');
+        check('asdf', ['"quotes" near start'], 'asdf "\\"quotes\\" near start"');
       });
       it('array argument quotes near end', () => {
-        check('asdf', ['quotes "near end"'], 'asdf quotes \\"near end\\"');
+        check('asdf', ['quotes "near end"'], 'asdf "quotes \\"near end\\""');
       });
     });
 
