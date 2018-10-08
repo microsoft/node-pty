@@ -77,8 +77,7 @@ All processes launched from node-pty will launch at the same permission level of
 
 ## Thread Safety
 
-node-pty is not thread safe and should only be used in a single thread.  
-see https://nodejs.org/api/worker_threads.html
+Note that node-pty is not thread safe so running it across multiple worker threads in node.js could cause issues.
 
 ## Troubleshooting
 
