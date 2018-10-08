@@ -85,7 +85,8 @@ export class WindowsPtyAgent {
   }
 
   public resize(cols: number, rows: number): void {
-    pty.resize(this._pid, cols, rows);
+    // TODO: Don't pass 0 in after pid is getting filled correctly
+    pty.resize(this._pid || 0, cols, rows);
   }
 
   public kill(): void {
@@ -93,7 +94,8 @@ export class WindowsPtyAgent {
     this._inSocket.writable = false;
     this._outSocket.readable = false;
     this._outSocket.writable = false;
-    const processList: number[] = pty.getProcessList(this._pid);
+    // TODO: Don't pass in 0!
+    const processList: number[] = pty.getProcessList(this._pid || 0);
     // Tell the agent to kill the pty, this releases handles to the process
     pty.kill(this._pid, this._innerPidHandle);
     // Since pty.kill will kill most processes by itself and process IDs can be

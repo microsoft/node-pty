@@ -1,12 +1,12 @@
 var os = require('os');
 var pty = require('../..');
 
-var shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
+var shell = os.platform() === 'win32' ? 'cmd.exe' : 'bash';
 
 var ptyProcess = pty.spawn(shell, [], {
-  name: 'xterm-color',
+  name: 'xterm-256color',
   cols: 80,
-  rows: 30,
+  rows: 19,
   cwd: process.env.HOME,
   env: process.env
 });
@@ -16,12 +16,12 @@ ptyProcess.on('data', function(data) {
   process.stdout.write(data);
 });
 
-ptyProcess.write('ls\r');
-// ptyProcess.resize(100, 40);
+ptyProcess.write('dir\r');
 // ptyProcess.write('ls\r');
 
 setTimeout(() => {
-  ptyProcess.write('ls\r');
+  ptyProcess.resize(30, 19);
+  ptyProcess.write('dir\r');
 }, 2000);
 
 process.on('exit', () => {
@@ -30,4 +30,4 @@ process.on('exit', () => {
 
 setTimeout(() => {
   process.exit();
-}, 5000);
+}, 4000);

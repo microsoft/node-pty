@@ -15,7 +15,6 @@
 #include <string.h>
 #include <string>
 #include <vector>
-#include <winpty.h>
 #include <Windows.h>
 #include <strsafe.h>
 #include "path_util.h"
@@ -26,7 +25,7 @@
 */
 extern "C" void init(v8::Handle<v8::Object>);
 
-#define WINPTY_DBG_VARIABLE TEXT("WINPTYDBG")
+// #define WINPTY_DBG_VARIABLE TEXT("WINPTYDBG")
 
 #ifndef PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE
 // Taken from the RS5 Windows SDK, but redefined here in case we're targeting <= 17134
@@ -43,45 +42,45 @@ typedef void (*PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
 /**
 * winpty
 */
-static std::vector<winpty_t *> ptyHandles;
+// static std::vector<winpty_t *> ptyHandles;
 static volatile LONG ptyCounter;
 
 /**
 * Helpers
 */
 
-static winpty_t *get_pipe_handle(int handle) {
-  for (size_t i = 0; i < ptyHandles.size(); ++i) {
-    winpty_t *ptyHandle = ptyHandles[i];
-    int current = (int)winpty_agent_process(ptyHandle);
-    if (current == handle) {
-      return ptyHandle;
-    }
-  }
-  return nullptr;
-}
+// static winpty_t *get_pipe_handle(int handle) {
+//   for (size_t i = 0; i < ptyHandles.size(); ++i) {
+//     winpty_t *ptyHandle = ptyHandles[i];
+//     int current = (int)winpty_agent_process(ptyHandle);
+//     if (current == handle) {
+//       return ptyHandle;
+//     }
+//   }
+//   return nullptr;
+// }
 
-static bool remove_pipe_handle(int handle) {
-  for (size_t i = 0; i < ptyHandles.size(); ++i) {
-    winpty_t *ptyHandle = ptyHandles[i];
-    if ((int)winpty_agent_process(ptyHandle) == handle) {
-      winpty_free(ptyHandle);
-      ptyHandles.erase(ptyHandles.begin() + i);
-      ptyHandle = nullptr;
-      return true;
-    }
-  }
-  return false;
-}
+// static bool remove_pipe_handle(int handle) {
+//   for (size_t i = 0; i < ptyHandles.size(); ++i) {
+//     winpty_t *ptyHandle = ptyHandles[i];
+//     if ((int)winpty_agent_process(ptyHandle) == handle) {
+//       winpty_free(ptyHandle);
+//       ptyHandles.erase(ptyHandles.begin() + i);
+//       ptyHandle = nullptr;
+//       return true;
+//     }
+//   }
+//   return false;
+// }
 
-void throw_winpty_error(const char *generalMsg, winpty_error_ptr_t error_ptr) {
-  std::stringstream why;
-  std::wstring msg(winpty_error_msg(error_ptr));
-  std::string msg_(msg.begin(), msg.end());
-  why << generalMsg << ": " << msg_;
-  Nan::ThrowError(why.str().c_str());
-  winpty_error_free(error_ptr);
-}
+// void throw_winpty_error(const char *generalMsg, winpty_error_ptr_t error_ptr) {
+//   std::stringstream why;
+//   std::wstring msg(winpty_error_msg(error_ptr));
+//   std::string msg_(msg.begin(), msg.end());
+//   why << generalMsg << ": " << msg_;
+//   Nan::ThrowError(why.str().c_str());
+//   winpty_error_free(error_ptr);
+// }
 
 static NAN_METHOD(PtyGetExitCode) {
   Nan::HandleScope scope;
@@ -109,20 +108,20 @@ static NAN_METHOD(PtyGetProcessList) {
 
   int pid = info[0]->Int32Value();
 
-  winpty_t *pc = get_pipe_handle(pid);
-  if (pc == nullptr) {
+  // winpty_t *pc = get_pipe_handle(pid);
+  // if (pc == nullptr) {
     info.GetReturnValue().Set(Nan::New<v8::Array>(0));
     return;
-  }
-  int processList[64];
-  const int processCount = 64;
-  int actualCount = winpty_get_console_process_list(pc, processList, processCount, nullptr);
+  // }
+  // int processList[64];
+  // const int processCount = 64;
+  // int actualCount = winpty_get_console_process_list(pc, processList, processCount, nullptr);
 
-  v8::Local<v8::Array> result = Nan::New<v8::Array>(actualCount);
-  for (uint32_t i = 0; i < actualCount; i++) {
-    Nan::Set(result, i, Nan::New<v8::Number>(processList[i]));
-  }
-  info.GetReturnValue().Set(result);
+  // v8::Local<v8::Array> result = Nan::New<v8::Array>(actualCount);
+  // for (uint32_t i = 0; i < actualCount; i++) {
+  //   Nan::Set(result, i, Nan::New<v8::Number>(processList[i]));
+  // }
+  // info.GetReturnValue().Set(result);
 }
 
 // TODO these should probably not be globals
@@ -279,55 +278,57 @@ static NAN_METHOD(PtyStartProcess) {
   }
 
   // Enable/disable debugging
-  SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
+  // SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
 
   // Create winpty config
-  winpty_error_ptr_t error_ptr = nullptr;
-  winpty_config_t* winpty_config = winpty_config_new(0, &error_ptr);
-  if (winpty_config == nullptr) {
-    throw_winpty_error("Error creating WinPTY config", error_ptr);
-    goto cleanup;
-  }
-  winpty_error_free(error_ptr);
+  // winpty_error_ptr_t error_ptr = nullptr;
+  // winpty_config_t* winpty_config = winpty_config_new(0, &error_ptr);
+  // if (winpty_config == nullptr) {
+  //   throw_winpty_error("Error creating WinPTY config", error_ptr);
+  //   goto cleanup;
+  // }
+  // winpty_error_free(error_ptr);
 
-  // Set pty size on config
-  winpty_config_set_initial_size(winpty_config, cols, rows);
+  // // Set pty size on config
+  // winpty_config_set_initial_size(winpty_config, cols, rows);
 
-  // Start the pty agent
-  winpty_t *pc = winpty_open(winpty_config, &error_ptr);
-  winpty_config_free(winpty_config);
-  if (pc == nullptr) {
-    throw_winpty_error("Error launching WinPTY agent", error_ptr);
-    goto cleanup;
-  }
-  winpty_error_free(error_ptr);
+  // // Start the pty agent
+  // winpty_t *pc = winpty_open(winpty_config, &error_ptr);
+  // winpty_config_free(winpty_config);
+  // if (pc == nullptr) {
+  //   throw_winpty_error("Error launching WinPTY agent", error_ptr);
+  //   goto cleanup;
+  // }
+  // winpty_error_free(error_ptr);
 
   // Save pty struct for later use
-  ptyHandles.insert(ptyHandles.end(), pc);
+  // ptyHandles.insert(ptyHandles.end(), pc);
 
   // Create winpty spawn config
-  winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, env.c_str(), &error_ptr);
-  if (config == nullptr) {
-    throw_winpty_error("Error creating WinPTY spawn config", error_ptr);
-    goto cleanup;
-  }
-  winpty_error_free(error_ptr);
+  // winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, env.c_str(), &error_ptr);
+  // if (config == nullptr) {
+  //   throw_winpty_error("Error creating WinPTY spawn config", error_ptr);
+  //   goto cleanup;
+  // }
+  // winpty_error_free(error_ptr);
 
   // Spawn the new process
-  HANDLE handle = nullptr;
-  BOOL spawnSuccess = winpty_spawn(pc, config, &handle, nullptr, nullptr, &error_ptr);
-  winpty_spawn_config_free(config);
-  if (!spawnSuccess) {
-    throw_winpty_error("Unable to start terminal process", error_ptr);
-    goto cleanup;
-  }
-  winpty_error_free(error_ptr);
+  // HANDLE handle = nullptr;
+  // BOOL spawnSuccess = winpty_spawn(pc, config, &handle, nullptr, nullptr, &error_ptr);
+  // winpty_spawn_config_free(config);
+  // if (!spawnSuccess) {
+  //   throw_winpty_error("Unable to start terminal process", error_ptr);
+  //   goto cleanup;
+  // }
+  // winpty_error_free(error_ptr);
 
   // Set return values
   v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
-  marshal->Set(Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>((int)GetProcessId(handle)));
-  marshal->Set(Nan::New<v8::String>("innerPidHandle").ToLocalChecked(), Nan::New<v8::Number>((int)handle));
-  marshal->Set(Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>((int)winpty_agent_process(pc)));
+  // TODO: Pull in innerPid, innerPidHandle(?)
+  // marshal->Set(Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>((int)GetProcessId(handle)));
+  // marshal->Set(Nan::New<v8::String>("innerPidHandle").ToLocalChecked(), Nan::New<v8::Number>((int)handle));
+  // TODO: Pull in pid
+  // marshal->Set(Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>((int)winpty_agent_process(pc)));
   marshal->Set(Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(InterlockedIncrement(&ptyCounter)));
   marshal->Set(Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
   {
@@ -436,17 +437,17 @@ static NAN_METHOD(PtyResize) {
     }
   }
 
-  winpty_t *pc = get_pipe_handle(handle);
+  // winpty_t *pc = get_pipe_handle(handle);
 
-  if (pc == nullptr) {
-    Nan::ThrowError("The pty doesn't appear to exist");
-    return;
-  }
-  BOOL success = winpty_set_size(pc, cols, rows, nullptr);
-  if (!success) {
-    Nan::ThrowError("The pty could not be resized");
-    return;
-  }
+  // if (pc == nullptr) {
+  //   Nan::ThrowError("The pty doesn't appear to exist");
+  //   return;
+  // }
+  // BOOL success = winpty_set_size(pc, cols, rows, nullptr);
+  // if (!success) {
+  //   Nan::ThrowError("The pty could not be resized");
+  //   return;
+  // }
 
   return info.GetReturnValue().SetUndefined();
 }
@@ -470,24 +471,24 @@ static NAN_METHOD(PtyKill) {
 
   Nan::HandleScope scope;
 
-  if (info.Length() != 2 ||
-      !info[0]->IsNumber() ||
-      !info[1]->IsNumber()) {
-    Nan::ThrowError("Usage: pty.kill(pid, innerPidHandle)");
-    return;
-  }
+  // if (info.Length() != 2 ||
+  //     !info[0]->IsNumber() ||
+  //     !info[1]->IsNumber()) {
+  //   Nan::ThrowError("Usage: pty.kill(pid, innerPidHandle)");
+  //   return;
+  // }
 
-  int handle = info[0]->Int32Value();
-  HANDLE innerPidHandle = (HANDLE)info[1]->Int32Value();
+  // int handle = info[0]->Int32Value();
+  // HANDLE innerPidHandle = (HANDLE)info[1]->Int32Value();
 
-  winpty_t *pc = get_pipe_handle(handle);
-  if (pc == nullptr) {
-    Nan::ThrowError("Pty seems to have been killed already");
-    return;
-  }
+  // winpty_t *pc = get_pipe_handle(handle);
+  // if (pc == nullptr) {
+  //   Nan::ThrowError("Pty seems to have been killed already");
+  //   return;
+  // }
 
-  assert(remove_pipe_handle(handle));
-  CloseHandle(innerPidHandle);
+  // assert(remove_pipe_handle(handle));
+  // CloseHandle(innerPidHandle);
 
   return info.GetReturnValue().SetUndefined();
 }
