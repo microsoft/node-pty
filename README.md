@@ -75,6 +75,11 @@ npm install --global --production windows-build-tools
 
 All processes launched from node-pty will launch at the same permission level of the parent process. Take care particularly when using node-pty inside a server that's accessible on the internet. We recommend launching the pty inside a container to protect your host machine.
 
+## Thread Safety
+
+node-pty is not thread safe and should only be used in a single thread.  
+see https://nodejs.org/api/worker_threads.html
+
 ## Troubleshooting
 
 **Powershell gives error 8009001d**
