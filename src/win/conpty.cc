@@ -20,15 +20,12 @@
 #include "path_util.h"
 #include "..\..\deps\winpty\src\shared\GenRandom.h"
 #include "..\..\deps\winpty\src\shared\StringBuilder.h"
-/**
-* Misc
-*/
+
+
 extern "C" void init(v8::Handle<v8::Object>);
 
-// #define WINPTY_DBG_VARIABLE TEXT("WINPTYDBG")
-
-#ifndef PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE
 // Taken from the RS5 Windows SDK, but redefined here in case we're targeting <= 17134
+#ifndef PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE
 #define PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE \
   ProcThreadAttributeValue(22, FALSE, TRUE, FALSE)
 
@@ -39,48 +36,7 @@ typedef void (*PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
 
 #endif
 
-/**
-* winpty
-*/
-// static std::vector<winpty_t *> ptyHandles;
 static volatile LONG ptyCounter;
-
-/**
-* Helpers
-*/
-
-// static winpty_t *get_pipe_handle(int handle) {
-//   for (size_t i = 0; i < ptyHandles.size(); ++i) {
-//     winpty_t *ptyHandle = ptyHandles[i];
-//     int current = (int)winpty_agent_process(ptyHandle);
-//     if (current == handle) {
-//       return ptyHandle;
-//     }
-//   }
-//   return nullptr;
-// }
-
-// static bool remove_pipe_handle(int handle) {
-//   for (size_t i = 0; i < ptyHandles.size(); ++i) {
-//     winpty_t *ptyHandle = ptyHandles[i];
-//     if ((int)winpty_agent_process(ptyHandle) == handle) {
-//       winpty_free(ptyHandle);
-//       ptyHandles.erase(ptyHandles.begin() + i);
-//       ptyHandle = nullptr;
-//       return true;
-//     }
-//   }
-//   return false;
-// }
-
-// void throw_winpty_error(const char *generalMsg, winpty_error_ptr_t error_ptr) {
-//   std::stringstream why;
-//   std::wstring msg(winpty_error_msg(error_ptr));
-//   std::string msg_(msg.begin(), msg.end());
-//   why << generalMsg << ": " << msg_;
-//   Nan::ThrowError(why.str().c_str());
-//   winpty_error_free(error_ptr);
-// }
 
 static NAN_METHOD(PtyGetExitCode) {
   Nan::HandleScope scope;
@@ -277,51 +233,6 @@ static NAN_METHOD(PtyStartProcess) {
     // TODO
   }
 
-  // Enable/disable debugging
-  // SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
-
-  // Create winpty config
-  // winpty_error_ptr_t error_ptr = nullptr;
-  // winpty_config_t* winpty_config = winpty_config_new(0, &error_ptr);
-  // if (winpty_config == nullptr) {
-  //   throw_winpty_error("Error creating WinPTY config", error_ptr);
-  //   goto cleanup;
-  // }
-  // winpty_error_free(error_ptr);
-
-  // // Set pty size on config
-  // winpty_config_set_initial_size(winpty_config, cols, rows);
-
-  // // Start the pty agent
-  // winpty_t *pc = winpty_open(winpty_config, &error_ptr);
-  // winpty_config_free(winpty_config);
-  // if (pc == nullptr) {
-  //   throw_winpty_error("Error launching WinPTY agent", error_ptr);
-  //   goto cleanup;
-  // }
-  // winpty_error_free(error_ptr);
-
-  // Save pty struct for later use
-  // ptyHandles.insert(ptyHandles.end(), pc);
-
-  // Create winpty spawn config
-  // winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, env.c_str(), &error_ptr);
-  // if (config == nullptr) {
-  //   throw_winpty_error("Error creating WinPTY spawn config", error_ptr);
-  //   goto cleanup;
-  // }
-  // winpty_error_free(error_ptr);
-
-  // Spawn the new process
-  // HANDLE handle = nullptr;
-  // BOOL spawnSuccess = winpty_spawn(pc, config, &handle, nullptr, nullptr, &error_ptr);
-  // winpty_spawn_config_free(config);
-  // if (!spawnSuccess) {
-  //   throw_winpty_error("Unable to start terminal process", error_ptr);
-  //   goto cleanup;
-  // }
-  // winpty_error_free(error_ptr);
-
   // Set return values
   v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
   // TODO: Pull in innerPid, innerPidHandle(?)
@@ -405,10 +316,6 @@ static NAN_METHOD(PtyConnect) {
 }
 
 static NAN_METHOD(PtyResize) {
-
-  // TODO: If the pty is backed by conpty, call ResizePseudoConsole
-  // (using LoadLibrary/GetProcAddress to find ResizePseudoConsole if it exists)
-
   Nan::HandleScope scope;
 
   if (info.Length() != 3 ||
@@ -437,22 +344,11 @@ static NAN_METHOD(PtyResize) {
     }
   }
 
-  // winpty_t *pc = get_pipe_handle(handle);
-
-  // if (pc == nullptr) {
-  //   Nan::ThrowError("The pty doesn't appear to exist");
-  //   return;
-  // }
-  // BOOL success = winpty_set_size(pc, cols, rows, nullptr);
-  // if (!success) {
-  //   Nan::ThrowError("The pty could not be resized");
-  //   return;
-  // }
-
   return info.GetReturnValue().SetUndefined();
 }
 
 static NAN_METHOD(PtyKill) {
+  Nan::HandleScope scope;
 
   // TODO: If the pty is backed by conpty, call ClosePseudoConsole
   // (using LoadLibrary/GetProcAddress to find ClosePseudoConsole if it exists)
@@ -468,27 +364,6 @@ static NAN_METHOD(PtyKill) {
       pfnClosePseudoConsole(hpc);
     }
   }
-
-  Nan::HandleScope scope;
-
-  // if (info.Length() != 2 ||
-  //     !info[0]->IsNumber() ||
-  //     !info[1]->IsNumber()) {
-  //   Nan::ThrowError("Usage: pty.kill(pid, innerPidHandle)");
-  //   return;
-  // }
-
-  // int handle = info[0]->Int32Value();
-  // HANDLE innerPidHandle = (HANDLE)info[1]->Int32Value();
-
-  // winpty_t *pc = get_pipe_handle(handle);
-  // if (pc == nullptr) {
-  //   Nan::ThrowError("Pty seems to have been killed already");
-  //   return;
-  // }
-
-  // assert(remove_pipe_handle(handle));
-  // CloseHandle(innerPidHandle);
 
   return info.GetReturnValue().SetUndefined();
 }
