@@ -94,7 +94,7 @@ export class WindowsPtyAgent {
     //    or can we do this synchronously like this?
     if (useConpty) {
       const connect = pty.connect();
-      this._pid = connect.pid;
+      this._innerPid = connect.pid;
     }
   }
 
