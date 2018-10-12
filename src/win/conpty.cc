@@ -263,6 +263,8 @@ cleanup:
 }
 
 static NAN_METHOD(PtyConnect) {
+  Nan::HandleScope scope;
+
   // If we're working with conpty's we need to call ConnectNamedPipe here AFTER
   //    the Socket has attempted to connect to the other end, then actually
   //    spawn the process here.
@@ -271,6 +273,7 @@ static NAN_METHOD(PtyConnect) {
   BOOL fSuccess = FALSE;
   std::unique_ptr<wchar_t[]> mutableCommandline;
   PROCESS_INFORMATION _piClient{};
+  v8::Local<v8::Object> marshal;
   BOOL success = ConnectNamedPipe(hIn, nullptr);
   success = ConnectNamedPipe(hOut, nullptr);
 
@@ -311,7 +314,9 @@ static NAN_METHOD(PtyConnect) {
   );
 
   // TODO: return the information about the client application out to the caller?
-
+  marshal = Nan::New<v8::Object>();
+  marshal->Set(Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>(_piClient.dwProcessId));
+  info.GetReturnValue().Set(marshal);
 }
 
 static NAN_METHOD(PtyResize) {

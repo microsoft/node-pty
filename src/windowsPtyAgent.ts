@@ -51,6 +51,7 @@ export class WindowsPtyAgent {
       console.log('useConpty?', useConpty);
       pty = require(path.join('..', 'build', 'Debug', `${useConpty ? 'conpty' : 'winpty'}.node`));
     }
+
     // Sanitize input variable.
     cwd = path.resolve(cwd);
 
@@ -61,7 +62,9 @@ export class WindowsPtyAgent {
     const term = pty.startProcess(file, commandLine, env, cwd, cols, rows, debug);
 
     // Terminal pid.
-    this._pid = term.pid;
+    if (!useConpty) {
+      this._pid = term.pid;
+    }
     this._innerPid = term.innerPid;
     this._innerPidHandle = term.innerPidHandle;
 
@@ -89,8 +92,10 @@ export class WindowsPtyAgent {
 
     // TODO: Do we *need* to timeout here or wait for the sockets to connect?
     //    or can we do this synchronously like this?
-    pty.connect();
-
+    if (useConpty) {
+      const connect = pty.connect();
+      this._pid = connect.pid;
+    }
   }
 
   public resize(cols: number, rows: number): void {
