@@ -60,14 +60,7 @@
         {
           'target_name': 'conpty',
           'include_dirs' : [
-            '<!(node -e "require(\'nan\')")',
-            'deps/winpty/src/include',
-          ],
-          # TODO: Remove this
-          'msvs_disabled_warnings': [ 4506, 4530 ],
-          'dependencies' : [
-            'deps/winpty/src/winpty.gyp:winpty-agent',
-            'deps/winpty/src/winpty.gyp:winpty',
+            '<!(node -e "require(\'nan\')")'
           ],
           'sources' : [
             'src/win/conpty.cc',

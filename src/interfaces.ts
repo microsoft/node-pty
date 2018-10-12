@@ -115,6 +115,7 @@ export interface IPtyForkOptions {
   uid?: number;
   gid?: number;
   encoding?: string;
+  experimentalUseConpty?: boolean;
 }
 
 export interface IPtyOpenOptions {

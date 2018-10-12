@@ -18,8 +18,6 @@
 #include <Windows.h>
 #include <strsafe.h>
 #include "path_util.h"
-#include "..\..\deps\winpty\src\shared\GenRandom.h"
-#include "..\..\deps\winpty\src\shared\StringBuilder.h"
 
 
 extern "C" void init(v8::Handle<v8::Object>);
@@ -159,6 +157,7 @@ HRESULT CreateNamedPipesAndPseudoConsole(COORD size,
 static NAN_METHOD(PtyStartProcess) {
   Nan::HandleScope scope;
 
+  v8::Local<v8::Object> marshal;
   std::wstring inName, outName, str_cmdline;
   BOOL fSuccess = FALSE;
   std::unique_ptr<wchar_t[]> mutableCommandline;
@@ -234,7 +233,7 @@ static NAN_METHOD(PtyStartProcess) {
   }
 
   // Set return values
-  v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
+  marshal = Nan::New<v8::Object>();
   // TODO: Pull in innerPid, innerPidHandle(?)
   // marshal->Set(Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>((int)GetProcessId(handle)));
   // marshal->Set(Nan::New<v8::String>("innerPidHandle").ToLocalChecked(), Nan::New<v8::Number>((int)handle));

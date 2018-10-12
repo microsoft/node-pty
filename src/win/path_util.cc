@@ -5,7 +5,6 @@
 
 #include <nan.h>
 #include <Shlwapi.h> // PathCombine
-#include <winpty.h>
 
 #include "path_util.h"
 

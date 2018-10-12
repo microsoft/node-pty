@@ -3,11 +3,12 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
+import * as os from 'os';
 import * as path from 'path';
 import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
 
-const pty = require(path.join('..', 'build', 'Debug', 'pty.node'));
+let pty: any;
 
 /**
  * Agent. Internal class.
@@ -40,8 +41,16 @@ export class WindowsPtyAgent {
     cwd: string,
     cols: number,
     rows: number,
-    debug: boolean
+    debug: boolean,
+    useConpty: boolean | undefined
   ) {
+    if (!pty) {
+      if (useConpty === undefined) {
+        useConpty = this._getWindowsBuildNumber() >= 17692;
+      }
+      console.log('useConpty?', useConpty);
+      pty = require(path.join('..', 'build', 'Debug', `${useConpty ? 'conpty' : 'winpty'}.node`));
+    }
     // Sanitize input variable.
     cwd = path.resolve(cwd);
 
@@ -115,6 +124,15 @@ export class WindowsPtyAgent {
   public getExitCode(): number {
     return pty.getExitCode(this._innerPidHandle);
   }
+
+	private _getWindowsBuildNumber(): number {
+		const osVersion = (/(\d+)\.(\d+)\.(\d+)/g).exec(os.release());
+		let buildNumber: number = 0;
+		if (osVersion && osVersion.length === 4) {
+			buildNumber = parseInt(osVersion[3]);
+		}
+		return buildNumber;
+	}
 }
 
 // Convert argc/argv into a Win32 command-line following the escaping convention
