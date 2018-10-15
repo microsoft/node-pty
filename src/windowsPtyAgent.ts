@@ -59,7 +59,7 @@ export class WindowsPtyAgent {
     const commandLine = argsToCommandLine(file, args);
 
     // Open pty session.
-    const term = pty.startProcess(file, commandLine, env, cwd, cols, rows, debug);
+    const term = pty.startProcess(file, commandLine, env, cwd, cols, rows, debug, this._generatePipeName());
 
     // Terminal pid.
     if (!useConpty) {
@@ -130,14 +130,18 @@ export class WindowsPtyAgent {
     return pty.getExitCode(this._innerPidHandle);
   }
 
-	private _getWindowsBuildNumber(): number {
-		const osVersion = (/(\d+)\.(\d+)\.(\d+)/g).exec(os.release());
-		let buildNumber: number = 0;
-		if (osVersion && osVersion.length === 4) {
-			buildNumber = parseInt(osVersion[3]);
-		}
-		return buildNumber;
-	}
+  private _getWindowsBuildNumber(): number {
+    const osVersion = (/(\d+)\.(\d+)\.(\d+)/g).exec(os.release());
+    let buildNumber: number = 0;
+    if (osVersion && osVersion.length === 4) {
+      buildNumber = parseInt(osVersion[3]);
+    }
+    return buildNumber;
+  }
+
+  private _generatePipeName(): string {
+    return `conpty-${Math.random() * 10000000}`;
+  }
 }
 
 // Convert argc/argv into a Win32 command-line following the escaping convention
