@@ -279,7 +279,8 @@ static NAN_METHOD(PtyConnect) {
     }
     env = envBlock.str();
   }
-  // TODO: Use env
+  auto envV = std::vector<wchar_t>(env.begin(), env.end());
+  LPWSTR envArg = envV.empty() ? nullptr : envV.data();
 
   BOOL success = ConnectNamedPipe(hIn, nullptr);
   success = ConnectNamedPipe(hOut, nullptr);
@@ -303,7 +304,8 @@ static NAN_METHOD(PtyConnect) {
                                        NULL);
 
   // You need to pass a MUTABLE commandline to CreateProcess, so convert our const wchar_t* here.
-  str_cmdline = L"powershell.exe";
+  // TODO: Pull in cmdline
+  str_cmdline = L"cmd.exe";
   mutableCommandline = std::make_unique<wchar_t[]>(str_cmdline.length() + 1);
   HRESULT hr = StringCchCopyW(mutableCommandline.get(), str_cmdline.length() + 1, str_cmdline.c_str());
 
@@ -314,7 +316,7 @@ static NAN_METHOD(PtyConnect) {
       nullptr,                      // lpThreadAttributes
       false,                        // bInheritHandles VERY IMPORTANT that this is false
       EXTENDED_STARTUPINFO_PRESENT, // dwCreationFlags
-      nullptr,                      // lpEnvironment
+      envArg,                          // lpEnvironment
       nullptr,                      // lpCurrentDirectory
       &siEx.StartupInfo,            // lpStartupInfo
       &_piClient                    // lpProcessInformation
