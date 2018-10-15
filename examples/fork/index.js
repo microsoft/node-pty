@@ -8,7 +8,7 @@ var ptyProcess = pty.spawn(shell, [], {
   cols: 80,
   rows: 19,
   cwd: process.env.HOME,
-  env: process.env
+  env: Object.assign(process.env, { TEST: "abc" })
 });
 
 ptyProcess.on('data', function(data) {
@@ -21,7 +21,7 @@ ptyProcess.write('dir\r');
 
 setTimeout(() => {
   ptyProcess.resize(30, 19);
-  ptyProcess.write('dir\r');
+  ptyProcess.write('echo %TEST%\r');
 }, 2000);
 
 process.on('exit', () => {
