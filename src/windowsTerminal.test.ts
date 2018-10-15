@@ -62,6 +62,20 @@ if (process.platform === 'win32') {
       });
     });
 
+    describe('env', () => {
+      it('should set environment variables of the shell', (done) => {
+        const term = new WindowsTerminal('cmd.exe', '/C echo %FOO%', { env: { FOO: 'BAR' }});
+        let result = '';
+        term.on('data', (data) => {
+          result += data;
+        });
+        term.on('exit', () => {
+          assert.ok(result.indexOf('BAR') >= 0);
+          done();
+        });
+      });
+    });
+
     describe('On close', () => {
       it('should return process zero exit codes', (done) => {
         const term = new WindowsTerminal('cmd.exe', '/C exit');
