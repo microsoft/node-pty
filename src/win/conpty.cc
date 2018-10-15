@@ -316,7 +316,7 @@ static NAN_METHOD(PtyConnect) {
       nullptr,                      // lpThreadAttributes
       false,                        // bInheritHandles VERY IMPORTANT that this is false
       EXTENDED_STARTUPINFO_PRESENT, // dwCreationFlags
-      envArg,                          // lpEnvironment
+      envArg,                       // lpEnvironment
       nullptr,                      // lpCurrentDirectory
       &siEx.StartupInfo,            // lpStartupInfo
       &_piClient                    // lpProcessInformation
