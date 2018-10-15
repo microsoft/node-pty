@@ -83,12 +83,12 @@ HANDLE hIn, hOut;
 HPCON hpc;
 
 // Returns a new server named pipe.  It has not yet been connected.
-bool createDataServerPipe(bool write, std::wstring kind, HANDLE* hServer, std::wstring &name)
+bool createDataServerPipe(bool write, std::wstring kind, HANDLE* hServer, std::wstring &name, std::wstring &pipeName)
 {
   *hServer = INVALID_HANDLE_VALUE;
 
   // TODO generate unique names for each pipe
-  name = L"\\\\.\\pipe\\conpty2-" + kind;
+  name = L"\\\\.\\pipe\\" + pipeName + L"-" + kind;
 
   const DWORD winOpenMode =  PIPE_ACCESS_INBOUND | PIPE_ACCESS_OUTBOUND | FILE_FLAG_FIRST_PIPE_INSTANCE/*  | FILE_FLAG_OVERLAPPED */;
 
@@ -114,7 +114,8 @@ HRESULT CreateNamedPipesAndPseudoConsole(COORD size,
                                          HANDLE *phOutput,
                                          HPCON* phPC,
                                          std::wstring& inName,
-                                         std::wstring& outName)
+                                         std::wstring& outName,
+                                         std::wstring& pipeName)
 {
   HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
   bool fLoadedDll = hLibrary != nullptr;
@@ -128,12 +129,12 @@ HRESULT CreateNamedPipesAndPseudoConsole(COORD size,
         return E_INVALIDARG;
       }
 
-      bool success = createDataServerPipe(true, L"in", phInput, inName);
+      bool success = createDataServerPipe(true, L"in", phInput, inName, pipeName);
       if (!success)
       {
         return HRESULT_FROM_WIN32(GetLastError());
       }
-      success = createDataServerPipe(false, L"out", phOutput, outName);
+      success = createDataServerPipe(false, L"out", phOutput, outName, pipeName);
       if (!success)
       {
         return HRESULT_FROM_WIN32(GetLastError());
@@ -158,22 +159,23 @@ static NAN_METHOD(PtyStartProcess) {
   Nan::HandleScope scope;
 
   v8::Local<v8::Object> marshal;
-  std::wstring inName, outName, str_cmdline;
+  std::wstring inName, outName, str_cmdline, str_pipeName;
   BOOL fSuccess = FALSE;
   std::unique_ptr<wchar_t[]> mutableCommandline;
   PROCESS_INFORMATION _piClient{};
 
   DWORD dwExit = 0;
 
-  if (info.Length() != 7 ||
+  if (info.Length() != 8 ||
       !info[0]->IsString() ||
       !info[1]->IsString() ||
       !info[2]->IsArray() ||
       !info[3]->IsString() ||
       !info[4]->IsNumber() ||
       !info[5]->IsNumber() ||
-      !info[6]->IsBoolean()) {
-    Nan::ThrowError("Usage: pty.startProcess(file, cmdline, env, cwd, cols, rows, debug)");
+      !info[6]->IsBoolean() ||
+      !info[7]->IsString()) {
+    Nan::ThrowError("Usage: pty.startProcess(file, cmdline, env, cwd, cols, rows, debug, pipeName)");
     return;
   }
 
@@ -182,6 +184,7 @@ static NAN_METHOD(PtyStartProcess) {
   const wchar_t *filename = path_util::to_wstring(v8::String::Utf8Value(info[0]->ToString()));
   const wchar_t *cmdline = path_util::to_wstring(v8::String::Utf8Value(info[1]->ToString()));
   const wchar_t *cwd = path_util::to_wstring(v8::String::Utf8Value(info[3]->ToString()));
+  const wchar_t *pipeName = path_util::to_wstring(v8::String::Utf8Value(info[7]->ToString()));
 
   // create environment block
   std::wstring env;
@@ -219,7 +222,9 @@ static NAN_METHOD(PtyStartProcess) {
   int rows = info[5]->Int32Value();
   bool debug = info[6]->ToBoolean()->IsTrue();
 
-  HRESULT hr = CreateNamedPipesAndPseudoConsole({(SHORT)cols, (SHORT)rows}, 0, &hIn, &hOut, &hpc, inName, outName);
+  str_pipeName = pipeName;
+
+  HRESULT hr = CreateNamedPipesAndPseudoConsole({(SHORT)cols, (SHORT)rows}, 0, &hIn, &hOut, &hpc, inName, outName, str_pipeName);
 
   if (SUCCEEDED(hr))
   {
