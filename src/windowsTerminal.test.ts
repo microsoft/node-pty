@@ -2,7 +2,7 @@
  * Copyright (c) 2017, Daniel Imms (MIT License).
  */
 
- import * as fs from 'fs';
+import * as fs from 'fs';
 import * as assert from 'assert';
 import { WindowsTerminal } from './windowsTerminal';
 
@@ -48,6 +48,20 @@ if (process.platform === 'win32') {
         });
         term.on('exit', () => {
           assert.ok(result.indexOf('helloworld') >= 0);
+          done();
+        });
+      });
+    });
+
+    describe('env', () => {
+      it('should set environment variables of the shell', (done) => {
+        const term = new WindowsTerminal('cmd.exe', '/C echo %FOO%', { env: { FOO: 'BAR' }});
+        let result = '';
+        term.on('data', (data) => {
+          result += data;
+        });
+        term.on('exit', () => {
+          assert.ok(result.indexOf('BAR') >= 0);
           done();
         });
       });
