@@ -336,8 +336,8 @@ static NAN_METHOD(PtyResize) {
   }
 
   int handle = info[0]->Int32Value();
-  int cols = info[1]->Int32Value();
-  int rows = info[2]->Int32Value();
+  SHORT cols = info[1]->Uint32Value();
+  SHORT rows = info[2]->Uint32Value();
 
 
   // TODO: Share hLibrary between functions
