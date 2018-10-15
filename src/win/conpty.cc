@@ -163,43 +163,29 @@ static NAN_METHOD(PtyStartProcess) {
   BOOL fSuccess = FALSE;
   std::unique_ptr<wchar_t[]> mutableCommandline;
   PROCESS_INFORMATION _piClient{};
+  std::stringstream why;
 
   DWORD dwExit = 0;
 
-  if (info.Length() != 8 ||
+  if (info.Length() != 7 ||
       !info[0]->IsString() ||
       !info[1]->IsString() ||
-      !info[2]->IsArray() ||
-      !info[3]->IsString() ||
+      !info[2]->IsString() ||
+      !info[3]->IsNumber() ||
       !info[4]->IsNumber() ||
-      !info[5]->IsNumber() ||
-      !info[6]->IsBoolean() ||
-      !info[7]->IsString()) {
-    Nan::ThrowError("Usage: pty.startProcess(file, cmdline, env, cwd, cols, rows, debug, pipeName)");
+      !info[5]->IsBoolean() ||
+      !info[6]->IsString()) {
+    Nan::ThrowError("Usage: pty.startProcess(file, cmdline, cwd, cols, rows, debug, pipeName)");
     return;
   }
 
-  std::stringstream why;
-
   const wchar_t *filename = path_util::to_wstring(v8::String::Utf8Value(info[0]->ToString()));
   const wchar_t *cmdline = path_util::to_wstring(v8::String::Utf8Value(info[1]->ToString()));
-  const wchar_t *cwd = path_util::to_wstring(v8::String::Utf8Value(info[3]->ToString()));
-  const wchar_t *pipeName = path_util::to_wstring(v8::String::Utf8Value(info[7]->ToString()));
-
-  // create environment block
-  std::wstring env;
-  const v8::Handle<v8::Array> envValues = v8::Handle<v8::Array>::Cast(info[2]);
-  if (!envValues.IsEmpty()) {
-
-    std::wstringstream envBlock;
-
-    for(uint32_t i = 0; i < envValues->Length(); i++) {
-      std::wstring envValue(path_util::to_wstring(v8::String::Utf8Value(envValues->Get(i)->ToString())));
-      envBlock << envValue << L'\0';
-    }
-
-    env = envBlock.str();
-  }
+  const wchar_t *cwd = path_util::to_wstring(v8::String::Utf8Value(info[2]->ToString()));
+  const SHORT cols = info[3]->Uint32Value();
+  const SHORT rows = info[4]->Uint32Value();
+  const bool debug = info[5]->ToBoolean()->IsTrue();
+  const wchar_t *pipeName = path_util::to_wstring(v8::String::Utf8Value(info[6]->ToString()));
 
   // use environment 'Path' variable to determine location of
   // the relative path that we have recieved (e.g cmd.exe)
@@ -218,13 +204,9 @@ static NAN_METHOD(PtyStartProcess) {
     goto cleanup;
   }
 
-  int cols = info[4]->Int32Value();
-  int rows = info[5]->Int32Value();
-  bool debug = info[6]->ToBoolean()->IsTrue();
-
   str_pipeName = pipeName;
 
-  HRESULT hr = CreateNamedPipesAndPseudoConsole({(SHORT)cols, (SHORT)rows}, 0, &hIn, &hOut, &hpc, inName, outName, str_pipeName);
+  HRESULT hr = CreateNamedPipesAndPseudoConsole({cols, rows}, 0, &hIn, &hOut, &hpc, inName, outName, str_pipeName);
 
   if (SUCCEEDED(hr))
   {
@@ -279,6 +261,26 @@ static NAN_METHOD(PtyConnect) {
   std::unique_ptr<wchar_t[]> mutableCommandline;
   PROCESS_INFORMATION _piClient{};
   v8::Local<v8::Object> marshal;
+
+  if (info.Length() != 1 ||
+      !info[0]->IsArray()) {
+    Nan::ThrowError("Usage: pty.connect(env)");
+    return;
+  }
+
+  // Create environment block
+  std::wstring env;
+  const v8::Handle<v8::Array> envValues = v8::Handle<v8::Array>::Cast(info[2]);
+  if (!envValues.IsEmpty()) {
+    std::wstringstream envBlock;
+    for(uint32_t i = 0; i < envValues->Length(); i++) {
+      std::wstring envValue(path_util::to_wstring(v8::String::Utf8Value(envValues->Get(i)->ToString())));
+      envBlock << envValue << L'\0';
+    }
+    env = envBlock.str();
+  }
+  // TODO: Use env
+
   BOOL success = ConnectNamedPipe(hIn, nullptr);
   success = ConnectNamedPipe(hOut, nullptr);
 

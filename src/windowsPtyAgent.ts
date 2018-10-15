@@ -59,12 +59,15 @@ export class WindowsPtyAgent {
     const commandLine = argsToCommandLine(file, args);
 
     // Open pty session.
-    const term = pty.startProcess(file, commandLine, env, cwd, cols, rows, debug, this._generatePipeName());
-
-    // Terminal pid.
-    if (!useConpty) {
+    let term;
+    if (useConpty) {
+      term = pty.startProcess(file, commandLine, cwd, cols, rows, debug, this._generatePipeName());
+    } else {
+      term = pty.startProcess(file, commandLine, env, cwd, cols, rows, debug);
       this._pid = term.pid;
     }
+
+    // Terminal pid.
     this._innerPid = term.innerPid;
     this._innerPidHandle = term.innerPidHandle;
 
@@ -93,7 +96,7 @@ export class WindowsPtyAgent {
     // TODO: Do we *need* to timeout here or wait for the sockets to connect?
     //    or can we do this synchronously like this?
     if (useConpty) {
-      const connect = pty.connect();
+      const connect = pty.connect(env);
       this._innerPid = connect.pid;
     }
   }
