@@ -332,12 +332,12 @@ static NAN_METHOD(PtyConnect) {
   // Attach the pseudoconsole to the client application we're creating
   STARTUPINFOEXW siEx{0};
   siEx.StartupInfo.cb = sizeof(STARTUPINFOEXW);
-  size_t size;
-  InitializeProcThreadAttributeList(NULL, 1, 0, &size);
-  BYTE *attrList = new BYTE[size];
+  PSIZE_T size;
+  InitializeProcThreadAttributeList(NULL, 1, 0, size);
+  BYTE *attrList = new BYTE[*size];
   siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(attrList);
 
-  fSuccess = InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, (PSIZE_T)&size);
+  fSuccess = InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, size);
   if (!fSuccess) {
     return throwNanError(&info, "InitializeProcThreadAttributeList failed, error code: ");
   }
