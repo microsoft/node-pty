@@ -61,7 +61,7 @@ export class WindowsPtyAgent {
     // Open pty session.
     let term;
     if (this._useConpty) {
-      term = pty.startProcess(file, cwd, cols, rows, debug, this._generatePipeName());
+      term = pty.startProcess(file, cols, rows, debug, this._generatePipeName());
     } else {
       term = pty.startProcess(file, commandLine, env, cwd, cols, rows, debug);
       this._pid = term.pid;
@@ -97,7 +97,7 @@ export class WindowsPtyAgent {
     //    or can we do this synchronously like this?
     if (this._useConpty) {
       console.log('this._pty = ' + this._pty);
-      const connect = pty.connect(this._pty, commandLine, env);
+      const connect = pty.connect(this._pty, commandLine, cwd, env);
       console.log('connect.error' + connect.error);
       this._innerPid = connect.pid;
     }
