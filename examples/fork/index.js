@@ -8,7 +8,8 @@ var ptyProcess = pty.spawn(shell, [], {
   cols: 80,
   rows: 26,
   cwd: os.platform() === 'win32' ? process.env.USERPROFILE : process.env.HOME,
-  env: Object.assign({ TEST: "abc" }, process.env)
+  env: Object.assign({ TEST: "abc" }, process.env),
+  experimentalUseConpty: false
 });
 
 ptyProcess.on('data', function(data) {
