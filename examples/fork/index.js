@@ -1,14 +1,14 @@
 var os = require('os');
 var pty = require('../..');
 
-var shell = os.platform() === 'win32' ? 'cmd.exe' : 'bash';
+var shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
 
 var ptyProcess = pty.spawn(shell, [], {
   name: 'xterm-256color',
   cols: 80,
-  rows: 19,
-  cwd: process.env.HOME,
-  env: Object.assign(process.env, { TEST: "abc" })
+  rows: 26,
+  cwd: os.platform() === 'win32' ? process.env.USERPROFILE : process.env.HOME,
+  env: Object.assign({ TEST: "abc" }, process.env)
 });
 
 ptyProcess.on('data', function(data) {
