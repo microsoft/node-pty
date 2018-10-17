@@ -56,6 +56,13 @@ static pty_handle* get_pty_handle(int id) {
   return nullptr;
 }
 
+void throwNanError(const Nan::FunctionCallbackInfo<v8::Value>* info, const char* text) {
+  std::stringstream errorText;
+  errorText << "Cannot create process, error code: " << GetLastError();
+  Nan::ThrowError(errorText.str().c_str());
+  (*info).GetReturnValue().SetUndefined();
+}
+
 static NAN_METHOD(PtyGetExitCode) {
   Nan::HandleScope scope;
 
@@ -183,25 +190,23 @@ static NAN_METHOD(PtyStartProcess) {
 
   DWORD dwExit = 0;
 
-  if (info.Length() != 7 ||
+  if (info.Length() != 6 ||
       !info[0]->IsString() ||
       !info[1]->IsString() ||
-      !info[2]->IsString() ||
+      !info[2]->IsNumber() ||
       !info[3]->IsNumber() ||
-      !info[4]->IsNumber() ||
-      !info[5]->IsBoolean() ||
-      !info[6]->IsString()) {
-    Nan::ThrowError("Usage: pty.startProcess(file, cmdline, cwd, cols, rows, debug, pipeName)");
+      !info[4]->IsBoolean() ||
+      !info[5]->IsString()) {
+    Nan::ThrowError("Usage: pty.startProcess(file, cwd, cols, rows, debug, pipeName)");
     return;
   }
 
   const wchar_t *filename = path_util::to_wstring(v8::String::Utf8Value(info[0]->ToString()));
-  const wchar_t *cmdline = path_util::to_wstring(v8::String::Utf8Value(info[1]->ToString()));
-  const wchar_t *cwd = path_util::to_wstring(v8::String::Utf8Value(info[2]->ToString()));
-  const SHORT cols = info[3]->Uint32Value();
-  const SHORT rows = info[4]->Uint32Value();
-  const bool debug = info[5]->ToBoolean()->IsTrue();
-  const wchar_t *pipeName = path_util::to_wstring(v8::String::Utf8Value(info[6]->ToString()));
+  const wchar_t *cwd = path_util::to_wstring(v8::String::Utf8Value(info[1]->ToString()));
+  const SHORT cols = info[2]->Uint32Value();
+  const SHORT rows = info[3]->Uint32Value();
+  const bool debug = info[4]->ToBoolean()->IsTrue();
+  const wchar_t *pipeName = path_util::to_wstring(v8::String::Utf8Value(info[5]->ToString()));
 
   // use environment 'Path' variable to determine location of
   // the relative path that we have recieved (e.g cmd.exe)
@@ -266,7 +271,6 @@ static NAN_METHOD(PtyStartProcess) {
 
 cleanup:
   delete filename;
-  delete cmdline;
   delete cwd;
 }
 
@@ -275,7 +279,6 @@ std::vector<T> vectorFromString(const std::basic_string<T> &str) {
     return std::vector<T>(str.begin(), str.end());
 }
 
-
 static NAN_METHOD(PtyConnect) {
   Nan::HandleScope scope;
 
@@ -283,21 +286,20 @@ static NAN_METHOD(PtyConnect) {
   //    the Socket has attempted to connect to the other end, then actually
   //    spawn the process here.
 
-  std::wstring str_cmdline;
+  std::stringstream errorText;
   BOOL fSuccess = FALSE;
-  std::unique_ptr<wchar_t[]> mutableCommandline;
-  PROCESS_INFORMATION _piClient{};
-  v8::Local<v8::Object> marshal;
 
-  if (info.Length() != 2 ||
+  if (info.Length() != 3 ||
       !info[0]->IsNumber() ||
-      !info[1]->IsArray()) {
-    Nan::ThrowError("Usage: pty.connect(id, env)");
+      !info[1]->IsString() ||
+      !info[2]->IsArray()) {
+    Nan::ThrowError("Usage: pty.connect(id, cmdline, env)");
     return;
   }
 
   const int id = info[0]->Int32Value();
-  const v8::Handle<v8::Array> envValues = v8::Handle<v8::Array>::Cast(info[1]);
+  const std::wstring cmdline(path_util::to_wstring(v8::String::Utf8Value(info[1]->ToString())));
+  const v8::Handle<v8::Array> envValues = v8::Handle<v8::Array>::Cast(info[2]);
 
   // Create environment block
   std::wstring env;
@@ -319,8 +321,7 @@ static NAN_METHOD(PtyConnect) {
   success = ConnectNamedPipe(handle->hOut, nullptr);
 
   // Attach the pseudoconsole to the client application we're creating
-  STARTUPINFOEXW siEx;
-  siEx = {0};
+  STARTUPINFOEXW siEx{0};
   siEx.StartupInfo.cb = sizeof(STARTUPINFOEXW);
   size_t size;
   InitializeProcThreadAttributeList(NULL, 1, 0, &size);
@@ -328,6 +329,9 @@ static NAN_METHOD(PtyConnect) {
   siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(attrList);
 
   fSuccess = InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, (PSIZE_T)&size);
+  if (!fSuccess) {
+    return throwNanError(&info, "InitializeProcThreadAttributeList failed, error code: ");
+  }
   fSuccess = UpdateProcThreadAttribute(siEx.lpAttributeList,
                                        0,
                                        PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
@@ -335,13 +339,15 @@ static NAN_METHOD(PtyConnect) {
                                        sizeof(HPCON),
                                        NULL,
                                        NULL);
+  if (!fSuccess) {
+    return throwNanError(&info, "UpdateProcThreadAttribute failed, error code: ");
+  }
 
-  // You need to pass a MUTABLE commandline to CreateProcess, so convert our const wchar_t* here.
-  // TODO: Pull in cmdline
-  str_cmdline = L"cmd.exe";
-  mutableCommandline = std::make_unique<wchar_t[]>(str_cmdline.length() + 1);
-  HRESULT hr = StringCchCopyW(mutableCommandline.get(), str_cmdline.length() + 1, str_cmdline.c_str());
+  // A mutable commandline needs to be passed to CreateProcessW
+  std::unique_ptr<wchar_t[]> mutableCommandline = std::make_unique<wchar_t[]>(cmdline.length() + 1);
+  HRESULT hr = StringCchCopyW(mutableCommandline.get(), cmdline.length() + 1, cmdline.c_str());
 
+  PROCESS_INFORMATION _piClient{};
   fSuccess = !!CreateProcessW(
       nullptr,
       mutableCommandline.get(),
@@ -354,15 +360,11 @@ static NAN_METHOD(PtyConnect) {
       &siEx.StartupInfo,            // lpStartupInfo
       &_piClient                    // lpProcessInformation
   );
-
-  // TODO: return the information about the client application out to the caller?
-  DWORD error = GetLastError();
-  marshal = Nan::New<v8::Object>();
-
   if (!fSuccess) {
-    marshal->Set(Nan::New<v8::String>("error").ToLocalChecked(), Nan::New<v8::Number>(error));
+    return throwNanError(&info, "Cannot create process, error code: ");
   }
 
+  v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
   marshal->Set(Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>(_piClient.dwProcessId));
   info.GetReturnValue().Set(marshal);
 }
