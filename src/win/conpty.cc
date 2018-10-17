@@ -35,25 +35,25 @@ typedef void (*PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
 #endif
 
 // TODO: Pull pty handle stuff into its own class
-// struct pty_handle {
-//   int id;
-//   HANDLE hIn;
-//   HANDLE hOut;
-//   pty_handle(int _id, HANDLE _hIn, HANDLE _hOut) : id(_id), hIn(_hIn), hOut(_hOut) {};
-// };
+struct pty_handle {
+  int id;
+  HANDLE hIn;
+  HANDLE hOut;
+  pty_handle(int _id, HANDLE _hIn, HANDLE _hOut) : id(_id), hIn(_hIn), hOut(_hOut) {};
+};
 
-// static std::vector<pty_handle*> ptyHandles;
+static std::vector<pty_handle*> ptyHandles;
 static volatile LONG ptyCounter;
 
-// static pty_handle* get_pty_handle(int id) {
-//   for (size_t i = 0; i < ptyHandles.size(); ++i) {
-//     pty_handle* ptyHandle = ptyHandles[i];
-//     if (ptyHandle->id == id) {
-//       return ptyHandle;
-//     }
-//   }
-//   return nullptr;
-// }
+static pty_handle* get_pty_handle(int id) {
+  for (size_t i = 0; i < ptyHandles.size(); ++i) {
+    pty_handle* ptyHandle = ptyHandles[i];
+    if (ptyHandle->id == id) {
+      return ptyHandle;
+    }
+  }
+  return nullptr;
+}
 
 static NAN_METHOD(PtyGetExitCode) {
   Nan::HandleScope scope;
@@ -98,7 +98,7 @@ static NAN_METHOD(PtyGetProcessList) {
 }
 
 // TODO these should probably not be globals
-HANDLE hIn, hOut;
+// HANDLE hIn, hOut;
 HPCON hpc;
 
 // Returns a new server named pipe.  It has not yet been connected.
@@ -225,6 +225,7 @@ static NAN_METHOD(PtyStartProcess) {
 
   str_pipeName = pipeName;
 
+  HANDLE hIn, hOut;
   HRESULT hr = CreateNamedPipesAndPseudoConsole({cols, rows}, 0, &hIn, &hOut, &hpc, inName, outName, str_pipeName);
 
   // Set return values
@@ -236,7 +237,7 @@ static NAN_METHOD(PtyStartProcess) {
     const int ptyId = InterlockedIncrement(&ptyCounter);
     // TODO: Name this pty "id"
     marshal->Set(Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(ptyId));
-    // ptyHandles.insert(ptyHandles.end(), new pty_handle(ptyId, hIn, hOut));
+    ptyHandles.insert(ptyHandles.end(), new pty_handle(ptyId, hIn, hOut));
   }
   else
   {
@@ -297,6 +298,7 @@ static NAN_METHOD(PtyConnect) {
     return;
   }
 
+  const int id = info[0]->Int32Value();
   const v8::Handle<v8::Array> envValues = v8::Handle<v8::Array>::Cast(info[1]);
 
   // Create environment block
@@ -313,8 +315,10 @@ static NAN_METHOD(PtyConnect) {
   auto envV = vectorFromString(env);
   LPWSTR envArg = envV.empty() ? nullptr : envV.data();
 
-  BOOL success = ConnectNamedPipe(hIn, nullptr);
-  success = ConnectNamedPipe(hOut, nullptr);
+  const pty_handle* handle = get_pty_handle(id);
+
+  BOOL success = ConnectNamedPipe(handle->hIn, nullptr);
+  success = ConnectNamedPipe(handle->hOut, nullptr);
 
   // Attach the pseudoconsole to the client application we're creating
   STARTUPINFOEXW siEx;
