@@ -49,7 +49,7 @@ export class WindowsPtyAgent {
         this._useConpty = this._getWindowsBuildNumber() >= 17692;
       }
       console.log('useConpty?', this._useConpty);
-      pty = require(path.join('..', 'build', 'Debug', `${this._useConpty ? 'conpty' : 'pty'}.node`));
+      pty = require(path.join('..', 'build', /*'Debug'*/'Release', `${this._useConpty ? 'conpty' : 'pty'}.node`));
     }
 
     // Sanitize input variable.
