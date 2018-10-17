@@ -190,23 +190,22 @@ static NAN_METHOD(PtyStartProcess) {
 
   DWORD dwExit = 0;
 
-  if (info.Length() != 6 ||
+  if (info.Length() != 5 ||
       !info[0]->IsString() ||
-      !info[1]->IsString() ||
+      !info[1]->IsNumber() ||
       !info[2]->IsNumber() ||
-      !info[3]->IsNumber() ||
-      !info[4]->IsBoolean() ||
-      !info[5]->IsString()) {
-    Nan::ThrowError("Usage: pty.startProcess(file, cwd, cols, rows, debug, pipeName)");
+      !info[3]->IsBoolean() ||
+      !info[4]->IsString()) {
+    Nan::ThrowError("Usage: pty.startProcess(file, cols, rows, debug, pipeName)");
     return;
   }
 
   const wchar_t *filename = path_util::to_wstring(v8::String::Utf8Value(info[0]->ToString()));
-  const wchar_t *cwd = path_util::to_wstring(v8::String::Utf8Value(info[1]->ToString()));
-  const SHORT cols = info[2]->Uint32Value();
-  const SHORT rows = info[3]->Uint32Value();
-  const bool debug = info[4]->ToBoolean()->IsTrue();
-  const wchar_t *pipeName = path_util::to_wstring(v8::String::Utf8Value(info[5]->ToString()));
+  // const wchar_t *cwd = path_util::to_wstring(v8::String::Utf8Value(info[1]->ToString()));
+  const SHORT cols = info[1]->Uint32Value();
+  const SHORT rows = info[2]->Uint32Value();
+  const bool debug = info[3]->ToBoolean()->IsTrue();
+  const wchar_t *pipeName = path_util::to_wstring(v8::String::Utf8Value(info[4]->ToString()));
 
   // use environment 'Path' variable to determine location of
   // the relative path that we have recieved (e.g cmd.exe)
@@ -271,7 +270,6 @@ static NAN_METHOD(PtyStartProcess) {
 
 cleanup:
   delete filename;
-  delete cwd;
 }
 
 template <typename T>
@@ -289,19 +287,29 @@ static NAN_METHOD(PtyConnect) {
   std::stringstream errorText;
   BOOL fSuccess = FALSE;
 
-  if (info.Length() != 3 ||
+  if (info.Length() != 4 ||
       !info[0]->IsNumber() ||
       !info[1]->IsString() ||
-      !info[2]->IsArray()) {
-    Nan::ThrowError("Usage: pty.connect(id, cmdline, env)");
+      !info[2]->IsString() ||
+      !info[3]->IsArray()) {
+    Nan::ThrowError("Usage: pty.connect(id, cmdline, cwd, env)");
     return;
   }
 
   const int id = info[0]->Int32Value();
   const std::wstring cmdline(path_util::to_wstring(v8::String::Utf8Value(info[1]->ToString())));
-  const v8::Handle<v8::Array> envValues = v8::Handle<v8::Array>::Cast(info[2]);
+  const std::wstring cwd(path_util::to_wstring(v8::String::Utf8Value(info[2]->ToString())));
+  const v8::Handle<v8::Array> envValues = v8::Handle<v8::Array>::Cast(info[3]);
 
-  // Create environment block
+  // Prepare command line
+  std::unique_ptr<wchar_t[]> mutableCommandline = std::make_unique<wchar_t[]>(cmdline.length() + 1);
+  HRESULT hr = StringCchCopyW(mutableCommandline.get(), cmdline.length() + 1, cmdline.c_str());
+
+  // Prepare cwd
+  std::unique_ptr<wchar_t[]> mutableCwd = std::make_unique<wchar_t[]>(cwd.length() + 1);
+  hr = StringCchCopyW(mutableCwd.get(), cwd.length() + 1, cwd.c_str());
+
+  // Prepare environment
   std::wstring env;
   if (!envValues.IsEmpty()) {
     std::wstringstream envBlock;
@@ -315,6 +323,7 @@ static NAN_METHOD(PtyConnect) {
   auto envV = vectorFromString(env);
   LPWSTR envArg = envV.empty() ? nullptr : envV.data();
 
+  // Fetch pty handle from ID and start process
   const pty_handle* handle = get_pty_handle(id);
 
   BOOL success = ConnectNamedPipe(handle->hIn, nullptr);
@@ -343,10 +352,6 @@ static NAN_METHOD(PtyConnect) {
     return throwNanError(&info, "UpdateProcThreadAttribute failed, error code: ");
   }
 
-  // A mutable commandline needs to be passed to CreateProcessW
-  std::unique_ptr<wchar_t[]> mutableCommandline = std::make_unique<wchar_t[]>(cmdline.length() + 1);
-  HRESULT hr = StringCchCopyW(mutableCommandline.get(), cmdline.length() + 1, cmdline.c_str());
-
   PROCESS_INFORMATION _piClient{};
   fSuccess = !!CreateProcessW(
       nullptr,
@@ -356,7 +361,7 @@ static NAN_METHOD(PtyConnect) {
       false,                        // bInheritHandles VERY IMPORTANT that this is false
       EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT, // dwCreationFlags
       envArg,                       // lpEnvironment
-      nullptr,                      // lpCurrentDirectory
+      mutableCwd.get(),             // lpCurrentDirectory
       &siEx.StartupInfo,            // lpStartupInfo
       &_piClient                    // lpProcessInformation
   );
