@@ -42,14 +42,14 @@ export class WindowsPtyAgent {
     cols: number,
     rows: number,
     debug: boolean,
-    useConpty: boolean | undefined
+    private _useConpty: boolean | undefined
   ) {
     if (!pty) {
-      if (useConpty === undefined) {
-        useConpty = this._getWindowsBuildNumber() >= 17692;
+      if (this._useConpty === undefined) {
+        this._useConpty = this._getWindowsBuildNumber() >= 17692;
       }
-      console.log('useConpty?', useConpty);
-      pty = require(path.join('..', 'build', 'Debug', `${useConpty ? 'conpty' : 'winpty'}.node`));
+      console.log('useConpty?', this._useConpty);
+      pty = require(path.join('..', 'build', 'Debug', `${this._useConpty ? 'conpty' : 'winpty'}.node`));
     }
 
     // Sanitize input variable.
@@ -60,7 +60,7 @@ export class WindowsPtyAgent {
 
     // Open pty session.
     let term;
-    if (useConpty) {
+    if (this._useConpty) {
       term = pty.startProcess(file, commandLine, cwd, cols, rows, debug, this._generatePipeName());
     } else {
       term = pty.startProcess(file, commandLine, env, cwd, cols, rows, debug);
@@ -95,7 +95,7 @@ export class WindowsPtyAgent {
 
     // TODO: Do we *need* to timeout here or wait for the sockets to connect?
     //    or can we do this synchronously like this?
-    if (useConpty) {
+    if (this._useConpty) {
       console.log('this._pty = ' + this._pty);
       const connect = pty.connect(this._pty, env);
       console.log('connect.error' + connect.error);
@@ -104,8 +104,8 @@ export class WindowsPtyAgent {
   }
 
   public resize(cols: number, rows: number): void {
-    // TODO: Don't pass 0 in after pid is getting filled correctly
-    pty.resize(this._pid || 0, cols, rows);
+    // TODO: Guard against invalid pty values
+    pty.resize(this._useConpty ? this._pty : this._pid, cols, rows);
   }
 
   public kill(): void {
@@ -113,22 +113,25 @@ export class WindowsPtyAgent {
     this._inSocket.writable = false;
     this._outSocket.readable = false;
     this._outSocket.writable = false;
-    // TODO: Don't pass in 0!
-    const processList: number[] = pty.getProcessList(this._pid || 0);
     // Tell the agent to kill the pty, this releases handles to the process
-    pty.kill(this._pid, this._innerPidHandle);
-    // Since pty.kill will kill most processes by itself and process IDs can be
-    // reused as soon as all handles to them are dropped, we want to immediately
-    // kill the entire console process list. If we do not force kill all
-    // processes here, node servers in particular seem to become detached and
-    // remain running (see Microsoft/vscode#26807).
-    processList.forEach(pid => {
-      try {
-        process.kill(pid);
-      } catch (e) {
-        // Ignore if process cannot be found (kill ESRCH error)
-      }
-    });
+    if (this._useConpty) {
+      pty.kill(this._pty);
+    } else {
+      const processList: number[] = pty.getProcessList(this._pid);
+      pty.kill(this._pid, this._innerPidHandle);
+      // Since pty.kill will kill most processes by itself and process IDs can be
+      // reused as soon as all handles to them are dropped, we want to immediately
+      // kill the entire console process list. If we do not force kill all
+      // processes here, node servers in particular seem to become detached and
+      // remain running (see Microsoft/vscode#26807).
+      processList.forEach(pid => {
+        try {
+          process.kill(pid);
+        } catch (e) {
+          // Ignore if process cannot be found (kill ESRCH error)
+        }
+      });
+    }
   }
 
   public getExitCode(): number {

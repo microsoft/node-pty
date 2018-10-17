@@ -39,7 +39,8 @@ struct pty_handle {
   int id;
   HANDLE hIn;
   HANDLE hOut;
-  pty_handle(int _id, HANDLE _hIn, HANDLE _hOut) : id(_id), hIn(_hIn), hOut(_hOut) {};
+  HPCON hpc;
+  pty_handle(int _id, HANDLE _hIn, HANDLE _hOut, HPCON _hpc) : id(_id), hIn(_hIn), hOut(_hOut), hpc(_hpc) {};
 };
 
 static std::vector<pty_handle*> ptyHandles;
@@ -70,36 +71,32 @@ static NAN_METHOD(PtyGetExitCode) {
   info.GetReturnValue().Set(Nan::New<v8::Number>(exitCode));
 }
 
-static NAN_METHOD(PtyGetProcessList) {
-  Nan::HandleScope scope;
+// static NAN_METHOD(PtyGetProcessList) {
+//   Nan::HandleScope scope;
 
-  if (info.Length() != 1 ||
-      !info[0]->IsNumber()) {
-    Nan::ThrowError("Usage: pty.getProcessList(pid)");
-    return;
-  }
+//   if (info.Length() != 1 ||
+//       !info[0]->IsNumber()) {
+//     Nan::ThrowError("Usage: pty.getProcessList(pid)");
+//     return;
+//   }
 
-  int pid = info[0]->Int32Value();
+//   int pid = info[0]->Int32Value();
 
-  // winpty_t *pc = get_pipe_handle(pid);
-  // if (pc == nullptr) {
-    info.GetReturnValue().Set(Nan::New<v8::Array>(0));
-    return;
-  // }
-  // int processList[64];
-  // const int processCount = 64;
-  // int actualCount = winpty_get_console_process_list(pc, processList, processCount, nullptr);
+//   // winpty_t *pc = get_pipe_handle(pid);
+//   // if (pc == nullptr) {
+//     info.GetReturnValue().Set(Nan::New<v8::Array>(0));
+//     return;
+//   // }
+//   // int processList[64];
+//   // const int processCount = 64;
+//   // int actualCount = winpty_get_console_process_list(pc, processList, processCount, nullptr);
 
-  // v8::Local<v8::Array> result = Nan::New<v8::Array>(actualCount);
-  // for (uint32_t i = 0; i < actualCount; i++) {
-  //   Nan::Set(result, i, Nan::New<v8::Number>(processList[i]));
-  // }
-  // info.GetReturnValue().Set(result);
-}
-
-// TODO these should probably not be globals
-// HANDLE hIn, hOut;
-HPCON hpc;
+//   // v8::Local<v8::Array> result = Nan::New<v8::Array>(actualCount);
+//   // for (uint32_t i = 0; i < actualCount; i++) {
+//   //   Nan::Set(result, i, Nan::New<v8::Number>(processList[i]));
+//   // }
+//   // info.GetReturnValue().Set(result);
+// }
 
 // Returns a new server named pipe.  It has not yet been connected.
 bool createDataServerPipe(bool write, std::wstring kind, HANDLE* hServer, std::wstring &name, std::wstring &pipeName)
@@ -226,6 +223,7 @@ static NAN_METHOD(PtyStartProcess) {
   str_pipeName = pipeName;
 
   HANDLE hIn, hOut;
+  HPCON hpc;
   HRESULT hr = CreateNamedPipesAndPseudoConsole({cols, rows}, 0, &hIn, &hOut, &hpc, inName, outName, str_pipeName);
 
   // Set return values
@@ -237,7 +235,7 @@ static NAN_METHOD(PtyStartProcess) {
     const int ptyId = InterlockedIncrement(&ptyCounter);
     // TODO: Name this pty "id"
     marshal->Set(Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(ptyId));
-    ptyHandles.insert(ptyHandles.end(), new pty_handle(ptyId, hIn, hOut));
+    ptyHandles.insert(ptyHandles.end(), new pty_handle(ptyId, hIn, hOut, hpc));
   }
   else
   {
@@ -333,7 +331,7 @@ static NAN_METHOD(PtyConnect) {
   fSuccess = UpdateProcThreadAttribute(siEx.lpAttributeList,
                                        0,
                                        PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
-                                       hpc,
+                                       handle->hpc,
                                        sizeof(HPCON),
                                        NULL,
                                        NULL);
@@ -376,14 +374,15 @@ static NAN_METHOD(PtyResize) {
       !info[0]->IsNumber() ||
       !info[1]->IsNumber() ||
       !info[2]->IsNumber()) {
-    Nan::ThrowError("Usage: pty.resize(pid, cols, rows)");
+    Nan::ThrowError("Usage: pty.resize(id, cols, rows)");
     return;
   }
 
-  int handle = info[0]->Int32Value();
+  int id = info[0]->Int32Value();
   SHORT cols = info[1]->Uint32Value();
   SHORT rows = info[2]->Uint32Value();
 
+  const pty_handle* handle = get_pty_handle(id);
 
   // TODO: Share hLibrary between functions
   HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
@@ -394,7 +393,7 @@ static NAN_METHOD(PtyResize) {
     if (pfnResizePseudoConsole)
     {
       COORD size = {cols, rows};
-      pfnResizePseudoConsole(hpc, size);
+      pfnResizePseudoConsole(handle->hpc, size);
     }
   }
 
@@ -404,8 +403,18 @@ static NAN_METHOD(PtyResize) {
 static NAN_METHOD(PtyKill) {
   Nan::HandleScope scope;
 
+  if (info.Length() != 1 ||
+      !info[0]->IsNumber()) {
+    Nan::ThrowError("Usage: pty.kill(id)");
+    return;
+  }
+
   // TODO: If the pty is backed by conpty, call ClosePseudoConsole
   // (using LoadLibrary/GetProcAddress to find ClosePseudoConsole if it exists)
+
+  int id = info[0]->Int32Value();
+
+  const pty_handle* handle = get_pty_handle(id);
 
   // TODO: Share hLibrary between functions
   HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
@@ -415,7 +424,7 @@ static NAN_METHOD(PtyKill) {
     PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "CreatePseudoConsole");
     if (pfnClosePseudoConsole)
     {
-      pfnClosePseudoConsole(hpc);
+      pfnClosePseudoConsole(handle->hpc);
     }
   }
 
@@ -433,7 +442,7 @@ extern "C" void init(v8::Handle<v8::Object> target) {
   Nan::SetMethod(target, "resize", PtyResize);
   Nan::SetMethod(target, "kill", PtyKill);
   Nan::SetMethod(target, "getExitCode", PtyGetExitCode);
-  Nan::SetMethod(target, "getProcessList", PtyGetProcessList);
+  // Nan::SetMethod(target, "getProcessList", PtyGetProcessList);
 };
 
 NODE_MODULE(pty, init);
