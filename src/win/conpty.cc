@@ -34,7 +34,26 @@ typedef void (*PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
 
 #endif
 
+// TODO: Pull pty handle stuff into its own class
+// struct pty_handle {
+//   int id;
+//   HANDLE hIn;
+//   HANDLE hOut;
+//   pty_handle(int _id, HANDLE _hIn, HANDLE _hOut) : id(_id), hIn(_hIn), hOut(_hOut) {};
+// };
+
+// static std::vector<pty_handle*> ptyHandles;
 static volatile LONG ptyCounter;
+
+// static pty_handle* get_pty_handle(int id) {
+//   for (size_t i = 0; i < ptyHandles.size(); ++i) {
+//     pty_handle* ptyHandle = ptyHandles[i];
+//     if (ptyHandle->id == id) {
+//       return ptyHandle;
+//     }
+//   }
+//   return nullptr;
+// }
 
 static NAN_METHOD(PtyGetExitCode) {
   Nan::HandleScope scope;
@@ -208,10 +227,16 @@ static NAN_METHOD(PtyStartProcess) {
 
   HRESULT hr = CreateNamedPipesAndPseudoConsole({cols, rows}, 0, &hIn, &hOut, &hpc, inName, outName, str_pipeName);
 
+  // Set return values
+  marshal = Nan::New<v8::Object>();
+
   if (SUCCEEDED(hr))
   {
     // We were able to instantiate a conpty, yay!
-    // TODO
+    const int ptyId = InterlockedIncrement(&ptyCounter);
+    // TODO: Name this pty "id"
+    marshal->Set(Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(ptyId));
+    // ptyHandles.insert(ptyHandles.end(), new pty_handle(ptyId, hIn, hOut));
   }
   else
   {
@@ -219,14 +244,11 @@ static NAN_METHOD(PtyStartProcess) {
     // TODO
   }
 
-  // Set return values
-  marshal = Nan::New<v8::Object>();
   // TODO: Pull in innerPid, innerPidHandle(?)
   // marshal->Set(Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>((int)GetProcessId(handle)));
   // marshal->Set(Nan::New<v8::String>("innerPidHandle").ToLocalChecked(), Nan::New<v8::Number>((int)handle));
   // TODO: Pull in pid
   // marshal->Set(Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>((int)winpty_agent_process(pc)));
-  marshal->Set(Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(InterlockedIncrement(&ptyCounter)));
   marshal->Set(Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
   {
     // LPCWSTR coninPipeName = winpty_conin_name(pc);
@@ -249,6 +271,12 @@ cleanup:
   delete cwd;
 }
 
+template <typename T>
+std::vector<T> vectorFromString(const std::basic_string<T> &str) {
+    return std::vector<T>(str.begin(), str.end());
+}
+
+
 static NAN_METHOD(PtyConnect) {
   Nan::HandleScope scope;
 
@@ -262,24 +290,27 @@ static NAN_METHOD(PtyConnect) {
   PROCESS_INFORMATION _piClient{};
   v8::Local<v8::Object> marshal;
 
-  if (info.Length() != 1 ||
-      !info[0]->IsArray()) {
-    Nan::ThrowError("Usage: pty.connect(env)");
+  if (info.Length() != 2 ||
+      !info[0]->IsNumber() ||
+      !info[1]->IsArray()) {
+    Nan::ThrowError("Usage: pty.connect(id, env)");
     return;
   }
 
+  const v8::Handle<v8::Array> envValues = v8::Handle<v8::Array>::Cast(info[1]);
+
   // Create environment block
   std::wstring env;
-  const v8::Handle<v8::Array> envValues = v8::Handle<v8::Array>::Cast(info[2]);
   if (!envValues.IsEmpty()) {
     std::wstringstream envBlock;
     for(uint32_t i = 0; i < envValues->Length(); i++) {
       std::wstring envValue(path_util::to_wstring(v8::String::Utf8Value(envValues->Get(i)->ToString())));
       envBlock << envValue << L'\0';
     }
+    envBlock << L'\0';
     env = envBlock.str();
   }
-  auto envV = std::vector<wchar_t>(env.begin(), env.end());
+  auto envV = vectorFromString(env);
   LPWSTR envArg = envV.empty() ? nullptr : envV.data();
 
   BOOL success = ConnectNamedPipe(hIn, nullptr);
@@ -315,7 +346,7 @@ static NAN_METHOD(PtyConnect) {
       nullptr,                      // lpProcessAttributes
       nullptr,                      // lpThreadAttributes
       false,                        // bInheritHandles VERY IMPORTANT that this is false
-      EXTENDED_STARTUPINFO_PRESENT, // dwCreationFlags
+      EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT, // dwCreationFlags
       envArg,                       // lpEnvironment
       nullptr,                      // lpCurrentDirectory
       &siEx.StartupInfo,            // lpStartupInfo
@@ -323,7 +354,13 @@ static NAN_METHOD(PtyConnect) {
   );
 
   // TODO: return the information about the client application out to the caller?
+  DWORD error = GetLastError();
   marshal = Nan::New<v8::Object>();
+
+  if (!fSuccess) {
+    marshal->Set(Nan::New<v8::String>("error").ToLocalChecked(), Nan::New<v8::Number>(error));
+  }
+
   marshal->Set(Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>(_piClient.dwProcessId));
   info.GetReturnValue().Set(marshal);
 }
