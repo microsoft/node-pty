@@ -96,7 +96,9 @@ export class WindowsPtyAgent {
     // TODO: Do we *need* to timeout here or wait for the sockets to connect?
     //    or can we do this synchronously like this?
     if (useConpty) {
-      const connect = pty.connect(env);
+      console.log('this._pty = ' + this._pty);
+      const connect = pty.connect(this._pty, env);
+      console.log('connect.error' + connect.error);
       this._innerPid = connect.pid;
     }
   }
