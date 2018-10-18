@@ -9,7 +9,7 @@ var ptyProcess = pty.spawn(shell, [], {
   rows: 26,
   cwd: os.platform() === 'win32' ? process.env.USERPROFILE : process.env.HOME,
   env: Object.assign({ TEST: "abc" }, process.env),
-  experimentalUseConpty: false
+  experimentalUseConpty: true
 });
 
 ptyProcess.on('data', function(data) {
@@ -22,7 +22,7 @@ ptyProcess.write('dir\r');
 
 setTimeout(() => {
   ptyProcess.resize(30, 19);
-  ptyProcess.write('echo %TEST%\r');
+  ptyProcess.write(shell === 'powershell.exe' ? '$Env:TEST\r' : 'echo %TEST%\r');
 }, 2000);
 
 process.on('exit', () => {
