@@ -428,7 +428,7 @@ static NAN_METHOD(PtyKill) {
   bool fLoadedDll = hLibrary != nullptr;
   if (fLoadedDll)
   {
-    PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "CreatePseudoConsole");
+    PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ClosePseudoConsole");
     if (pfnClosePseudoConsole)
     {
       pfnClosePseudoConsole(handle->hpc);
