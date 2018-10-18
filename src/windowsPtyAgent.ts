@@ -8,7 +8,9 @@ import * as path from 'path';
 import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
 
-let pty: any;
+// TODO: Pull conpty/winpty details into its own interface?
+let conptyNative: any;
+let winptyNative: any;
 
 /**
  * Agent. Internal class.
@@ -27,6 +29,7 @@ export class WindowsPtyAgent {
 
   private _fd: any;
   private _pty: number;
+  private _ptyNative: any;
 
   public get inSocket(): Socket { return this._inSocket; }
   public get outSocket(): Socket { return this._outSocket; }
@@ -44,13 +47,20 @@ export class WindowsPtyAgent {
     debug: boolean,
     private _useConpty: boolean | undefined
   ) {
-    if (!pty) {
-      if (this._useConpty === undefined) {
-        this._useConpty = this._getWindowsBuildNumber() >= 17692;
-      }
-      console.log('useConpty?', this._useConpty);
-      pty = require(path.join('..', 'build', /*'Debug'*/'Release', `${this._useConpty ? 'conpty' : 'pty'}.node`));
+    if (this._useConpty === undefined) {
+      this._useConpty = this._getWindowsBuildNumber() >= 17692;
     }
+    console.log('useConpty?', this._useConpty);
+    if (this._useConpty) {
+      if (!conptyNative) {
+        conptyNative = require(path.join('..', 'build', /*'Debug'*/'Release', 'conpty.node'));
+      }
+    } else {
+      if (!winptyNative) {
+        winptyNative = require(path.join('..', 'build', /*'Debug'*/'Release', 'pty.node'));
+      }
+    }
+    this._ptyNative = this._useConpty ? conptyNative : winptyNative;
 
     // Sanitize input variable.
     cwd = path.resolve(cwd);
@@ -61,9 +71,9 @@ export class WindowsPtyAgent {
     // Open pty session.
     let term;
     if (this._useConpty) {
-      term = pty.startProcess(file, cols, rows, debug, this._generatePipeName());
+      term = this._ptyNative.startProcess(file, cols, rows, debug, this._generatePipeName());
     } else {
-      term = pty.startProcess(file, commandLine, env, cwd, cols, rows, debug);
+      term = this._ptyNative.startProcess(file, commandLine, env, cwd, cols, rows, debug);
       this._pid = term.pid;
     }
 
@@ -97,7 +107,7 @@ export class WindowsPtyAgent {
     //    or can we do this synchronously like this?
     if (this._useConpty) {
       console.log('this._pty = ' + this._pty);
-      const connect = pty.connect(this._pty, commandLine, cwd, env);
+      const connect = this._ptyNative.connect(this._pty, commandLine, cwd, env);
       console.log('connect.error' + connect.error);
       this._innerPid = connect.pid;
     }
@@ -105,7 +115,7 @@ export class WindowsPtyAgent {
 
   public resize(cols: number, rows: number): void {
     // TODO: Guard against invalid pty values
-    pty.resize(this._useConpty ? this._pty : this._pid, cols, rows);
+    this._ptyNative.resize(this._useConpty ? this._pty : this._pid, cols, rows);
   }
 
   public kill(): void {
@@ -115,10 +125,10 @@ export class WindowsPtyAgent {
     this._outSocket.writable = false;
     // Tell the agent to kill the pty, this releases handles to the process
     if (this._useConpty) {
-      pty.kill(this._pty);
+      this._ptyNative.kill(this._pty);
     } else {
-      const processList: number[] = pty.getProcessList(this._pid);
-      pty.kill(this._pid, this._innerPidHandle);
+      const processList: number[] = this._ptyNative.getProcessList(this._pid);
+      this._ptyNative.kill(this._pid, this._innerPidHandle);
       // Since pty.kill will kill most processes by itself and process IDs can be
       // reused as soon as all handles to them are dropped, we want to immediately
       // kill the entire console process list. If we do not force kill all
@@ -135,7 +145,8 @@ export class WindowsPtyAgent {
   }
 
   public getExitCode(): number {
-    return pty.getExitCode(this._innerPidHandle);
+    // TODO: Fix for conpty
+    return this._ptyNative.getExitCode(this._innerPidHandle);
   }
 
   private _getWindowsBuildNumber(): number {
