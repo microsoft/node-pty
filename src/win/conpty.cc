@@ -61,9 +61,12 @@ std::vector<T> vectorFromString(const std::basic_string<T> &str) {
     return std::vector<T>(str.begin(), str.end());
 }
 
-void throwNanError(const Nan::FunctionCallbackInfo<v8::Value>* info, const char* text) {
+void throwNanError(const Nan::FunctionCallbackInfo<v8::Value>* info, const char* text, const bool getLastError) {
   std::stringstream errorText;
-  errorText << "Cannot create process, error code: " << GetLastError();
+  errorText << text;
+  if (getLastError) {
+    errorText << ", error code: " << GetLastError();
+  }
   Nan::ThrowError(errorText.str().c_str());
   (*info).GetReturnValue().SetUndefined();
 }
@@ -168,9 +171,6 @@ static NAN_METHOD(PtyStartProcess) {
   BOOL fSuccess = FALSE;
   std::unique_ptr<wchar_t[]> mutableCommandline;
   PROCESS_INFORMATION _piClient{};
-  std::stringstream why;
-
-  DWORD dwExit = 0;
 
   if (info.Length() != 5 ||
       !info[0]->IsString() ||
@@ -200,6 +200,7 @@ static NAN_METHOD(PtyStartProcess) {
   std::string shellpath_(shellpath.begin(), shellpath.end());
 
   if (shellpath.empty() || !path_util::file_exists(shellpath)) {
+    std::stringstream why;
     why << "File not found: " << shellpath_;
     Nan::ThrowError(why.str().c_str());
     return;
@@ -308,7 +309,7 @@ static NAN_METHOD(PtyConnect) {
 
   fSuccess = InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, size);
   if (!fSuccess) {
-    return throwNanError(&info, "InitializeProcThreadAttributeList failed, error code: ");
+    return throwNanError(&info, "InitializeProcThreadAttributeList failed", true);
   }
   fSuccess = UpdateProcThreadAttribute(siEx.lpAttributeList,
                                        0,
@@ -318,7 +319,7 @@ static NAN_METHOD(PtyConnect) {
                                        NULL,
                                        NULL);
   if (!fSuccess) {
-    return throwNanError(&info, "UpdateProcThreadAttribute failed, error code: ");
+    return throwNanError(&info, "UpdateProcThreadAttribute failed", true);
   }
 
   PROCESS_INFORMATION _piClient{};
@@ -335,7 +336,7 @@ static NAN_METHOD(PtyConnect) {
       &_piClient                    // lpProcessInformation
   );
   if (!fSuccess) {
-    return throwNanError(&info, "Cannot create process, error code: ");
+    return throwNanError(&info, "Cannot create process", true);
   }
 
   v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
