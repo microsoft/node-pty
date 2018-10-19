@@ -7,6 +7,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
+import { loadNative } from './utils';
 
 // TODO: Pull conpty/winpty details into its own interface?
 let conptyNative: any;
@@ -53,11 +54,11 @@ export class WindowsPtyAgent {
     console.log('useConpty?', this._useConpty);
     if (this._useConpty) {
       if (!conptyNative) {
-        conptyNative = require(path.join('..', 'build', /*'Debug'*/'Release', 'conpty.node'));
+        conptyNative = loadNative('conpty');
       }
     } else {
       if (!winptyNative) {
-        winptyNative = require(path.join('..', 'build', /*'Debug'*/'Release', 'pty.node'));
+        winptyNative = loadNative('pty');
       }
     }
     this._ptyNative = this._useConpty ? conptyNative : winptyNative;

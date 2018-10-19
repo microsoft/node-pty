@@ -4,12 +4,10 @@
  */
 
 import * as net from 'net';
-import * as path from 'path';
-import * as tty from 'tty';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
-import { assign } from './utils';
+import { assign, loadNative } from './utils';
 
 declare interface INativePty {
   master: number;
@@ -17,7 +15,7 @@ declare interface INativePty {
   pty: string;
 }
 
-const pty = require(path.join('..', 'build', /*'Debug'*/'Release', 'pty.node'));
+const pty = loadNative('pty');
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
