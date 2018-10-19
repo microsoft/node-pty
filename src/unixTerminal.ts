@@ -32,7 +32,7 @@ function errnoToString(errno: number): string {
   return errno.toString();
 }
 
-const pty = require(path.join('..', 'build', 'Debug', 'pty.node'));
+const pty = require(path.join('..', 'build', /*'Debug'*/'Release', 'pty.node'));
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
