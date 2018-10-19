@@ -56,6 +56,11 @@ static pty_handle* get_pty_handle(int id) {
   return nullptr;
 }
 
+template <typename T>
+std::vector<T> vectorFromString(const std::basic_string<T> &str) {
+    return std::vector<T>(str.begin(), str.end());
+}
+
 void throwNanError(const Nan::FunctionCallbackInfo<v8::Value>* info, const char* text) {
   std::stringstream errorText;
   errorText << "Cannot create process, error code: " << GetLastError();
@@ -78,35 +83,12 @@ static NAN_METHOD(PtyGetExitCode) {
   info.GetReturnValue().Set(Nan::New<v8::Number>(exitCode));
 }
 
-// static NAN_METHOD(PtyGetProcessList) {
-//   Nan::HandleScope scope;
-
-//   if (info.Length() != 1 ||
-//       !info[0]->IsNumber()) {
-//     Nan::ThrowError("Usage: pty.getProcessList(pid)");
-//     return;
-//   }
-
-//   int pid = info[0]->Int32Value();
-
-//   // winpty_t *pc = get_pipe_handle(pid);
-//   // if (pc == nullptr) {
-//     info.GetReturnValue().Set(Nan::New<v8::Array>(0));
-//     return;
-//   // }
-//   // int processList[64];
-//   // const int processCount = 64;
-//   // int actualCount = winpty_get_console_process_list(pc, processList, processCount, nullptr);
-
-//   // v8::Local<v8::Array> result = Nan::New<v8::Array>(actualCount);
-//   // for (uint32_t i = 0; i < actualCount; i++) {
-//   //   Nan::Set(result, i, Nan::New<v8::Number>(processList[i]));
-//   // }
-//   // info.GetReturnValue().Set(result);
-// }
-
 // Returns a new server named pipe.  It has not yet been connected.
-bool createDataServerPipe(bool write, std::wstring kind, HANDLE* hServer, std::wstring &name, std::wstring &pipeName)
+bool createDataServerPipe(bool write,
+                          std::wstring kind,
+                          HANDLE* hServer,
+                          std::wstring &name,
+                          const std::wstring &pipeName)
 {
   *hServer = INVALID_HANDLE_VALUE;
 
@@ -138,7 +120,7 @@ HRESULT CreateNamedPipesAndPseudoConsole(COORD size,
                                          HPCON* phPC,
                                          std::wstring& inName,
                                          std::wstring& outName,
-                                         std::wstring& pipeName)
+                                         const std::wstring& pipeName)
 {
   HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
   bool fLoadedDll = hLibrary != nullptr;
@@ -182,7 +164,7 @@ static NAN_METHOD(PtyStartProcess) {
   Nan::HandleScope scope;
 
   v8::Local<v8::Object> marshal;
-  std::wstring inName, outName, str_cmdline, str_pipeName;
+  std::wstring inName, outName;
   BOOL fSuccess = FALSE;
   std::unique_ptr<wchar_t[]> mutableCommandline;
   PROCESS_INFORMATION _piClient{};
@@ -200,18 +182,17 @@ static NAN_METHOD(PtyStartProcess) {
     return;
   }
 
-  const wchar_t *filename = path_util::to_wstring(v8::String::Utf8Value(info[0]->ToString()));
-  // const wchar_t *cwd = path_util::to_wstring(v8::String::Utf8Value(info[1]->ToString()));
+  const std::wstring filename(path_util::to_wstring(v8::String::Utf8Value(info[0]->ToString())));
   const SHORT cols = info[1]->Uint32Value();
   const SHORT rows = info[2]->Uint32Value();
   const bool debug = info[3]->ToBoolean()->IsTrue();
-  const wchar_t *pipeName = path_util::to_wstring(v8::String::Utf8Value(info[4]->ToString()));
+  const std::wstring pipeName(path_util::to_wstring(v8::String::Utf8Value(info[4]->ToString())));
 
   // use environment 'Path' variable to determine location of
   // the relative path that we have recieved (e.g cmd.exe)
   std::wstring shellpath;
-  if (::PathIsRelativeW(filename)) {
-    shellpath = path_util::get_shell_path(filename);
+  if (::PathIsRelativeW(filename.c_str())) {
+    shellpath = path_util::get_shell_path(filename.c_str());
   } else {
     shellpath = filename;
   }
@@ -221,14 +202,12 @@ static NAN_METHOD(PtyStartProcess) {
   if (shellpath.empty() || !path_util::file_exists(shellpath)) {
     why << "File not found: " << shellpath_;
     Nan::ThrowError(why.str().c_str());
-    goto cleanup;
+    return;
   }
-
-  str_pipeName = pipeName;
 
   HANDLE hIn, hOut;
   HPCON hpc;
-  HRESULT hr = CreateNamedPipesAndPseudoConsole({cols, rows}, 0, &hIn, &hOut, &hpc, inName, outName, str_pipeName);
+  HRESULT hr = CreateNamedPipesAndPseudoConsole({cols, rows}, 0, &hIn, &hOut, &hpc, inName, outName, pipeName);
 
   // Set return values
   marshal = Nan::New<v8::Object>();
@@ -265,16 +244,6 @@ static NAN_METHOD(PtyStartProcess) {
     marshal->Set(Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
   }
   info.GetReturnValue().Set(marshal);
-
-  goto cleanup;
-
-cleanup:
-  delete filename;
-}
-
-template <typename T>
-std::vector<T> vectorFromString(const std::basic_string<T> &str) {
-    return std::vector<T>(str.begin(), str.end());
 }
 
 static NAN_METHOD(PtyConnect) {
