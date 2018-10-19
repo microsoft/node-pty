@@ -71,7 +71,15 @@ The Windows SDK is also needed which can be [downloaded here](https://developer.
 
 ## Debugging
 
-On Windows, you can show the winpty agent console window by adding the environment variable `WINPTY_SHOW_CONSOLE=1` to the pty's environment. See https://github.com/rprichard/winpty#debugging-winpty for more information.
+[The wiki](https://github.com/Microsoft/node-pty/wiki/Debugging) contains instructions for debugging node-pty.
+
+## Security
+
+All processes launched from node-pty will launch at the same permission level of the parent process. Take care particularly when using node-pty inside a server that's accessible on the internet. We recommend launching the pty inside a container to protect your host machine.
+
+## Thread Safety
+
+Note that node-pty is not thread safe so running it across multiple worker threads in node.js could cause issues.
 
 ## Troubleshooting
 
