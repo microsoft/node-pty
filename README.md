@@ -1,6 +1,6 @@
 # node-pty
 
-[![Build status](https://tyriar.visualstudio.com/_apis/public/build/definitions/2d361770-e039-4acc-b2b2-ef8396473589/1/badge)](https://tyriar.visualstudio.com/node-pty/_build/index?definitionId=1)
+[![Build Status](https://dev.azure.com/vscode/node-pty/_apis/build/status/Microsoft.node-pty)](https://dev.azure.com/vscode/node-pty/_apis/build/status/Microsoft.node-pty?branchName=master)
 
 `forkpty(3)` bindings for node.js. This allows you to fork processes with pseudoterminal file descriptors. It returns a terminal object which allows reads and writes.
 
