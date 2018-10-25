@@ -7,12 +7,14 @@ import * as path from 'path';
 import { Terminal as BaseTerminal } from './terminal';
 import { ITerminal, IPtyOpenOptions, IPtyForkOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
+import { WindowsTerminal } from './windowsTerminal';
+import { UnixTerminal } from './unixTerminal';
 
 let terminalCtor: any;
 if (process.platform === 'win32') {
-  terminalCtor = require('./windowsTerminal').WindowsTerminal;
+  terminalCtor = WindowsTerminal;
 } else {
-  terminalCtor = require('./unixTerminal').UnixTerminal;
+  terminalCtor = UnixTerminal;
 }
 
 /**
