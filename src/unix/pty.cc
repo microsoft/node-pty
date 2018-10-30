@@ -132,7 +132,7 @@ pty_after_close(uv_handle_t *);
 NAN_METHOD(PtyFork) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 10 ||
+  if (info.Length() != 11 ||
       !info[0]->IsString() ||
       !info[1]->IsArray() ||
       !info[2]->IsArray() ||
@@ -142,13 +142,16 @@ NAN_METHOD(PtyFork) {
       !info[6]->IsNumber() ||
       !info[7]->IsNumber() ||
       !info[8]->IsBoolean() ||
-      !info[9]->IsFunction()) {
+      !info[9]->IsFunction() ||
+      !info[10]->IsBoolean()) {
     return Nan::ThrowError(
-        "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, onexit)");
+        "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, onexit, handleSIGINT)");
   }
 
   // Make sure the process still listens to SIGINT
-  signal(SIGINT, SIG_DFL);
+  if (info[10]->ToBoolean()->Value()) {
+    signal(SIGINT, SIG_DFL);
+  }
 
   // file
   v8::String::Utf8Value file(info[0]->ToString());

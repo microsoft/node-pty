@@ -47,6 +47,7 @@ export abstract class Terminal implements ITerminal {
     this._checkType('uid', opt.uid ? opt.uid : null, 'number');
     this._checkType('gid', opt.gid ? opt.gid : null, 'number');
     this._checkType('encoding', opt.encoding ? opt.encoding : null, 'string');
+    this._checkType('handleSIGINT', opt.handleSIGINT ? opt.handleSIGINT : null, 'boolean');
   }
 
   private _checkType(name: string, value: any, type: string): void {
