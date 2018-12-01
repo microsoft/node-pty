@@ -75,6 +75,17 @@ extern char **environ;
  * Structs
  */
 
+struct NameBaton {
+  Nan::Persistent<v8::Function> cb;
+  uv_async_t async;
+  uv_thread_t tid;
+  int run;
+  int fd;
+  useconds_t interval;
+  int fullcheck;
+  char *name;
+};
+
 struct pty_baton {
   Nan::Persistent<v8::Function> cb;
   int exit_code;
@@ -82,6 +93,7 @@ struct pty_baton {
   pid_t pid;
   uv_async_t async;
   uv_thread_t tid;
+  NameBaton *name_baton;
 };
 
 /**
@@ -125,6 +137,10 @@ pty_after_waitpid(uv_async_t *);
 #else
 pty_after_waitpid(uv_async_t *, int);
 #endif
+
+static void poll_processname(void *);
+static void call_processname_cb(uv_async_t *);
+static void after_close_pollname(uv_handle_t *handle);
 
 static void
 pty_after_close(uv_handle_t *);
@@ -283,6 +299,26 @@ NAN_METHOD(PtyFork) {
       Nan::Set(obj,
         Nan::New<v8::String>("pty").ToLocalChecked(),
         Nan::New<v8::String>(ptsname(master)).ToLocalChecked());
+      
+      // data for process name polling and callback
+      NameBaton *nameBaton = new NameBaton();
+      nameBaton->run = 0; // we start without polling thread
+      nameBaton->async.data = nameBaton;
+      nameBaton->cb.Reset();
+      nameBaton->name = nullptr;
+      nameBaton->fd = master;
+      nameBaton->interval = 1000000;  // 1000 ms poll interval
+      nameBaton->fullcheck = 10;      // full name after 10 intervals
+      // register nameBaton once for async data handling
+      uv_async_init(uv_default_loop(), &nameBaton->async, call_processname_cb);
+
+      // we need *name_baton to attach a callback and run a processname thread
+      Nan::Set(obj,
+        Nan::New<v8::String>("_baton1").ToLocalChecked(),
+        Nan::New<v8::Number>((unsigned int) ((unsigned long) nameBaton >> 32)));
+      Nan::Set(obj,
+        Nan::New<v8::String>("_baton2").ToLocalChecked(),
+        Nan::New<v8::Number>((unsigned int) ((unsigned long) nameBaton & 0xFFFFFFFF)));
 
       pty_baton *baton = new pty_baton();
       baton->exit_code = 0;
@@ -290,6 +326,7 @@ NAN_METHOD(PtyFork) {
       baton->cb.Reset(v8::Local<v8::Function>::Cast(info[9]));
       baton->pid = pid;
       baton->async.data = baton;
+      baton->name_baton = nameBaton;
 
       uv_async_init(uv_default_loop(), &baton->async, pty_after_waitpid);
 
@@ -487,6 +524,13 @@ pty_after_waitpid(uv_async_t *async, int unhelpful) {
   baton->cb.Reset();
   memset(&baton->cb, -1, sizeof(baton->cb));
   Nan::Callback(cb).Call(Nan::GetCurrentContext()->Global(), 2, argv);
+
+  // if we still run the process name poller, wait for it to finish
+  if (baton->name_baton->run) {
+    baton->name_baton->run = 0;
+    uv_thread_join(&baton->name_baton->tid);
+  }
+  uv_close((uv_handle_t *) &baton->name_baton->async, after_close_pollname);
 
   uv_close((uv_handle_t *)async, pty_after_close);
 }
@@ -694,6 +738,129 @@ pty_forkpty(int *amaster,
 #endif
 }
 
+
+NAN_METHOD(PtySetProcNameCallback) {
+  Nan::HandleScope scope;
+
+  if (info.Length() != 5 ||
+      !info[0]->IsNumber() ||
+      !info[1]->IsNumber() ||
+      !(info[2]->IsFunction() || info[2]->IsNull()) ||
+      !info[3]->IsNumber() ||
+      !info[4]->IsNumber()) {
+    return Nan::ThrowError("Usage: pty.setProcessNameCallback(baton1, baton2, callback|null, interval, fullcheck)");
+  }
+
+  unsigned long baton1 = info[0]->IntegerValue();
+  unsigned long baton2 = info[1]->IntegerValue();
+  NameBaton *baton = (NameBaton *) ((baton1 << 32) | baton2);
+
+  baton->interval = (useconds_t) (info[3]->IntegerValue() * 1000);
+  baton->fullcheck = info[4]->IntegerValue();
+
+  if (info[2]->IsNull()) {
+    if (baton->run) {
+      // stop the polling thread
+      baton->run = 0;
+      uv_thread_join(&baton->tid);
+      baton->cb.Reset();
+    }
+  } else {
+    // replace the callback
+    baton->cb.Reset(v8::Local<v8::Function>::Cast(info[2]));
+    if (!baton->run) {
+      // no polling thread running, start a new one
+      baton->run = 1;
+      uv_thread_create(&baton->tid, poll_processname, static_cast<void*>(baton));
+    }
+  }
+  return info.GetReturnValue().SetUndefined();
+}
+
+static void poll_processname(void *data) {
+  NameBaton *baton = static_cast<NameBaton *>(data);
+  int run = 0;
+  int cb_needed;
+  int name_needed;
+  int pid;
+  char *name;
+
+  // get pid and name once
+  pid = tcgetpgrp(baton->fd);
+  baton->name = pty_getproc(baton->fd, NULL);
+
+  // loop until we finish
+  while (baton->run) {
+    usleep(baton->interval);
+
+    cb_needed = 0;
+    name_needed = 0;
+
+    if (pid != tcgetpgrp(baton->fd)) {
+      name_needed = 1;
+    }
+    if (!(run % baton->fullcheck)) {
+      name_needed = 1;
+      run = 0;
+    }
+
+    if (name_needed) {
+      name = pty_getproc(baton->fd, NULL);
+      pid = tcgetpgrp(baton->fd);
+      if (!name) {
+        if (baton->name) {
+          free(baton->name);
+          baton->name = NULL;
+          cb_needed = 1;
+        }
+      } else {
+        if (baton->name) {
+          if (strcmp(baton->name, name)) {
+            free(baton->name);
+            baton->name = name;
+            cb_needed = 1;
+          }
+        } else {
+          baton->name = name;
+          cb_needed = 1;
+        }
+      }
+    }
+    if (cb_needed) {
+      uv_async_send(&baton->async);
+    }
+    run++;
+  }
+}
+
+static void call_processname_cb(uv_async_t *async) {
+  Nan::HandleScope scope;
+  NameBaton *baton = static_cast<NameBaton*>(async->data);
+  // due the async invocation the callback might have gone already
+  // we simply do nothing here
+  if (baton->cb.IsEmpty()) {
+    return;
+  }
+  // call JS callback with current process name or undefined
+  v8::Local<v8::Function> cb = Nan::New<v8::Function>(baton->cb);
+  if (baton->name) {
+    v8::Local<v8::Value> argv[] = { Nan::New<v8::String>(baton->name).ToLocalChecked() };
+    Nan::Callback(cb).Call(1, argv);
+  } else {
+    Nan::Callback(cb).Call(0, 0);
+  }
+}
+
+static void after_close_pollname(uv_handle_t *handle) {
+  uv_async_t *async = (uv_async_t *) handle;
+  NameBaton *baton = static_cast<NameBaton*>(async->data);
+  baton->cb.Reset();
+  if (baton->name) {
+    free(baton->name);
+  }
+  delete baton;
+}
+
 /**
  * Init
  */
@@ -712,6 +879,9 @@ NAN_MODULE_INIT(init) {
   Nan::Set(target,
            Nan::New<v8::String>("process").ToLocalChecked(),
            Nan::New<v8::FunctionTemplate>(PtyGetProc)->GetFunction());
+  Nan::Set(target,
+           Nan::New<v8::String>("setProcessNameCallback").ToLocalChecked(),
+           Nan::New<v8::FunctionTemplate>(PtySetProcNameCallback)->GetFunction());
 }
 
 NODE_MODULE(pty, init)
