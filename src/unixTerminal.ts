@@ -44,7 +44,7 @@ export class UnixTerminal extends Terminal {
   public get master(): net.Socket { return this._master; }
   public get slave(): net.Socket { return this._slave; }
 
-  public setProcessNameCallback(cb: Function | null) {
+  public setProcessNameCallback(cb: Function | null): void {
     pty.setProcessNameCallback(this._baton1, this._baton2, cb, 100, 5);
   }
 
