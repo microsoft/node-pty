@@ -129,6 +129,37 @@ pty_after_waitpid(uv_async_t *, int);
 static void
 pty_after_close(uv_handle_t *);
 
+/**
+ * Own a file descriptor, close it on scope exit.
+ */
+class scoped_fd {
+public:
+  scoped_fd(int fd)
+    : fd(fd)
+  {}
+
+  scoped_fd(const scoped_fd &other) = delete;
+  scoped_fd &operator=(const scoped_fd &other) = delete;
+
+  ~scoped_fd() {
+    close ();
+  }
+
+  void close() {
+    if (fd >= 0) {
+      ::close(fd);
+      fd = -1;
+    }
+  }
+
+  int get() const {
+    return fd;
+  }
+
+private:
+  int fd;
+};
+
 NAN_METHOD(PtyFork) {
   Nan::HandleScope scope;
 
@@ -230,6 +261,33 @@ NAN_METHOD(PtyFork) {
   int uid = info[6]->IntegerValue();
   int gid = info[7]->IntegerValue();
 
+  // To know if the child manages to exec successfully:
+  //
+  //  - Open a pipe, inherited by the child, with the write end marked close-on-exec
+  //  - The parent reads from the pipe.
+  //  - If the child execs successfully, the parent's read returns EOF (reads 0
+  //    bytes).
+  //  - If the child fails to exec, it writes the errno to the pipe (the parent
+  //    reads >0 bytes).
+  //
+  // This is inspired by what libuv does, so if something doesn't work well
+  // here, it would be a good idea to check what libuv does.
+  int error_pipe[2];
+  int ret = pipe(error_pipe);
+  if (ret != 0) {
+    perror("node-pty: pipe");
+    return Nan::ThrowError("pipe failed");
+  }
+
+  scoped_fd error_pipe_read_end(error_pipe[0]);
+  scoped_fd error_pipe_write_end(error_pipe[1]);
+
+  ret = fcntl(error_pipe_write_end.get(), F_SETFD, FD_CLOEXEC);
+  if (ret == -1) {
+    perror("node-pty: fcntl");
+    return Nan::ThrowError("fcntl failed");
+  }
+
   // fork the pty
   int master = -1;
   pid_t pid = pty_forkpty(&master, nullptr, term, &winp);
@@ -242,10 +300,16 @@ NAN_METHOD(PtyFork) {
     free(cwd);
   }
 
+  int exec_errno;
+  int n;
+
   switch (pid) {
     case -1:
       return Nan::ThrowError("forkpty(3) failed.");
     case 0:
+      // Child, we won't need the read end of the pipe.
+      error_pipe_read_end.close();
+
       if (strlen(cwd)) {
         if (chdir(cwd) == -1) {
           perror("chdir(2) failed.");
@@ -266,9 +330,49 @@ NAN_METHOD(PtyFork) {
 
       pty_execvpe(argv[0], argv, env);
 
-      perror("execvp(3) failed.");
+      // Oh, exec failed :(.  Save errno, communicate it to the parent.
+      exec_errno = errno;
+      perror("node-pty: execvp(3) failed.");
+
+      do {
+        n = write(error_pipe_write_end.get(), &exec_errno, sizeof(exec_errno));
+      } while (n == -1 && errno == EINTR);
+
+      if (n == -1) {
+        perror("node-pty: write to error pipe");
+      }
+
       _exit(1);
+
     default:
+      // Parent, we won't use the write end of the pipe (and if we don't
+      // close it, our read will block for ever).
+      error_pipe_write_end.close();
+
+      exec_errno = 0;
+      do {
+        n = read(error_pipe_read_end.get(), &exec_errno, sizeof(exec_errno));
+      } while (n == -1 && errno == EINTR);
+
+      switch (n) {
+        case 0:
+          // The pipe was closed: the child has executed successfully.
+          break;
+        case sizeof(exec_errno):
+          // The child failed to exec.
+          break;
+        case -1:
+          // read failed.  In doubt, force exec_errno to 0.
+          perror("node-pty: read from error pipe");
+          exec_errno = 0;
+          break;
+        default:
+          // Unexpected size read.  In doubt, force exec_errno to 0.
+          fprintf(stderr, "node-pty: Unexpected size read from error pipe.");
+          exec_errno = 0;
+          break;
+      }
+
       if (pty_nonblock(master) == -1) {
         return Nan::ThrowError("Could not set master fd to nonblocking.");
       }
@@ -283,6 +387,9 @@ NAN_METHOD(PtyFork) {
       Nan::Set(obj,
         Nan::New<v8::String>("pty").ToLocalChecked(),
         Nan::New<v8::String>(ptsname(master)).ToLocalChecked());
+      Nan::Set(obj,
+        Nan::New<v8::String>("_exec_errno").ToLocalChecked(),
+        Nan::New<v8::Number>(exec_errno));
 
       pty_baton *baton = new pty_baton();
       baton->exit_code = 0;

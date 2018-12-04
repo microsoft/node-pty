@@ -57,6 +57,14 @@ declare module 'node-pty' {
     on(event: 'exit', listener: (exitCode: number, signal?: number) => void): void;
 
     /**
+     * Adds a listener to the exec event, fired when the child process execs (or fails to do so).
+     * @param event The name of the event.
+     * @param listener The callback function called when the child process has succeeded or failed to exec.
+     * The `error` parameter is undefined if the exec succeeded, otherwise it is the an errno string (e.g. ENOENT).
+     */
+    on(event: 'exec', listener: (error?: string) => void): void;
+
+    /**
      * Resizes the dimensions of the pty.
      * @param columns THe number of columns to use.
      * @param rows The number of rows to use.

@@ -4,6 +4,7 @@
  */
 
 import * as net from 'net';
+import * as os from 'os';
 import * as path from 'path';
 import * as tty from 'tty';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
@@ -15,6 +16,21 @@ declare interface INativePty {
   master: number;
   slave: number;
   pty: string;
+}
+
+/**
+ * Return the error name associated to a given errno on the given platform.
+ *
+ * @param errno The errno.
+ * @return The string representation of `errno` (e.g. `'ENOENT'`).
+ */
+function errnoToString(errno: number): string {
+  for (const str in os.constants.errno) {
+    if (os.constants.errno[str] === errno) {
+      return str;
+    }
+  }
+  return errno.toString();
 }
 
 const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
@@ -100,6 +116,14 @@ export class UnixTerminal extends Terminal {
 
     // fork
     const term = pty.fork(file, args, parsedEnv, cwd, cols, rows, uid, gid, (encoding === 'utf8'), onexit);
+
+    process.nextTick(() => {
+      if (term._exec_errno === 0) {
+        this.emit('exec', undefined);
+      } else {
+        this.emit('exec', errnoToString(term._exec_errno));
+      }
+    });
 
     this._socket = new PipeSocket(term.fd);
     if (encoding !== null) {

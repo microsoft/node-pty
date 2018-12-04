@@ -87,15 +87,15 @@ export abstract class Terminal implements ITerminal {
 
   public addListener(eventName: string, listener: (...args: any[]) => any): void { this.on(eventName, listener); }
   public on(eventName: string, listener: (...args: any[]) => any): void {
-    if (eventName === 'close') {
-      this._internalee.on('close', listener);
+    if (eventName === 'close' || eventName === 'exec') {
+      this._internalee.on(eventName, listener);
       return;
     }
     this._socket.on(eventName, listener);
   }
 
   public emit(eventName: string, ...args: any[]): any {
-    if (eventName === 'close') {
+    if (eventName === 'close' || eventName === 'exec') {
       return this._internalee.emit.apply(this._internalee, arguments);
     }
     return this._socket.emit.apply(this._socket, arguments);
