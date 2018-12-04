@@ -4,7 +4,7 @@
   "author": {
     "name": "Daniel Imms"
   },
-  "version": "0.7.8-theia1",
+  "version": "0.7.8-theia002",
   "license": "MIT",
   "main": "./lib/index.js",
   "types": "./typings/node-pty.d.ts",
