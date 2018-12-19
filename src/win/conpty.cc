@@ -215,16 +215,14 @@ static NAN_METHOD(PtyStartProcess) {
 
   if (SUCCEEDED(hr))
   {
-    // We were able to instantiate a conpty, yay!
+    // We were able to instantiate a conpty
     const int ptyId = InterlockedIncrement(&ptyCounter);
-    // TODO: Name this pty "id"
     marshal->Set(Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(ptyId));
     ptyHandles.insert(ptyHandles.end(), new pty_handle(ptyId, hIn, hOut, hpc));
   }
   else
   {
-    // We weren't able to start conpty. Fall back to winpty.
-    // TODO
+    // TODO: We weren't able to start conpty. Fall back to winpty.
   }
 
   // TODO: Pull in innerPid, innerPidHandle(?)

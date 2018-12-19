@@ -51,7 +51,6 @@ export class WindowsPtyAgent {
     if (this._useConpty === undefined) {
       this._useConpty = this._getWindowsBuildNumber() >= 17692;
     }
-    console.log('useConpty?', this._useConpty);
     if (this._useConpty) {
       if (!conptyNative) {
         conptyNative = loadNative('conpty');
@@ -104,8 +103,6 @@ export class WindowsPtyAgent {
     this._inSocket.connect(term.conin);
     // TODO: Wait for ready event?
 
-    // TODO: Do we *need* to timeout here or wait for the sockets to connect?
-    //    or can we do this synchronously like this?
     if (this._useConpty) {
       console.log('this._pty = ' + this._pty);
       const connect = this._ptyNative.connect(this._pty, commandLine, cwd, env);
