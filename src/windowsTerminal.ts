@@ -54,7 +54,7 @@ export class WindowsTerminal extends Terminal {
     // Not available until `ready` event emitted.
     this._pid = this._agent.innerPid;
     this._fd = this._agent.fd;
-    this._pty = this._agent.ptyId;
+    this._pty = this._agent.pty;
 
     // The forked windows terminal is not available until `ready` event is
     // emitted.
