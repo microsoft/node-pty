@@ -29,14 +29,14 @@ export class WindowsPtyAgent {
   private _innerPidHandle: number;
 
   private _fd: any;
-  private _ptyId: number;
+  private _pty: number;
   private _ptyNative: any;
 
   public get inSocket(): Socket { return this._inSocket; }
   public get outSocket(): Socket { return this._outSocket; }
   public get fd(): any { return this._fd; }
   public get innerPid(): number { return this._innerPid; }
-  public get ptyId(): number { return this._ptyId; }
+  public get pty(): number { return this._pty; }
 
   constructor(
     file: string,
@@ -85,9 +85,9 @@ export class WindowsPtyAgent {
     // Not available on windows.
     this._fd = term.fd;
 
-    // Generated incremental number that has no real purpose besides using it
+    // Generated incremental number that has no real purpose besides  using it
     // as a terminal id.
-    this._ptyId = term.ptyId;
+    this._pty = term.pty;
 
     // Create terminal pipe IPC channel and forward to a local unix socket.
     this._outSocket = new Socket();
@@ -107,8 +107,8 @@ export class WindowsPtyAgent {
     // TODO: Do we *need* to timeout here or wait for the sockets to connect?
     //    or can we do this synchronously like this?
     if (this._useConpty) {
-      console.log('this._ptyId = ' + this._ptyId);
-      const connect = this._ptyNative.connect(this._ptyId, commandLine, cwd, env);
+      console.log('this._pty = ' + this._pty);
+      const connect = this._ptyNative.connect(this._pty, commandLine, cwd, env);
       console.log('connect.error' + connect.error);
       this._innerPid = connect.pid;
     }
@@ -116,7 +116,7 @@ export class WindowsPtyAgent {
 
   public resize(cols: number, rows: number): void {
     // TODO: Guard against invalid pty values
-    this._ptyNative.resize(this._useConpty ? this._ptyId : this._pid, cols, rows);
+    this._ptyNative.resize(this._useConpty ? this._pty : this._pid, cols, rows);
   }
 
   public kill(): void {
@@ -126,7 +126,7 @@ export class WindowsPtyAgent {
     this._outSocket.writable = false;
     // Tell the agent to kill the pty, this releases handles to the process
     if (this._useConpty) {
-      this._ptyNative.kill(this._ptyId);
+      this._ptyNative.kill(this._pty);
     } else {
       const processList: number[] = this._ptyNative.getProcessList(this._pid);
       this._ptyNative.kill(this._pid, this._innerPidHandle);
