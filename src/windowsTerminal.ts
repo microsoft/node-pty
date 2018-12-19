@@ -40,7 +40,6 @@ export class WindowsTerminal extends Terminal {
     const name = opt.name || env.TERM || DEFAULT_NAME;
     const parsedEnv = this._parseEnv(env);
 
-    console.log('parsedEnv', parsedEnv);
     // If the terminal is ready
     this._isReady = false;
 
