@@ -126,19 +126,6 @@ export abstract class Terminal implements ITerminal {
   public abstract get master(): Socket;
   public abstract get slave(): Socket;
 
-  // TODO: Should this be in the API?
-  public redraw(): void {
-    let cols = this._cols;
-    let rows = this._rows;
-
-    // We could just send SIGWINCH, but most programs will  ignore it if the
-    // size hasn't actually changed.
-
-    this.resize(cols + 1, rows + 1);
-
-    setTimeout(() => this.resize(cols, rows), 30);
-  }
-
   protected _close(): void {
     this._socket.writable = false;
     this._socket.readable = false;
