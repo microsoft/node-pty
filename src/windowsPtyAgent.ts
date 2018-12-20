@@ -105,7 +105,7 @@ export class WindowsPtyAgent {
 
     if (this._useConpty) {
       console.log('this._pty = ' + this._pty);
-      const connect = this._ptyNative.connect(this._pty, commandLine, cwd, env);
+      const connect = this._ptyNative.connect(this._pty, commandLine, cwd, env, this._$onProcessExit.bind(this));
       console.log('connect.error' + connect.error);
       this._innerPid = connect.pid;
     }
@@ -158,6 +158,15 @@ export class WindowsPtyAgent {
 
   private _generatePipeName(): string {
     return `conpty-${Math.random() * 10000000}`;
+  }
+
+  /**
+   * Triggered from the native side when a contpy process exits.
+   */
+  private _$onProcessExit(arg: string): void {
+    console.log('_$onProcessExit ' + arg);
+    console.log('this');
+    console.log(this);
   }
 }
 
