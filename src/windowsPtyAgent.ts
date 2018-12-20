@@ -167,6 +167,7 @@ export class WindowsPtyAgent {
     console.log('_$onProcessExit ' + arg);
     console.log('this');
     console.log(this);
+    require('fs').writeFileSync('C:\\Users\\daimms.REDMOND\\Documents\\dev\\Tyriar\\node-pty\\out.log', arg);
   }
 }
 
