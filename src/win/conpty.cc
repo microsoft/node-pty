@@ -380,7 +380,6 @@ static NAN_METHOD(PtyResize) {
 
   const pty_baton* handle = get_pty_baton(id);
 
-  // TODO: Share hLibrary between functions
   HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
   bool fLoadedDll = hLibrary != nullptr;
   if (fLoadedDll)
