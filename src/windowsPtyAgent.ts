@@ -14,6 +14,13 @@ let conptyNative: any;
 let winptyNative: any;
 
 /**
+ * The amount of time to wait for additional data after the conpty shell process has exited before
+ * shutting down the socket. The timer will be reset if a new data event comes in after the timer
+ * has started.
+ */
+const FLUSH_DATA_INTERVAL = 20;
+
+/**
  * Agent. Internal class.
  *
  * Everytime a new pseudo terminal is created it is contained
@@ -27,6 +34,8 @@ export class WindowsPtyAgent {
   private _pid: number;
   private _innerPid: number;
   private _innerPidHandle: number;
+  private _closeTimeout: NodeJS.Timer;
+  private _exitCode: number | undefined;
 
   private _fd: any;
   private _pty: number;
@@ -37,6 +46,7 @@ export class WindowsPtyAgent {
   public get fd(): any { return this._fd; }
   public get innerPid(): number { return this._innerPid; }
   public get pty(): number { return this._pty; }
+
 
   constructor(
     file: string,
@@ -112,8 +122,15 @@ export class WindowsPtyAgent {
   }
 
   public resize(cols: number, rows: number): void {
+    if (this._useConpty) {
+      if (this._exitCode !== undefined) {
+        throw new Error('Cannot resize a pty that has already exited');
+      }
+      this._ptyNative.resize(this._pty, cols, rows);
+      return;
+    }
     // TODO: Guard against invalid pty values
-    this._ptyNative.resize(this._useConpty ? this._pty : this._pid, cols, rows);
+    this._ptyNative.resize(this._pid, cols, rows);
   }
 
   public kill(): void {
@@ -142,8 +159,10 @@ export class WindowsPtyAgent {
     }
   }
 
-  public getExitCode(): number {
-    // TODO: Fix for conpty
+  public get exitCode(): number {
+    if (this._useConpty) {
+      return this._exitCode;
+    }
     return this._ptyNative.getExitCode(this._innerPidHandle);
   }
 
@@ -163,11 +182,27 @@ export class WindowsPtyAgent {
   /**
    * Triggered from the native side when a contpy process exits.
    */
-  private _$onProcessExit(arg: string): void {
-    console.log('_$onProcessExit ' + arg);
-    console.log('this');
-    console.log(this);
-    require('fs').writeFileSync('C:\\Users\\daimms.REDMOND\\Documents\\dev\\Tyriar\\node-pty\\out.log', arg);
+  private _$onProcessExit(exitCode: number): void {
+    this._exitCode = exitCode;
+    console.log('_$onProcessExit, ' + exitCode);
+    this._flushDataAndCleanUp();
+    this._outSocket.on('data', () => this._flushDataAndCleanUp());
+  }
+
+  private _flushDataAndCleanUp(): void {
+    if (this._closeTimeout) {
+      clearTimeout(this._closeTimeout);
+    }
+    this._closeTimeout = setTimeout(() => this._cleanUpProcess(), FLUSH_DATA_INTERVAL);
+  }
+
+  private _cleanUpProcess(): void {
+    this._inSocket.readable = false;
+    this._inSocket.writable = false;
+    this._outSocket.readable = false;
+    this._outSocket.writable = false;
+    // this._outSocket.emit('exit', exitCode);
+    this._outSocket.destroy();
   }
 }
 
