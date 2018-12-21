@@ -10,13 +10,7 @@ import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 import { assign, loadNative } from './utils';
 
-declare interface INativePty {
-  master: number;
-  slave: number;
-  pty: string;
-}
-
-const pty = loadNative('pty');
+const pty: IUnixNative = loadNative('pty');
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
@@ -178,7 +172,7 @@ export class UnixTerminal extends Terminal {
     const encoding = opt.encoding ? 'utf8' : opt.encoding;
 
     // open
-    const term: INativePty = pty.open(cols, rows);
+    const term: IUnixOpenProcess = pty.open(cols, rows);
 
     self._master = new PipeSocket(<number>term.master);
     self._master.setEncoding(encoding);
