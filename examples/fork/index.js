@@ -4,21 +4,31 @@ var pty = require('../..');
 var shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
 
 var ptyProcess = pty.spawn(shell, [], {
-  name: 'xterm-color',
+  name: 'xterm-256color',
   cols: 80,
-  rows: 30,
-  cwd: process.env.HOME,
-  env: process.env
+  rows: 26,
+  cwd: os.platform() === 'win32' ? process.env.USERPROFILE : process.env.HOME,
+  env: Object.assign({ TEST: "abc" }, process.env),
+  experimentalUseConpty: true
 });
 
 ptyProcess.on('data', function(data) {
-  console.log(data);
+  // console.log(data);
+  process.stdout.write(data);
 });
 
-ptyProcess.write('ls\r');
-ptyProcess.resize(100, 40);
-ptyProcess.write('ls\r');
+ptyProcess.write('dir\r');
+// ptyProcess.write('ls\r');
 
 setTimeout(() => {
-  ptyProcess.kill()
-}, 5000);
+  ptyProcess.resize(30, 19);
+  ptyProcess.write(shell === 'powershell.exe' ? '$Env:TEST\r' : 'echo %TEST%\r');
+}, 2000);
+
+process.on('exit', () => {
+  ptyProcess.kill();
+});
+
+setTimeout(() => {
+  process.exit();
+}, 4000);

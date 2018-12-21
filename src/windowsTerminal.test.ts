@@ -1,5 +1,6 @@
 /**
  * Copyright (c) 2017, Daniel Imms (MIT License).
+ * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
 import * as fs from 'fs';
@@ -28,9 +29,11 @@ if (process.platform === 'win32') {
       it('should throw an non-native exception when resizing a killed terminal', (done) => {
         const term = new WindowsTerminal('cmd.exe', [], {});
         (<any>term)._defer(() => {
+          term.on('exit', () => {
+            assert.throws(() => term.resize(1, 1));
+            done();
+          });
           term.destroy();
-          assert.throws(() => term.resize(1, 1));
-          done();
         });
       });
     });
@@ -57,6 +60,20 @@ if (process.platform === 'win32') {
         });
         term.on('exit', () => {
           assert.ok(result.indexOf('hello world') >= 1);
+          done();
+        });
+      });
+    });
+
+    describe('env', () => {
+      it('should set environment variables of the shell', (done) => {
+        const term = new WindowsTerminal('cmd.exe', '/C echo %FOO%', { env: { FOO: 'BAR' }});
+        let result = '';
+        term.on('data', (data) => {
+          result += data;
+        });
+        term.on('exit', () => {
+          assert.ok(result.indexOf('BAR') >= 0);
           done();
         });
       });

@@ -9,7 +9,7 @@ This is useful for:
 - Writing a terminal emulator (eg. via [xterm.js](https://github.com/sourcelair/xterm.js)).
 - Getting certain programs to *think* you're a terminal, such as when you need a program to send you control sequences.
 
-`node-pty` supports Linux, macOS and Windows. Windows support is possible by utilizing the [winpty](https://github.com/rprichard/winpty) library.
+`node-pty` supports Linux, macOS and Windows. Windows support is possible by utilizing the [Windows conpty API](https://blogs.msdn.microsoft.com/commandline/2018/08/02/windows-command-line-introducing-the-windows-pseudo-console-conpty/) on Windows 1809+ and the [winpty](https://github.com/rprichard/winpty) library in older version.
 
 ## Real-world Uses
 
@@ -67,6 +67,8 @@ npm run tsc
 npm install --global --production windows-build-tools
 ```
 
+The Windows SDK is also needed which can be [downloaded here](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk). Only the "Desktop C++ Apps" components are needed to be installed.
+
 ## Debugging
 
 [The wiki](https://github.com/Microsoft/node-pty/wiki/Debugging) contains instructions for debugging node-pty.
@@ -94,4 +96,5 @@ This project is forked from [chjj/pty.js](https://github.com/chjj/pty.js) with t
 ## License
 
 Copyright (c) 2012-2015, Christopher Jeffrey (MIT License).<br>
-Copyright (c) 2016, Daniel Imms (MIT License).
+Copyright (c) 2016, Daniel Imms (MIT License).<br>
+Copyright (c) 2018, Microsoft Corporation (MIT License).
