@@ -38,7 +38,7 @@ struct pty_baton {
   HPCON hpc;
 
   HANDLE hShell;
-  PHANDLE hWait;
+  HANDLE hWait;
   Nan::Persistent<v8::Function> cb;
   uv_async_t async;
   uv_thread_t tid;
@@ -235,7 +235,7 @@ static void OnProcessExit(uv_async_t *async) {
   pty_baton *baton = static_cast<pty_baton*>(async->data);
 
   // TODO: Unregister wait handler
-  // UnregisterWait(baton->hWait);
+  UnregisterWait(baton->hWait);
 
   // Get exit code
   DWORD exitCode = 0;
@@ -355,9 +355,7 @@ static NAN_METHOD(PtyConnect) {
   uv_async_init(uv_default_loop(), &handle->async, OnProcessExit);
 
   // Setup Windows wait for process exit event
-  PHANDLE hWait;
-  RegisterWaitForSingleObject(hWait, piClient.hProcess, OnProcessExitWinEvent, (PVOID)handle, INFINITE, WT_EXECUTEONLYONCE);
-  handle->hWait = hWait;
+  RegisterWaitForSingleObject(&handle->hWait, piClient.hProcess, OnProcessExitWinEvent, (PVOID)handle, INFINITE, WT_EXECUTEONLYONCE);
 
   // Return
   v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
