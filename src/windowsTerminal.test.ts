@@ -58,7 +58,6 @@ if (process.platform === 'win32') {
           result += data;
         });
         term.on('exit', () => {
-          console.log('result: ' + result);
           assert.ok(result.indexOf('hello world') >= 1);
           done();
         });
