@@ -9,7 +9,7 @@ This is useful for:
 - Writing a terminal emulator (eg. via [xterm.js](https://github.com/sourcelair/xterm.js)).
 - Getting certain programs to *think* you're a terminal, such as when you need a program to send you control sequences.
 
-`node-pty` supports Linux, macOS and Windows. Windows support is possible by utilizing the [winpty](https://github.com/rprichard/winpty) library.
+`node-pty` supports Linux, macOS and Windows. Windows support is possible by utilizing the [Windows conpty API](https://blogs.msdn.microsoft.com/commandline/2018/08/02/windows-command-line-introducing-the-windows-pseudo-console-conpty/) on Windows 1809+ and the [winpty](https://github.com/rprichard/winpty) library in older version.
 
 ## Real-world Uses
 
