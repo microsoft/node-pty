@@ -19,10 +19,6 @@
 #include <strsafe.h>
 #include "path_util.h"
 
-struct pty_baton {
-  Nan::Persistent<v8::Function> cb;
-};
-
 extern "C" void init(v8::Handle<v8::Object>);
 
 // Taken from the RS5 Windows SDK, but redefined here in case we're targeting <= 17134
@@ -37,12 +33,18 @@ typedef void (*PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
 
 #endif
 
-// TODO: Pull pty handle stuff into its own class
 struct pty_handle {
   int id;
   HANDLE hIn;
   HANDLE hOut;
   HPCON hpc;
+
+  HANDLE hShell;
+  PHANDLE hWait;
+  Nan::Persistent<v8::Function> cb;
+  uv_async_t async;
+  uv_thread_t tid;
+
   pty_handle(int _id, HANDLE _hIn, HANDLE _hOut, HPCON _hpc) : id(_id), hIn(_hIn), hOut(_hOut), hpc(_hpc) {};
 };
 
@@ -248,38 +250,35 @@ static NAN_METHOD(PtyStartProcess) {
   info.GetReturnValue().Set(marshal);
 }
 
-VOID CALLBACK OnProcessExit(
+VOID CALLBACK OnProcessExitWinEvent(
     _In_ PVOID context,
     _In_ BOOLEAN TimerOrWaitFired) {
-  // Nan::HandleScope scope;
-  pty_baton *baton = static_cast<pty_baton*>(context);
+  pty_handle *baton = static_cast<pty_handle*>(context);
 
+  // Unregister wait handler
+  // UnregisterWait(baton->hWait);
 
-  // v8::Handle<v8::Value> args[1] = { Nan::New<v8::String>("test2").ToLocalChecked() };
+  // Fire OnProcessExit
+  uv_async_send(&baton->async);
+}
+
+static void OnProcessExit(uv_async_t *async) {
+  Nan::HandleScope scope;
+  pty_handle *baton = static_cast<pty_handle*>(async->data);
+
+  // Get exit code
+  DWORD exitCode = 0;
+  GetExitCodeProcess(baton->hShell, &exitCode);
+
+  // Call function
+  v8::Handle<v8::Value> args[1] = {
+    Nan::New<v8::Number>(exitCode)
+  };
   v8::Handle<v8::Function> local = Nan::New(baton->cb);
-  local->Call(Nan::GetCurrentContext()->Global(), 0, 0);
+  local->Call(Nan::GetCurrentContext()->Global(), 1, args);
 
-
-
-
-  // v8::Handle<v8::Value> args[1] = { Nan::New<v8::String>("test2").ToLocalChecked() };
-  // v8::Handle<v8::Value> args[1];
-
-  // v8::Handle<v8::Function> local = Nan::New(baton->cb);
-  // // TODO: Reset baton cb
-  // local->Call(Nan::GetCurrentContext()->Global(), 0, 0);
-  // MessageBox(0, "The process has exited.", "INFO", MB_OK);
-
-
-
-
-  // v8::Handle<v8::Object> contextObject = v8::Handle<v8::Object>::Cast(*static_cast<v8::Handle<v8::Value>*>(context));
-  //   //*static_cast<v8::Handle<v8::Object>*>(context);
-  // v8::Handle<v8::Value> funcValue = contextObject->Get(Nan::New<v8::String>("_$onProcessExit").ToLocalChecked());
-  // v8::Handle<v8::Function> func = v8::Handle<v8::Function>::Cast(funcValue);
-  // v8::Handle<v8::Value> args[1];
-  // func->Call(contextObject, 0, args);
-  // TODO: UnregisterWait
+  // Clean up
+  baton->cb.Reset();
 }
 
 static NAN_METHOD(PtyConnect) {
@@ -331,7 +330,7 @@ static NAN_METHOD(PtyConnect) {
   LPWSTR envArg = envV.empty() ? nullptr : envV.data();
 
   // Fetch pty handle from ID and start process
-  const pty_handle* handle = get_pty_handle(id);
+  pty_handle* handle = get_pty_handle(id);
 
   BOOL success = ConnectNamedPipe(handle->hIn, nullptr);
   success = ConnectNamedPipe(handle->hOut, nullptr);
@@ -376,54 +375,20 @@ static NAN_METHOD(PtyConnect) {
     return throwNanError(&info, "Cannot create process", true);
   }
 
-  // PHANDLE hNewHandle;
-  // RegisterWaitForSingleObject(hNewHandle, piClient.hProcess, OnProcessExit, NULL, INFINITE, WT_EXECUTEONLYONCE);
+  // Update handle
+  handle->hShell = piClient.hProcess;
+  handle->cb.Reset(exitCallback);
+  handle->async.data = handle;
 
-  // Nan::MakeCallback(info.This(), "_$onProcessExit", 0, NULL);
-  // v8::Handle<v8::Object> context = info.This();
-    // auto lambda = [context]() {
-    //   v8::Handle<v8::Value> value = context->Get(Nan::New<v8::String>("_$onProcessExit").ToLocalChecked());
-    //   // if (value->IsFunction()) {
-    //   v8::Handle<v8::Function> func = v8::Handle<v8::Function>::Cast(value);
-    //   v8::Handle<v8::Value> args[1];
-    //   func->Call(context, 0, args);
-    // };
-    // lambda();
-    // MessageBox(0, "CALLED", "INFO", MB_OK);
-  // }
+  // Setup OnProcessExit callback
+  uv_async_init(uv_default_loop(), &handle->async, OnProcessExit);
 
+  // Setup Windows wait for process exit event
+  PHANDLE hWait;
+  RegisterWaitForSingleObject(hWait, piClient.hProcess, OnProcessExitWinEvent, (PVOID)handle, INFINITE, WT_EXECUTEONLYONCE);
+  handle->hWait = hWait;
 
-  // auto lambda = [context](
-  //     _In_ PVOID lpParameter,
-  //     _In_ BOOLEAN TimerOrWaitFired) {
-  //   v8::Handle<v8::Value> value = context->Get(Nan::New<v8::String>("_$onProcessExit").ToLocalChecked());
-  //   // if (value->IsFunction()) {
-  //   v8::Handle<v8::Function> func = v8::Handle<v8::Function>::Cast(value);
-  //   v8::Handle<v8::Value> args[1];
-  //   args[0] = Nan::New<v8::String>("test");
-  //   func->Call(context, 1, args);
-  // };
-
-  pty_baton *baton = new pty_baton();
-
-  baton->cb.Reset(exitCallback);
-
-  // v8::Handle<v8::Value> args[1] = { Nan::New<v8::String>("test2").ToLocalChecked() };
-  // v8::Handle<v8::Function> local = Nan::New(cb);
-  // local->Call(Nan::GetCurrentContext()->Global(), 1, args);
-
-
-  // pty_baton *b = static_cast<pty_baton*>((PVOID)baton);
-  // v8::Handle<v8::Value> args[1] = { Nan::New<v8::String>("test2").ToLocalChecked() };
-  // v8::Handle<v8::Function> local = Nan::New(b->cb);
-  // local->Call(Nan::GetCurrentContext()->Global(), 0, 0);
-
-  // OnProcessExit((PVOID)baton, 0);
-
-
-  PHANDLE hNewHandle;
-  RegisterWaitForSingleObject(hNewHandle, piClient.hProcess, OnProcessExit, (PVOID)baton, INFINITE, WT_EXECUTEONLYONCE);
-
+  // Return
   v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
   marshal->Set(Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>(piClient.dwProcessId));
   info.GetReturnValue().Set(marshal);
