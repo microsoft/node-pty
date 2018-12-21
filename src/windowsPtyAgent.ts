@@ -1,6 +1,7 @@
 /**
  * Copyright (c) 2012-2015, Christopher Jeffrey, Peter Sunde (MIT License)
  * Copyright (c) 2016, Daniel Imms (MIT License).
+ * Copyright (c) 2018, Microsoft (MIT License).
  */
 
 import * as os from 'os';
@@ -10,8 +11,8 @@ import { ArgvOrCommandLine } from './types';
 import { loadNative } from './utils';
 
 // TODO: Pull conpty/winpty details into its own interface?
-let conptyNative: any;
-let winptyNative: any;
+let conptyNative: IConptyNative;
+let winptyNative: IWinptyNative;
 
 /**
  * The amount of time to wait for additional data after the conpty shell process has exited before
@@ -21,13 +22,9 @@ let winptyNative: any;
 const FLUSH_DATA_INTERVAL = 20;
 
 /**
- * Agent. Internal class.
- *
- * Everytime a new pseudo terminal is created it is contained
- * within agent.exe. When this process is started there are two
- * available named pipes (control and data socket).
+ * This agent sits between the WindowsTerminal class and provides a common interface for both conpty
+ * and winpty.
  */
-
 export class WindowsPtyAgent {
   private _inSocket: Socket;
   private _outSocket: Socket;
@@ -39,14 +36,13 @@ export class WindowsPtyAgent {
 
   private _fd: any;
   private _pty: number;
-  private _ptyNative: any;
+  private _ptyNative: IConptyNative | IWinptyNative;
 
   public get inSocket(): Socket { return this._inSocket; }
   public get outSocket(): Socket { return this._outSocket; }
   public get fd(): any { return this._fd; }
   public get innerPid(): number { return this._innerPid; }
   public get pty(): number { return this._pty; }
-
 
   constructor(
     file: string,
@@ -81,9 +77,9 @@ export class WindowsPtyAgent {
     // Open pty session.
     let term;
     if (this._useConpty) {
-      term = this._ptyNative.startProcess(file, cols, rows, debug, this._generatePipeName());
+      term = (this._ptyNative as IConptyNative).startProcess(file, cols, rows, debug, this._generatePipeName());
     } else {
-      term = this._ptyNative.startProcess(file, commandLine, env, cwd, cols, rows, debug);
+      term = (this._ptyNative as IWinptyNative).startProcess(file, commandLine, env, cwd, cols, rows, debug);
       this._pid = term.pid;
     }
 
@@ -114,9 +110,7 @@ export class WindowsPtyAgent {
     // TODO: Wait for ready event?
 
     if (this._useConpty) {
-      console.log('this._pty = ' + this._pty);
       const connect = this._ptyNative.connect(this._pty, commandLine, cwd, env, this._$onProcessExit.bind(this));
-      console.log('connect.error' + connect.error);
       this._innerPid = connect.pid;
     }
   }
@@ -129,7 +123,6 @@ export class WindowsPtyAgent {
       this._ptyNative.resize(this._pty, cols, rows);
       return;
     }
-    // TODO: Guard against invalid pty values
     this._ptyNative.resize(this._pid, cols, rows);
   }
 
