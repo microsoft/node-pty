@@ -60,7 +60,7 @@ export class WindowsTerminal extends Terminal {
 
       // These events needs to be forwarded.
       ['connect', 'data', 'end', 'timeout', 'drain'].forEach(event => {
-        this._socket.on(event, data => {
+        this._socket.on(event, () => {
 
           // Wait until the first data event is fired then we can run deferreds.
           if (!this._isReady && event === 'data') {
