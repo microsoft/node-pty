@@ -2,7 +2,7 @@
   "name": "@theia/node-pty",
   "description": "Fork pseudoterminals in Node.JS",
   "author": {
-    "name": "Daniel Imms"
+    "name": "Microsoft Corporation"
   },
   "version": "0.7.8-theia004",
   "license": "MIT",
