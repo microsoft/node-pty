@@ -81,7 +81,6 @@ export class WindowsPtyAgent {
     } else {
       term = (this._ptyNative as IWinptyNative).startProcess(file, commandLine, env, cwd, cols, rows, debug);
       this._pid = (term as IWinptyProcess).pid;
-      // Terminal pid.
       this._innerPid = (term as IWinptyProcess).innerPid;
       this._innerPidHandle = (term as IWinptyProcess).innerPidHandle;
     }

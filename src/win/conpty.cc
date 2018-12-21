@@ -11,8 +11,6 @@
 #include <nan.h>
 #include <Shlwapi.h> // PathCombine, PathIsRelative
 #include <sstream>
-#include <stdlib.h>
-#include <string.h>
 #include <string>
 #include <vector>
 #include <Windows.h>
@@ -33,7 +31,7 @@ typedef void (*PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
 
 #endif
 
-struct pty_handle {
+struct pty_baton {
   int id;
   HANDLE hIn;
   HANDLE hOut;
@@ -45,15 +43,15 @@ struct pty_handle {
   uv_async_t async;
   uv_thread_t tid;
 
-  pty_handle(int _id, HANDLE _hIn, HANDLE _hOut, HPCON _hpc) : id(_id), hIn(_hIn), hOut(_hOut), hpc(_hpc) {};
+  pty_baton(int _id, HANDLE _hIn, HANDLE _hOut, HPCON _hpc) : id(_id), hIn(_hIn), hOut(_hOut), hpc(_hpc) {};
 };
 
-static std::vector<pty_handle*> ptyHandles;
+static std::vector<pty_baton*> ptyHandles;
 static volatile LONG ptyCounter;
 
-static pty_handle* get_pty_handle(int id) {
+static pty_baton* get_pty_baton(int id) {
   for (size_t i = 0; i < ptyHandles.size(); ++i) {
-    pty_handle* ptyHandle = ptyHandles[i];
+    pty_baton* ptyHandle = ptyHandles[i];
     if (ptyHandle->id == id) {
       return ptyHandle;
     }
@@ -85,7 +83,6 @@ bool createDataServerPipe(bool write,
 {
   *hServer = INVALID_HANDLE_VALUE;
 
-  // TODO generate unique names for each pipe
   name = L"\\\\.\\pipe\\" + pipeName + L"-" + kind;
 
   const DWORD winOpenMode =  PIPE_ACCESS_INBOUND | PIPE_ACCESS_OUTBOUND | FILE_FLAG_FIRST_PIPE_INSTANCE/*  | FILE_FLAG_OVERLAPPED */;
@@ -203,32 +200,21 @@ static NAN_METHOD(PtyStartProcess) {
   // Set return values
   marshal = Nan::New<v8::Object>();
 
-  if (SUCCEEDED(hr))
-  {
+  if (SUCCEEDED(hr)) {
     // We were able to instantiate a conpty
     const int ptyId = InterlockedIncrement(&ptyCounter);
     marshal->Set(Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(ptyId));
-    ptyHandles.insert(ptyHandles.end(), new pty_handle(ptyId, hIn, hOut, hpc));
-  }
-  else
-  {
-    // TODO: We weren't able to start conpty. Fall back to winpty.
+    ptyHandles.insert(ptyHandles.end(), new pty_baton(ptyId, hIn, hOut, hpc));
+  } else {
+    Nan::ThrowError("Cannot launch conpty");
+    return;
   }
 
-  // TODO: Pull in innerPid, innerPidHandle(?)
-  // marshal->Set(Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>((int)GetProcessId(handle)));
-  // marshal->Set(Nan::New<v8::String>("innerPidHandle").ToLocalChecked(), Nan::New<v8::Number>((int)handle));
-  // TODO: Pull in pid
-  // marshal->Set(Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>((int)winpty_agent_process(pc)));
   marshal->Set(Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
   {
-    // LPCWSTR coninPipeName = winpty_conin_name(pc);
-    // std::wstring coninPipeNameWStr(coninPipeName);
     std::string coninPipeNameStr(inName.begin(), inName.end());
     marshal->Set(Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(coninPipeNameStr).ToLocalChecked());
 
-    // LPCWSTR conoutPipeName = winpty_conout_name(pc);
-    // std::wstring conoutPipeNameWStr(conoutPipeName);
     std::string conoutPipeNameStr(outName.begin(), outName.end());
     marshal->Set(Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
   }
@@ -238,10 +224,7 @@ static NAN_METHOD(PtyStartProcess) {
 VOID CALLBACK OnProcessExitWinEvent(
     _In_ PVOID context,
     _In_ BOOLEAN TimerOrWaitFired) {
-  pty_handle *baton = static_cast<pty_handle*>(context);
-
-  // Unregister wait handler
-  // UnregisterWait(baton->hWait);
+  pty_baton *baton = static_cast<pty_baton*>(context);
 
   // Fire OnProcessExit
   uv_async_send(&baton->async);
@@ -249,7 +232,10 @@ VOID CALLBACK OnProcessExitWinEvent(
 
 static void OnProcessExit(uv_async_t *async) {
   Nan::HandleScope scope;
-  pty_handle *baton = static_cast<pty_handle*>(async->data);
+  pty_baton *baton = static_cast<pty_baton*>(async->data);
+
+  // TODO: Unregister wait handler
+  // UnregisterWait(baton->hWait);
 
   // Get exit code
   DWORD exitCode = 0;
@@ -315,7 +301,7 @@ static NAN_METHOD(PtyConnect) {
   LPWSTR envArg = envV.empty() ? nullptr : envV.data();
 
   // Fetch pty handle from ID and start process
-  pty_handle* handle = get_pty_handle(id);
+  pty_baton* handle = get_pty_baton(id);
 
   BOOL success = ConnectNamedPipe(handle->hIn, nullptr);
   success = ConnectNamedPipe(handle->hOut, nullptr);
@@ -394,7 +380,7 @@ static NAN_METHOD(PtyResize) {
   SHORT cols = info[1]->Uint32Value();
   SHORT rows = info[2]->Uint32Value();
 
-  const pty_handle* handle = get_pty_handle(id);
+  const pty_baton* handle = get_pty_baton(id);
 
   // TODO: Share hLibrary between functions
   HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
@@ -421,14 +407,10 @@ static NAN_METHOD(PtyKill) {
     return;
   }
 
-  // TODO: If the pty is backed by conpty, call ClosePseudoConsole
-  // (using LoadLibrary/GetProcAddress to find ClosePseudoConsole if it exists)
-
   int id = info[0]->Int32Value();
 
-  const pty_handle* handle = get_pty_handle(id);
+  const pty_baton* handle = get_pty_baton(id);
 
-  // TODO: Share hLibrary between functions
   HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
   bool fLoadedDll = hLibrary != nullptr;
   if (fLoadedDll)
