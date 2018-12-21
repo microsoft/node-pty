@@ -76,21 +76,6 @@ void throwNanError(const Nan::FunctionCallbackInfo<v8::Value>* info, const char*
   (*info).GetReturnValue().SetUndefined();
 }
 
-static NAN_METHOD(PtyGetExitCode) {
-  Nan::HandleScope scope;
-
-  if (info.Length() != 1 ||
-      !info[0]->IsNumber()) {
-    Nan::ThrowError("Usage: pty.getExitCode(pidHandle)");
-    return;
-  }
-
-  DWORD exitCode = 0;
-  GetExitCodeProcess((HANDLE)info[0]->IntegerValue(), &exitCode);
-
-  info.GetReturnValue().Set(Nan::New<v8::Number>(exitCode));
-}
-
 // Returns a new server named pipe.  It has not yet been connected.
 bool createDataServerPipe(bool write,
                           std::wstring kind,
@@ -468,8 +453,6 @@ extern "C" void init(v8::Handle<v8::Object> target) {
   Nan::SetMethod(target, "connect", PtyConnect);
   Nan::SetMethod(target, "resize", PtyResize);
   Nan::SetMethod(target, "kill", PtyKill);
-  Nan::SetMethod(target, "getExitCode", PtyGetExitCode);
-  // Nan::SetMethod(target, "getProcessList", PtyGetProcessList);
 };
 
 NODE_MODULE(pty, init);
