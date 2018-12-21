@@ -53,7 +53,7 @@ export class WindowsPtyAgent {
     debug: boolean,
     private _useConpty: boolean | undefined
   ) {
-    if (this._useConpty === undefined) {
+    if (this._useConpty === undefined || this._useConpty === true) {
       this._useConpty = this._getWindowsBuildNumber() >= 17692;
     }
     if (this._useConpty) {
