@@ -3,9 +3,7 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  */
 
-import * as path from 'path';
 import { Socket } from 'net';
-import { inherits } from 'util';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { WindowsPtyAgent } from './windowsPtyAgent';
 import { IPtyForkOptions, IPtyOpenOptions } from './interfaces';
@@ -107,7 +105,7 @@ export class WindowsTerminal extends Terminal {
 
       // Cleanup after the socket is closed.
       this._socket.on('close', () => {
-        this.emit('exit', this._agent.getExitCode());
+        this.emit('exit', this._agent.exitCode);
         this._close();
       });
 
