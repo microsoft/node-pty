@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2012-2015, Christopher Jeffrey, Peter Sunde (MIT License)
  * Copyright (c) 2016, Daniel Imms (MIT License).
- * Copyright (c) 2018, Microsoft (MIT License).
+ * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
 import * as os from 'os';
@@ -10,7 +10,6 @@ import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
 import { loadNative } from './utils';
 
-// TODO: Pull conpty/winpty details into its own interface?
 let conptyNative: IConptyNative;
 let winptyNative: IWinptyNative;
 
@@ -191,7 +190,6 @@ export class WindowsPtyAgent {
     this._inSocket.writable = false;
     this._outSocket.readable = false;
     this._outSocket.writable = false;
-    // this._outSocket.emit('exit', exitCode);
     this._outSocket.destroy();
   }
 }
