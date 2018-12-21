@@ -75,17 +75,16 @@ export class WindowsPtyAgent {
     const commandLine = argsToCommandLine(file, args);
 
     // Open pty session.
-    let term;
+    let term: IConptyProcess | IWinptyProcess;
     if (this._useConpty) {
       term = (this._ptyNative as IConptyNative).startProcess(file, cols, rows, debug, this._generatePipeName());
     } else {
       term = (this._ptyNative as IWinptyNative).startProcess(file, commandLine, env, cwd, cols, rows, debug);
-      this._pid = term.pid;
+      this._pid = (term as IWinptyProcess).pid;
+      // Terminal pid.
+      this._innerPid = (term as IWinptyProcess).innerPid;
+      this._innerPidHandle = (term as IWinptyProcess).innerPidHandle;
     }
-
-    // Terminal pid.
-    this._innerPid = term.innerPid;
-    this._innerPidHandle = term.innerPidHandle;
 
     // Not available on windows.
     this._fd = term.fd;
@@ -110,7 +109,7 @@ export class WindowsPtyAgent {
     // TODO: Wait for ready event?
 
     if (this._useConpty) {
-      const connect = this._ptyNative.connect(this._pty, commandLine, cwd, env, this._$onProcessExit.bind(this));
+      const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, this._$onProcessExit.bind(this));
       this._innerPid = connect.pid;
     }
   }
@@ -133,10 +132,10 @@ export class WindowsPtyAgent {
     this._outSocket.writable = false;
     // Tell the agent to kill the pty, this releases handles to the process
     if (this._useConpty) {
-      this._ptyNative.kill(this._pty);
+      (this._ptyNative as IConptyNative).kill(this._pty);
     } else {
-      const processList: number[] = this._ptyNative.getProcessList(this._pid);
-      this._ptyNative.kill(this._pid, this._innerPidHandle);
+      const processList: number[] = (this._ptyNative as IWinptyNative).getProcessList(this._pid);
+      (this._ptyNative as IWinptyNative).kill(this._pid, this._innerPidHandle);
       // Since pty.kill will kill most processes by itself and process IDs can be
       // reused as soon as all handles to them are dropped, we want to immediately
       // kill the entire console process list. If we do not force kill all
@@ -156,7 +155,7 @@ export class WindowsPtyAgent {
     if (this._useConpty) {
       return this._exitCode;
     }
-    return this._ptyNative.getExitCode(this._innerPidHandle);
+    return (this._ptyNative as IWinptyNative).getExitCode(this._innerPidHandle);
   }
 
   private _getWindowsBuildNumber(): number {
@@ -177,7 +176,6 @@ export class WindowsPtyAgent {
    */
   private _$onProcessExit(exitCode: number): void {
     this._exitCode = exitCode;
-    console.log('_$onProcessExit, ' + exitCode);
     this._flushDataAndCleanUp();
     this._outSocket.on('data', () => this._flushDataAndCleanUp());
   }
