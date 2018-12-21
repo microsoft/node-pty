@@ -32,7 +32,7 @@ function errnoToString(errno: number): string {
   return errno.toString();
 }
 
-const pty = loadNative('pty');
+const pty: IUnixNative = loadNative('pty');
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
@@ -117,11 +117,13 @@ export class UnixTerminal extends Terminal {
     const term = pty.fork(file, args, parsedEnv, cwd, cols, rows, uid, gid, (encoding === 'utf8'), onexit);
 
     process.nextTick(() => {
-      if (term._exec_errno === 0) {
+      const { _exec_errno: execErrno } = term as any;
+      // Fail-safe in case the internal `_exec_errno` is removed.
+      if (typeof execErrno === 'undefined' || execErrno === 0) {
         this.emit('exec', undefined);
       } else {
-        this.emit('exec', errnoToString(term._exec_errno));
-      }
+        this.emit('exec', errnoToString(execErrno));
+}
     });
 
     this._socket = new PipeSocket(term.fd);
@@ -202,7 +204,7 @@ export class UnixTerminal extends Terminal {
     const encoding = opt.encoding ? 'utf8' : opt.encoding;
 
     // open
-    const term: INativePty = pty.open(cols, rows);
+    const term: IUnixOpenProcess = pty.open(cols, rows);
 
     self._master = new PipeSocket(<number>term.master);
     self._master.setEncoding(encoding);

@@ -4,7 +4,7 @@
 
 interface IConptyNative {
   startProcess(file: string, cols: number, rows: number, debug: boolean, pipeName: string): IConptyProcess;
-  connect(ptyId: number, commandLine: string, cwd: string, env: string[], onProcessExitCallback: (exitCode: number) => void): { pid: number };
+  connect(ptyId: number, commandLine: string, cwd: string, env: string[], onExitCallback: (exitCode: number) => void): { pid: number };
   resize(ptyId: number, cols: number, rows: number): void;
   kill(ptyId: number): void;
 }
@@ -15,6 +15,13 @@ interface IWinptyNative {
   kill(pid: number, innerPidHandle: number): void;
   getProcessList(pid: number): number[];
   getExitCode(innerPidHandle: number): number;
+}
+
+interface IUnixNative {
+  fork(file: string, args: string[], parsedEnv: string[], cwd: string, cols: number, rows: number, uid: number, gid: number, useUtf8: boolean, onExitCallback: (code: number, signal: number) => void): IUnixProcess;
+  open(cols: number, rows: number): IUnixOpenProcess;
+  process(fd: number, pty: string): string;
+  resize(fd: number, cols: number, rows: number): void;
 }
 
 interface IConptyProcess {
@@ -32,4 +39,16 @@ interface IWinptyProcess {
   pid: number;
   innerPid: number;
   innerPidHandle: number;
+}
+
+interface IUnixProcess {
+  fd: number;
+  pid: number;
+  pty: string;
+}
+
+interface IUnixOpenProcess {
+  master: number;
+  slave: number;
+  pty: string;
 }
