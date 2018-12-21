@@ -234,7 +234,6 @@ static void OnProcessExit(uv_async_t *async) {
   Nan::HandleScope scope;
   pty_baton *baton = static_cast<pty_baton*>(async->data);
 
-  // TODO: Unregister wait handler
   UnregisterWait(baton->hWait);
 
   // Get exit code
