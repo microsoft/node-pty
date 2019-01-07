@@ -23,111 +23,105 @@ export class WindowsTerminal extends Terminal {
   constructor(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions) {
     super(opt);
 
-    try {
-      // Initialize arguments
-      args = args || [];
-      file = file || DEFAULT_FILE;
-      opt = opt || {};
-      opt.env = opt.env || process.env;
+    // Initialize arguments
+    args = args || [];
+    file = file || DEFAULT_FILE;
+    opt = opt || {};
+    opt.env = opt.env || process.env;
 
-      if (opt.encoding) {
-        console.warn('Setting encoding on Windows is not supported');
-      }
-
-      const env = assign({}, opt.env);
-      const cols = opt.cols || DEFAULT_COLS;
-      const rows = opt.rows || DEFAULT_ROWS;
-      const cwd = opt.cwd || process.cwd();
-      const name = opt.name || env.TERM || DEFAULT_NAME;
-      const parsedEnv = this._parseEnv(env);
-
-      // If the terminal is ready
-      this._isReady = false;
-
-      // Functions that need to run after `ready` event is emitted.
-      this._deferreds = [];
-
-      // Create new termal.
-      this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, cols, rows, false);
-      this._socket = this._agent.outSocket;
-
-      // Not available until `ready` event emitted.
-      this._pid = this._agent.innerPid;
-      this._fd = this._agent.fd;
-      this._pty = this._agent.pty;
-
-      // The forked windows terminal is not available until `ready` event is
-      // emitted.
-      this._socket.on('ready_datapipe', () => {
-
-        // These events needs to be forwarded.
-        ['connect', 'data', 'end', 'timeout', 'drain'].forEach(event => {
-          this._socket.on(event, data => {
-
-            // Wait until the first data event is fired then we can run deferreds.
-            if (!this._isReady && event === 'data') {
-
-              // Terminal is now ready and we can avoid having to defer method
-              // calls.
-              this._isReady = true;
-
-              // Execute all deferred methods
-              this._deferreds.forEach(fn => {
-                // NB! In order to ensure that `this` has all its references
-                // updated any variable that need to be available in `this` before
-                // the deferred is run has to be declared above this forEach
-                // statement.
-                fn.run();
-              });
-
-              // Reset
-              this._deferreds = [];
-
-            }
-          });
-        });
-
-        // Shutdown if `error` event is emitted.
-        this._socket.on('error', err => {
-          // Close terminal session.
-          this._close();
-
-          // EIO, happens when someone closes our child process: the only process
-          // in the terminal.
-          // node < 0.6.14: errno 5
-          // node >= 0.6.14: read EIO
-          if ((<any>err).code) {
-            if (~(<any>err).code.indexOf('errno 5') || ~(<any>err).code.indexOf('EIO')) return;
-          }
-
-          // Throw anything else.
-          if (this.listeners('error').length < 2) {
-            throw err;
-          }
-        });
-
-        // Cleanup after the socket is closed.
-        this._socket.on('close', () => {
-          this.emit('exit', this._agent.getExitCode());
-          this._close();
-        });
-
-      });
-
-      this._file = file;
-      this._name = name;
-
-      this._readable = true;
-      this._writable = true;
-
-      process.nextTick(() => {
-        this.emit('exec', undefined);
-      });
-    } catch (err) {
-      process.nextTick(() => {
-        this.emit('exec', err);
-      });
+    if (opt.encoding) {
+      console.warn('Setting encoding on Windows is not supported');
     }
+
+    const env = assign({}, opt.env);
+    const cols = opt.cols || DEFAULT_COLS;
+    const rows = opt.rows || DEFAULT_ROWS;
+    const cwd = opt.cwd || process.cwd();
+    const name = opt.name || env.TERM || DEFAULT_NAME;
+    const parsedEnv = this._parseEnv(env);
+
+    // If the terminal is ready
+    this._isReady = false;
+
+    // Functions that need to run after `ready` event is emitted.
+    this._deferreds = [];
+
+    // Create new termal.
+    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, cols, rows, false);
+    this._socket = this._agent.outSocket;
+
+    // Not available until `ready` event emitted.
+    this._pid = this._agent.innerPid;
+    this._fd = this._agent.fd;
+    this._pty = this._agent.pty;
+
+    // The forked windows terminal is not available until `ready` event is
+    // emitted.
+    this._socket.on('ready_datapipe', () => {
+
+      // These events needs to be forwarded.
+      ['connect', 'data', 'end', 'timeout', 'drain'].forEach(event => {
+        this._socket.on(event, data => {
+
+          // Wait until the first data event is fired then we can run deferreds.
+          if (!this._isReady && event === 'data') {
+
+            // Terminal is now ready and we can avoid having to defer method
+            // calls.
+            this._isReady = true;
+
+            // Execute all deferred methods
+            this._deferreds.forEach(fn => {
+              // NB! In order to ensure that `this` has all its references
+              // updated any variable that need to be available in `this` before
+              // the deferred is run has to be declared above this forEach
+              // statement.
+              fn.run();
+            });
+
+            // Reset
+            this._deferreds = [];
+
+          }
+        });
+      });
+
+      // Shutdown if `error` event is emitted.
+      this._socket.on('error', err => {
+        // Close terminal session.
+        this._close();
+
+        // EIO, happens when someone closes our child process: the only process
+        // in the terminal.
+        // node < 0.6.14: errno 5
+        // node >= 0.6.14: read EIO
+        if ((<any>err).code) {
+          if (~(<any>err).code.indexOf('errno 5') || ~(<any>err).code.indexOf('EIO')) return;
+        }
+
+        // Throw anything else.
+        if (this.listeners('error').length < 2) {
+          throw err;
+        }
+      });
+
+      // Cleanup after the socket is closed.
+      this._socket.on('close', () => {
+        this.emit('exit', this._agent.getExitCode());
+        this._close();
+      });
+
+    });
+
+    this._file = file;
+    this._name = name;
+
+    this._readable = true;
+    this._writable = true;
+
+    process.nextTick(() => {
+      this.emit('exec', undefined);
+    });
   }
 
   /**

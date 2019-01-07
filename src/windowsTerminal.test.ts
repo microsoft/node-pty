@@ -80,12 +80,8 @@ if (process.platform === 'win32') {
       });
     });
 
-    it('execute a non-existent path', (done) => {
-      const term = new WindowsTerminal('thisshouldnotexist.exe');
-      term.on('exec', (err) => {
-        assert.notEqual(err, undefined);
-        done();
-      });
+    it('execute a non-existent path', () => {
+      assert.throws(() => new WindowsTerminal('thisshouldnotexist.exe'));
     });
   });
 }
