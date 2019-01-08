@@ -43,9 +43,6 @@ var ptyProcess = pty.spawn(shell, [], {
 });
 
 ptyProcess.on('data', function(data) {
-  // Do not use console.log, this event may receive partial
-  // data of output, console.log will add extra new line to
-  // output.
   process.stdout.write(data);
 });
 
