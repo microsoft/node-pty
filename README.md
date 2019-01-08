@@ -43,7 +43,7 @@ var ptyProcess = pty.spawn(shell, [], {
 });
 
 ptyProcess.on('data', function(data) {
-  console.log(data);
+  process.stdout.write(data);
 });
 
 ptyProcess.write('ls\r');
