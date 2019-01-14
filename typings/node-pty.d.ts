@@ -28,7 +28,8 @@ declare module 'node-pty' {
     encoding?: string;
     /**
      * Whether to use the experimental ConPTY system on Windows. When this is not set, ConPTY will
-     * be used when the Windows build number is >= 17692.
+     * be used when the Windows build number is >= 18309 (it's available in 17692 but is considered
+     * unstable).
      *
      * This setting does nothing on non-Windows.
      */
