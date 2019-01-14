@@ -6,8 +6,7 @@
 	"scripts": {
 		"start": "webpack-dev-server"
 	},
-	"author": "Vasil Rimar",
-	"license": "MIT",
+	"private": true,
 	"devDependencies": {
 		"webpack": "^4.28.4",
 		"webpack-dev-server": "^3.1.14"
