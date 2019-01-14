@@ -132,21 +132,23 @@ export class WindowsPtyAgent {
     if (this._useConpty) {
       (this._ptyNative as IConptyNative).kill(this._pty);
     } else {
-      const processList: number[] = (this._ptyNative as IWinptyNative).getProcessList(this._pid);
       (this._ptyNative as IWinptyNative).kill(this._pid, this._innerPidHandle);
-      // Since pty.kill will kill most processes by itself and process IDs can be
-      // reused as soon as all handles to them are dropped, we want to immediately
-      // kill the entire console process list. If we do not force kill all
-      // processes here, node servers in particular seem to become detached and
-      // remain running (see Microsoft/vscode#26807).
-      processList.forEach(pid => {
-        try {
-          process.kill(pid);
-        } catch (e) {
-          // Ignore if process cannot be found (kill ESRCH error)
-        }
-      });
     }
+    // Since pty.kill closes the handle it will kill most processes by itself
+    // and process IDs can be reused as soon as all handles to them are
+    // dropped, we want to immediately kill the entire console process list.
+    // If we do not force kill all processes here, node servers in particular
+    // seem to become detached and remain running (see
+    // Microsoft/vscode#26807).
+    const processList: number[] = this._ptyNative.getProcessList(this._useConpty ? this._innerPid : this._pid);
+    console.log('processList', processList.join(', '));
+    processList.forEach(pid => {
+      try {
+        process.kill(pid);
+      } catch (e) {
+        // Ignore if process cannot be found (kill ESRCH error)
+      }
+    });
   }
 
   public get exitCode(): number {
