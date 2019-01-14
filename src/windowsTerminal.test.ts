@@ -3,6 +3,7 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
+import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as assert from 'assert';
 import { WindowsTerminal } from './windowsTerminal';
@@ -16,6 +17,16 @@ if (process.platform === 'win32') {
         term.kill();
         // Add done call to deferred function queue to ensure the kill call has completed
         (<any>term)._defer(done);
+      });
+      it('should kill the process tree', (done) => {
+        const term = new WindowsTerminal('cmd.exe', [], {});
+        // Start a sub-process
+        term.write('powershell.exe');
+        const proc = cp.execSync(`tasklist /fi "PID eq ${term.pid}"`);
+        const index = proc.toString().indexOf(term.pid.toString());
+        console.log('******* ' + index + ', ' + proc.toString());
+        // term.pid
+        // term.kill();
       });
     });
 

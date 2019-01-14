@@ -419,7 +419,50 @@ static NAN_METHOD(PtyKill) {
     }
   }
 
+  // Fetch the console process tree
+  // auto processList = std::vector<DWORD>(64);
+  // auto processCount = GetConsoleProcessList(&processList[0], processList.size());
+  // if (processList.size() < processCount) {
+  //     processList.resize(processCount);
+  //     processCount = GetConsoleProcessList(&processList[0], processList.size());
+  // }
+
+  // // Kill the console process tree
+  // for (DWORD i = 0; i < processCount; i++) {
+  //   TerminateProcess(processList[i], 1);
+  // }
+
+  // Close the shell handle
+  CloseHandle(handle->hShell);
+
   return info.GetReturnValue().SetUndefined();
+}
+
+static NAN_METHOD(PtyGetProcessList) {
+  Nan::HandleScope scope;
+
+  if (info.Length() != 1 ||
+      !info[0]->IsNumber()) {
+    Nan::ThrowError("Usage: pty.getProcessList(shellPid)");
+    return;
+  }
+
+  int shellPid = info[0]->Int32Value();
+
+  AttachConsole(shellPid);
+  auto processList = std::vector<DWORD>(64);
+  auto processCount = GetConsoleProcessList(&processList[0], processList.size());
+  if (processList.size() < processCount) {
+      processList.resize(processCount);
+      processCount = GetConsoleProcessList(&processList[0], processList.size());
+  }
+  FreeConsole();
+
+  auto result = Nan::New<v8::Array>(processCount);
+  for (DWORD i = 0; i < processCount; i++) {
+    result->Set(i, Nan::New<v8::Number>(processList[i]));
+  }
+  info.GetReturnValue().Set(result);
 }
 
 /**
@@ -432,6 +475,7 @@ extern "C" void init(v8::Handle<v8::Object> target) {
   Nan::SetMethod(target, "connect", PtyConnect);
   Nan::SetMethod(target, "resize", PtyResize);
   Nan::SetMethod(target, "kill", PtyKill);
+  Nan::SetMethod(target, "getProcessList", PtyGetProcessList);
 };
 
 NODE_MODULE(pty, init);
