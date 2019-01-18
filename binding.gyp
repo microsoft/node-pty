@@ -1,4 +1,7 @@
 {
+  'variables': {
+    'no_warnings': 0
+  },
   'conditions': [
     ['OS=="win"', {
       'targets': [
@@ -42,15 +45,23 @@
         'include_dirs' : [
           '<!(node -e "require(\'nan\')")'
         ],
-        'sources': [
-          'src/unix/pty.cc'
-        ],
+        'sources': [],
         'libraries': [
           '-lutil',
           '-L/usr/lib',
           '-L/usr/local/lib'
         ],
         'conditions': [
+          ['no_warnings==1', {
+            "sources": [
+              'src/unix/pty_no_warnings.cc'
+            ]
+          }, {
+            "sources": [
+              'src/unix/pty.cc'
+            ]
+          }],
+
           # http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html
           #   One some systems (at least including Cygwin, Interix,
           #   OSF/1 4 and 5, and Mac OS X) linking with -lutil is not required.
