@@ -8,8 +8,12 @@ import * as fs from 'fs';
 import * as assert from 'assert';
 import { WindowsTerminal } from './windowsTerminal';
 import * as path from 'path';
-import { getProcessList } from 'windows-process-tree';
 import * as psList from 'ps-list';
+
+let getProcessList: any;
+if (process.platform === 'win32') {
+  getProcessList = require('windows-process-tree');
+}
 
 interface IProcessState {
   // Whether the PID must exist or must not exist
@@ -69,7 +73,7 @@ if (process.platform === 'win32') {
         term.write('notepad.exe\r');
         term.write('node.exe\r');
         setTimeout(() => {
-          getProcessList(term.pid, list => {
+          getProcessList(term.pid, (list: {name: string, pid: number}[]) => {
             assert.equal(list.length, 4);
             assert.equal(list[0].name, 'cmd.exe');
             assert.equal(list[1].name, 'powershell.exe');
