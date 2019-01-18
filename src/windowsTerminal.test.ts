@@ -12,7 +12,7 @@ import * as psList from 'ps-list';
 
 let getProcessList: any;
 if (process.platform === 'win32') {
-  getProcessList = require('windows-process-tree');
+  getProcessList = require('windows-process-tree').getProcessList;
 }
 
 interface IProcessState {
