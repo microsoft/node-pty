@@ -419,6 +419,8 @@ static NAN_METHOD(PtyKill) {
     }
   }
 
+  CloseHandle(handle->hShell);
+
   return info.GetReturnValue().SetUndefined();
 }
 
