@@ -9,6 +9,7 @@ import * as path from 'path';
 import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
 import { loadNative } from './utils';
+import { fork } from 'child_process';
 
 let conptyNative: IConptyNative;
 let winptyNative: IWinptyNative;
@@ -54,7 +55,7 @@ export class WindowsPtyAgent {
     private _useConpty: boolean | undefined
   ) {
     if (this._useConpty === undefined || this._useConpty === true) {
-      this._useConpty = this._getWindowsBuildNumber() >= 17692;
+      this._useConpty = this._getWindowsBuildNumber() >= 18309;
     }
     if (this._useConpty) {
       if (!conptyNative) {
@@ -130,15 +131,25 @@ export class WindowsPtyAgent {
     this._outSocket.writable = false;
     // Tell the agent to kill the pty, this releases handles to the process
     if (this._useConpty) {
-      (this._ptyNative as IConptyNative).kill(this._pty);
+      this._getConsoleProcessList().then(consoleProcessList => {
+        consoleProcessList.forEach((pid: number) => {
+          try {
+            process.kill(pid);
+          } catch (e) {
+            // Ignore if process cannot be found (kill ESRCH error)
+          }
+        });
+        (this._ptyNative as IConptyNative).kill(this._pty);
+      });
     } else {
-      const processList: number[] = (this._ptyNative as IWinptyNative).getProcessList(this._pid);
       (this._ptyNative as IWinptyNative).kill(this._pid, this._innerPidHandle);
-      // Since pty.kill will kill most processes by itself and process IDs can be
-      // reused as soon as all handles to them are dropped, we want to immediately
-      // kill the entire console process list. If we do not force kill all
-      // processes here, node servers in particular seem to become detached and
-      // remain running (see Microsoft/vscode#26807).
+      // Since pty.kill closes the handle it will kill most processes by itself
+      // and process IDs can be reused as soon as all handles to them are
+      // dropped, we want to immediately kill the entire console process list.
+      // If we do not force kill all processes here, node servers in particular
+      // seem to become detached and remain running (see
+      // Microsoft/vscode#26807).
+      const processList: number[] = (this._ptyNative as IWinptyNative).getProcessList(this._pid);
       processList.forEach(pid => {
         try {
           process.kill(pid);
@@ -147,6 +158,22 @@ export class WindowsPtyAgent {
         }
       });
     }
+  }
+
+  private _getConsoleProcessList(): Promise<number[]> {
+    return new Promise<number[]>(resolve => {
+      const agent = fork(path.join(__dirname, 'conpty_console_list_agent'), [ this._innerPid.toString() ]);
+      agent.on('message', message => {
+        clearTimeout(timeout);
+        resolve(message.consoleProcessList);
+      });
+      const timeout = setTimeout(() => {
+        // Something went wrong, just send back the shell PID
+        console.error('Could not fetch console process list');
+        agent.kill();
+        resolve([ this._innerPid ]);
+      }, 5000);
+    });
   }
 
   public get exitCode(): number {
