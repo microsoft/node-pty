@@ -20,6 +20,11 @@ interface IProcessState {
   [pid: number]: boolean;
 }
 
+interface IWindowsProcessTreeResult {
+  name: string;
+  pid: number;
+}
+
 function pollForProcessState(desiredState: IProcessState, intervalMs: number = 100, timeoutMs: number = 2000): Promise<void> {
   return new Promise<void>(resolve => {
     let tries = 0;
@@ -55,6 +60,28 @@ function pollForProcessState(desiredState: IProcessState, intervalMs: number = 1
   });
 }
 
+function pollForProcessTreeSize(pid: number, size: number, intervalMs: number = 100, timeoutMs: number = 2000): Promise<IWindowsProcessTreeResult[]> {
+  return new Promise<IWindowsProcessTreeResult[]>(resolve => {
+    let tries = 0;
+    const interval = setInterval(() => {
+      getProcessList(pid, (list: {name: string, pid: number}[]) => {
+        const success = list.length === size;
+        if (success) {
+          clearInterval(interval);
+          resolve(list);
+          return;
+        }
+        tries++;
+        if (tries * intervalMs >= timeoutMs) {
+          clearInterval(interval);
+          assert.fail(`Bad process state, expected: ${size}, actual: ${list.length}`);
+          resolve();
+        }
+      });
+    }, intervalMs);
+  });
+}
+
 if (process.platform === 'win32') {
   describe('WindowsTerminal', () => {
     describe('kill', () => {
@@ -66,32 +93,28 @@ if (process.platform === 'win32') {
       });
       it('should kill the process tree', function (done: Mocha.Done): void {
         this.timeout(5000);
-
         const term = new WindowsTerminal('cmd.exe', [], {});
-        // Start a sub-process
+        // Start sub-processes
         term.write('powershell.exe\r');
         term.write('notepad.exe\r');
         term.write('node.exe\r');
-        setTimeout(() => {
-          getProcessList(term.pid, (list: {name: string, pid: number}[]) => {
-            assert.equal(list.length, 4);
-            assert.equal(list[0].name, 'cmd.exe');
-            assert.equal(list[1].name, 'powershell.exe');
-            assert.equal(list[2].name, 'notepad.exe');
-            assert.equal(list[3].name, 'node.exe');
-            term.kill();
-            const desiredState: IProcessState = {};
-            desiredState[list[0].pid] = false;
-            desiredState[list[1].pid] = false;
-            desiredState[list[2].pid] = true;
-            desiredState[list[3].pid] = false;
-            pollForProcessState(desiredState).then(() => {
-              // Kill notepad before done
-              process.kill(list[2].pid);
-              done();
-            });
+        pollForProcessTreeSize(term.pid, 4, 500, 5000).then(list => {
+          assert.equal(list[0].name, 'cmd.exe');
+          assert.equal(list[1].name, 'powershell.exe');
+          assert.equal(list[2].name, 'notepad.exe');
+          assert.equal(list[3].name, 'node.exe');
+          term.kill();
+          const desiredState: IProcessState = {};
+          desiredState[list[0].pid] = false;
+          desiredState[list[1].pid] = false;
+          desiredState[list[2].pid] = true;
+          desiredState[list[3].pid] = false;
+          pollForProcessState(desiredState).then(() => {
+            // Kill notepad before done
+            process.kill(list[2].pid);
+            done();
           });
-        }, 1000);
+        });
       });
     });
 
