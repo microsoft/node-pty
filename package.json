@@ -54,7 +54,9 @@
     "ps-list": "^6.0.0",
     "tslint": "^5.12.1",
     "tslint-consistent-codestyle": "^1.15.0",
-    "typescript": "^3.2.2",
+    "typescript": "^3.2.2"
+  },
+  "optionalDependencies": {
     "windows-process-tree": "^0.2.3"
   }
 }
