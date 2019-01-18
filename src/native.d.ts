@@ -5,7 +5,6 @@
 interface IConptyNative {
   startProcess(file: string, cols: number, rows: number, debug: boolean, pipeName: string): IConptyProcess;
   connect(ptyId: number, commandLine: string, cwd: string, env: string[], onExitCallback: (exitCode: number) => void): { pid: number };
-  getProcessList(shellPid: number): number[];
   resize(ptyId: number, cols: number, rows: number): void;
   kill(ptyId: number): void;
 }

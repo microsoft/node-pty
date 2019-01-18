@@ -8,6 +8,48 @@ import * as fs from 'fs';
 import * as assert from 'assert';
 import { WindowsTerminal } from './windowsTerminal';
 import * as path from 'path';
+import { getProcessList } from 'windows-process-tree';
+import * as psList from 'ps-list';
+
+interface IProcessState {
+  // Whether the PID must exist or must not exist
+  [pid: number]: boolean;
+}
+
+function pollForProcessState(desiredState: IProcessState, intervalMs: number = 100, timeoutMs: number = 2000): Promise<void> {
+  return new Promise<void>(resolve => {
+    let tries = 0;
+    const interval = setInterval(() => {
+      psList({ all: true }).then(ps => {
+        let success = true;
+        const pids = Object.keys(desiredState).map(k => parseInt(k, 10));
+        pids.forEach(pid => {
+          if (desiredState[pid]) {
+            if (!ps.some(p => p.pid === pid)) {
+              success = false;
+            }
+          } else {
+            if (ps.some(p => p.pid === pid)) {
+              success = false;
+            }
+          }
+        });
+        if (success) {
+          clearInterval(interval);
+          resolve();
+          return;
+        }
+        tries++;
+        if (tries * intervalMs >= timeoutMs) {
+          clearInterval(interval);
+          const processListing = pids.map(k => `${k}: ${desiredState[k]}`).join('\n');
+          assert.fail(`Bad process state, expected:\n${processListing}`);
+          resolve();
+        }
+      });
+    }, intervalMs);
+  });
+}
 
 if (process.platform === 'win32') {
   describe('WindowsTerminal', () => {
@@ -18,15 +60,34 @@ if (process.platform === 'win32') {
         // Add done call to deferred function queue to ensure the kill call has completed
         (<any>term)._defer(done);
       });
-      it('should kill the process tree', (done) => {
+      it('should kill the process tree', function (done: Mocha.Done): void {
+        this.timeout(5000);
+
         const term = new WindowsTerminal('cmd.exe', [], {});
         // Start a sub-process
-        term.write('powershell.exe');
-        const proc = cp.execSync(`tasklist /fi "PID eq ${term.pid}"`);
-        const index = proc.toString().indexOf(term.pid.toString());
-        console.log('******* ' + index + ', ' + proc.toString());
-        // term.pid
-        // term.kill();
+        term.write('powershell.exe\r');
+        term.write('notepad.exe\r');
+        term.write('node.exe\r');
+        setTimeout(() => {
+          getProcessList(term.pid, list => {
+            assert.equal(list.length, 4);
+            assert.equal(list[0].name, 'cmd.exe');
+            assert.equal(list[1].name, 'powershell.exe');
+            assert.equal(list[2].name, 'notepad.exe');
+            assert.equal(list[3].name, 'node.exe');
+            term.kill();
+            const desiredState: IProcessState = {};
+            desiredState[list[0].pid] = false;
+            desiredState[list[1].pid] = false;
+            desiredState[list[2].pid] = true;
+            desiredState[list[3].pid] = false;
+            pollForProcessState(desiredState).then(() => {
+              // Kill notepad before done
+              process.kill(list[2].pid);
+              done();
+            });
+          });
+        }, 1000);
       });
     });
 
