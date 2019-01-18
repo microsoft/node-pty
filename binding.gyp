@@ -16,6 +16,15 @@
           ]
         },
         {
+          'target_name': 'conpty_console_list',
+          'include_dirs' : [
+            '<!(node -e "require(\'nan\')")'
+          ],
+          'sources' : [
+            'src/win/conpty_console_list.cc'
+          ]
+        },
+        {
           'target_name': 'pty',
           'include_dirs' : [
             '<!(node -e "require(\'nan\')")',
