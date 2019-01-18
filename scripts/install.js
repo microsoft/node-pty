@@ -5,9 +5,6 @@ const path = require('path');
 const spawn = require('child_process').spawn;
 
 installWindowsProcessTree().then(() => {
-  if (code) {
-    throw new Error('npm i windows-process-tree failed with code ' + code);
-  }
   const gypArgs = ['rebuild'];
   if (process.env.NODE_PTY_DEBUG) {
     gypArgs.push('--debug');
@@ -35,9 +32,6 @@ function installWindowsProcessTree() {
       stdio: 'inherit'
     });
     npmProcess.on('exit', function (code) {
-      if (code) {
-        throw new Error('windows-process-tree install failed with code ' + code);
-      }
       resolve();
     });
   });
