@@ -3,17 +3,11 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as assert from 'assert';
 import { WindowsTerminal } from './windowsTerminal';
 import * as path from 'path';
 import * as psList from 'ps-list';
-
-let getProcessList: any;
-if (process.platform === 'win32') {
-  getProcessList = require('windows-process-tree').getProcessList;
-}
 
 interface IProcessState {
   // Whether the PID must exist or must not exist
@@ -64,7 +58,19 @@ function pollForProcessTreeSize(pid: number, size: number, intervalMs: number = 
   return new Promise<IWindowsProcessTreeResult[]>(resolve => {
     let tries = 0;
     const interval = setInterval(() => {
-      getProcessList(pid, (list: {name: string, pid: number}[]) => {
+      psList({ all: true }).then(ps => {
+        const openList: IWindowsProcessTreeResult[] = [];
+        openList.push(ps.filter(p => p.pid === pid).map(p => {
+          return { name: p.name, pid: p.pid };
+        })[0]);
+        const list: IWindowsProcessTreeResult[] = [];
+        while (openList.length) {
+          const current = openList.shift();
+          ps.filter(p => p.ppid === current.pid).map(p => {
+            return { name: p.name, pid: p.pid };
+          }).forEach(p => openList.push(p));
+          list.push(current);
+        }
         const success = list.length === size;
         if (success) {
           clearInterval(interval);
