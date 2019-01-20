@@ -64,7 +64,19 @@ function pollForProcessTreeSize(pid: number, size: number, intervalMs: number = 
   return new Promise<IWindowsProcessTreeResult[]>(resolve => {
     let tries = 0;
     const interval = setInterval(() => {
-      getProcessList(pid, (list: {name: string, pid: number}[]) => {
+      psList({ all: true }).then(ps => {
+        const openList: IWindowsProcessTreeResult[] = [];
+        openList.push(ps.filter(p => p.pid === pid).map(p => {
+          return { name: p.name, pid: p.pid };
+        })[0]);
+        const list: IWindowsProcessTreeResult[] = [];
+        while (openList.length) {
+          const current = openList.shift();
+          ps.filter(p => p.ppid === current.pid).map(p => {
+            return { name: p.name, pid: p.pid };
+          }).forEach(p => openList.push(p));
+          list.push(current);
+        }
         const success = list.length === size;
         if (success) {
           clearInterval(interval);
