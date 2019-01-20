@@ -3,17 +3,11 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as assert from 'assert';
 import { WindowsTerminal } from './windowsTerminal';
 import * as path from 'path';
 import * as psList from 'ps-list';
-
-let getProcessList: any;
-if (process.platform === 'win32') {
-  getProcessList = require('windows-process-tree').getProcessList;
-}
 
 interface IProcessState {
   // Whether the PID must exist or must not exist
