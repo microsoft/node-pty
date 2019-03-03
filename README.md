@@ -93,11 +93,15 @@ Note that node-pty is not thread safe so running it across multiple worker threa
 
 ## Troubleshooting
 
-**Powershell gives error 8009001d**
+### Powershell gives error 8009001d
 
 > Internal Windows PowerShell error.  Loading managed Windows PowerShell failed with error 8009001d.
 
 This happens when PowerShell is launched with no `SystemRoot` environment variable present.
+
+### ConnectNamedPipe failed: Windows error 232
+
+This error can occur due to anti-virus software intercepting winpty from creating a pty. To workaround this you can exclude this file from your anti-virus scanning `node-pty\build\Release\winpty-agent.exe`
 
 ## pty.js
 
