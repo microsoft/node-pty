@@ -8,9 +8,14 @@ import * as net from 'net';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
-import { assign, loadNative } from './utils';
+import { assign } from './utils';
 
-const pty: IUnixNative = loadNative('pty');
+let pty: IUnixNative;
+try {
+  pty = require('../build/Release/pty.node');
+} catch {
+  pty = require('../build/Debug/pty.node');
+}
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
