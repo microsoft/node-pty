@@ -69,6 +69,10 @@ npm run tsc
 sudo apt install -y make python build-essential
 ```
 
+The following are also needed:
+
+- Node.JS 10+
+
 ### Windows
 
 `npm install` requires some tools to be present in the system like Python and C++ compiler. Windows users can easily install them by running the following command in PowerShell as administrator. For more information see https://github.com/felixrieseberg/windows-build-tools:
@@ -77,7 +81,10 @@ sudo apt install -y make python build-essential
 npm install --global --production windows-build-tools
 ```
 
-The Windows SDK is also needed which can be [downloaded here](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk). Only the "Desktop C++ Apps" components are needed to be installed.
+The following are also needed:
+
+- [Windows SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk) - only the "Desktop C++ Apps" components are needed to be installed
+- Node.JS 10+
 
 ## Debugging
 
