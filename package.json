@@ -42,7 +42,7 @@
     "prepublish": "npm run tsc"
   },
   "dependencies": {
-    "nan": "2.12.1"
+    "nan": "^2.13.2"
   },
   "devDependencies": {
     "@types/mocha": "^5.0.0",
