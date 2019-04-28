@@ -18,7 +18,7 @@
 #include <strsafe.h>
 #include "path_util.h"
 
-extern "C" void init(v8::Handle<v8::Object>);
+extern "C" void init(v8::Local<v8::Object>);
 
 // Taken from the RS5 Windows SDK, but redefined here in case we're targeting <= 17134
 #ifndef PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE
@@ -170,11 +170,11 @@ static NAN_METHOD(PtyStartProcess) {
     return;
   }
 
-  const std::wstring filename(path_util::to_wstring(v8::String::Utf8Value(info[0]->ToString())));
-  const SHORT cols = info[1]->Uint32Value();
-  const SHORT rows = info[2]->Uint32Value();
-  const bool debug = info[3]->ToBoolean()->IsTrue();
-  const std::wstring pipeName(path_util::to_wstring(v8::String::Utf8Value(info[4]->ToString())));
+  const std::wstring filename(path_util::to_wstring(Nan::Utf8String(info[0])));
+  const SHORT cols = info[1]->Uint32Value(Nan::GetCurrentContext()).FromJust();
+  const SHORT rows = info[2]->Uint32Value(Nan::GetCurrentContext()).FromJust();
+  const bool debug = info[3]->ToBoolean(Nan::GetCurrentContext()).ToLocalChecked()->IsTrue();
+  const std::wstring pipeName(path_util::to_wstring(Nan::Utf8String(info[4])));
 
   // use environment 'Path' variable to determine location of
   // the relative path that we have recieved (e.g cmd.exe)
@@ -242,12 +242,11 @@ static void OnProcessExit(uv_async_t *async) {
   GetExitCodeProcess(baton->hShell, &exitCode);
 
   // Call function
-  v8::Handle<v8::Value> args[1] = {
+  v8::Local<v8::Value> args[1] = {
     Nan::New<v8::Number>(exitCode)
   };
-  v8::Handle<v8::Function> local = Nan::New(baton->cb);
-  local->Call(Nan::GetCurrentContext()->Global(), 1, args);
-
+  v8::Local<v8::Function> local = Nan::New(baton->cb);
+  local->Call(Nan::GetCurrentContext(), Nan::Null(), 1, args);
   // Clean up
   baton->cb.Reset();
 }
@@ -272,10 +271,10 @@ static NAN_METHOD(PtyConnect) {
     return;
   }
 
-  const int id = info[0]->Int32Value();
-  const std::wstring cmdline(path_util::to_wstring(v8::String::Utf8Value(info[1]->ToString())));
-  const std::wstring cwd(path_util::to_wstring(v8::String::Utf8Value(info[2]->ToString())));
-  const v8::Handle<v8::Array> envValues = info[3].As<v8::Array>();
+  const int id = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
+  const std::wstring cmdline(path_util::to_wstring(Nan::Utf8String(info[1])));
+  const std::wstring cwd(path_util::to_wstring(Nan::Utf8String(info[2])));
+  const v8::Local<v8::Array> envValues = info[3].As<v8::Array>();
   const v8::Local<v8::Function> exitCallback = v8::Local<v8::Function>::Cast(info[4]);
 
   // Prepare command line
@@ -291,7 +290,7 @@ static NAN_METHOD(PtyConnect) {
   if (!envValues.IsEmpty()) {
     std::wstringstream envBlock;
     for(uint32_t i = 0; i < envValues->Length(); i++) {
-      std::wstring envValue(path_util::to_wstring(v8::String::Utf8Value(envValues->Get(i)->ToString())));
+      std::wstring envValue(path_util::to_wstring(Nan::Utf8String(envValues->Get(i))));
       envBlock << envValue << L'\0';
     }
     envBlock << L'\0';
@@ -374,9 +373,9 @@ static NAN_METHOD(PtyResize) {
     return;
   }
 
-  int id = info[0]->Int32Value();
-  SHORT cols = info[1]->Uint32Value();
-  SHORT rows = info[2]->Uint32Value();
+  int id = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
+  SHORT cols = info[1]->Uint32Value(Nan::GetCurrentContext()).FromJust();
+  SHORT rows = info[2]->Uint32Value(Nan::GetCurrentContext()).FromJust();
 
   const pty_baton* handle = get_pty_baton(id);
 
@@ -404,7 +403,7 @@ static NAN_METHOD(PtyKill) {
     return;
   }
 
-  int id = info[0]->Int32Value();
+  int id = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
 
   const pty_baton* handle = get_pty_baton(id);
 
@@ -428,7 +427,7 @@ static NAN_METHOD(PtyKill) {
 * Init
 */
 
-extern "C" void init(v8::Handle<v8::Object> target) {
+extern "C" void init(v8::Local<v8::Object> target) {
   Nan::HandleScope scope;
   Nan::SetMethod(target, "startProcess", PtyStartProcess);
   Nan::SetMethod(target, "connect", PtyConnect);

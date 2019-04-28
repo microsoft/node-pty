@@ -12,7 +12,7 @@ static NAN_METHOD(ApiConsoleProcessList) {
     return;
   }
 
-  const SHORT pid = info[0]->Uint32Value();
+  const SHORT pid = info[0]->Uint32Value(Nan::GetCurrentContext()).FromJust();
 
   if (!FreeConsole()) {
     Nan::ThrowError("FreeConsole failed");
@@ -35,7 +35,7 @@ static NAN_METHOD(ApiConsoleProcessList) {
   info.GetReturnValue().Set(result);
 }
 
-extern "C" void init(v8::Handle<v8::Object> target) {
+extern "C" void init(v8::Local<v8::Object> target) {
   Nan::HandleScope scope;
   Nan::SetMethod(target, "getConsoleProcessList", ApiConsoleProcessList);
 };
