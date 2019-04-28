@@ -1,34 +1,27 @@
 var os = require('os');
 var pty = require('../..');
 
-var shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
+var isWindows = os.platform() === 'win32';
+var shell = isWindows ? 'powershell.exe' : 'bash';
 
 var ptyProcess = pty.spawn(shell, [], {
   name: 'xterm-256color',
   cols: 80,
   rows: 26,
-  cwd: os.platform() === 'win32' ? process.env.USERPROFILE : process.env.HOME,
-  env: Object.assign({ TEST: "abc" }, process.env),
+  cwd: isWindows ? process.env.USERPROFILE : process.env.HOME,
+  env: Object.assign({ TEST: "Environment vars work" }, process.env),
   experimentalUseConpty: true
 });
 
-ptyProcess.on('data', function(data) {
-  // console.log(data);
-  process.stdout.write(data);
-});
+ptyProcess.onData(data => process.stdout.write(data));
 
-ptyProcess.write('dir\r');
-// ptyProcess.write('ls\r');
+ptyProcess.write(isWindows ? 'dir\r' : 'ls\r');
 
 setTimeout(() => {
   ptyProcess.resize(30, 19);
-  ptyProcess.write(shell === 'powershell.exe' ? '$Env:TEST\r' : 'echo %TEST%\r');
+  ptyProcess.write(isWindows ? '$Env:TEST\r' : 'echo $TEST\r');
 }, 2000);
 
-process.on('exit', () => {
-  ptyProcess.kill();
-});
+process.on('exit', () => ptyProcess.kill());
 
-setTimeout(() => {
-  process.exit();
-}, 4000);
+setTimeout(() => process.exit(), 4000);

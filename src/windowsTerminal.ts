@@ -117,6 +117,8 @@ export class WindowsTerminal extends Terminal {
 
     this._readable = true;
     this._writable = true;
+
+    this._forwardEvents();
   }
 
   /**
