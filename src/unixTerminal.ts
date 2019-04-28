@@ -155,6 +155,8 @@ export class UnixTerminal extends Terminal {
       this._close();
       this.emit('close');
     });
+
+    this._forwardEvents();
   }
 
   /**
