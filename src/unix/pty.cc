@@ -366,7 +366,13 @@ NAN_METHOD(PtyResize) {
   winp.ws_ypixel = 0;
 
   if (ioctl(fd, TIOCSWINSZ, &winp) == -1) {
-    return Nan::ThrowError("ioctl(2) failed.");
+    switch (errno) {
+      case EBADF: return Nan::ThrowError("ioctl(2) failed, EBADF");
+      case EFAULT: return Nan::ThrowError("ioctl(2) failed, EFAULT");
+      case EINVAL: return Nan::ThrowError("ioctl(2) failed, EINVAL");
+      case ENOTTY: return Nan::ThrowError("ioctl(2) failed, ENOTTY");
+    }
+    return Nan::ThrowError("ioctl(2) failed");
   }
 
   return info.GetReturnValue().SetUndefined();
