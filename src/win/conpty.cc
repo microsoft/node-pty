@@ -198,6 +198,9 @@ static NAN_METHOD(PtyStartProcess) {
   HPCON hpc;
   HRESULT hr = CreateNamedPipesAndPseudoConsole({cols, rows}, 0, &hIn, &hOut, &hpc, inName, outName, pipeName);
 
+  // Restore default handling of ctrl+c
+  SetConsoleCtrlHandler(NULL, FALSE);
+
   // Set return values
   marshal = Nan::New<v8::Object>();
 
