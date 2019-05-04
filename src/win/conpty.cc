@@ -40,7 +40,7 @@ struct pty_baton {
 
   HANDLE hShell;
   HANDLE hWait;
-  Nan::Persistent<v8::Function> cb;
+  Nan::Callback cb;
   uv_async_t async;
   uv_thread_t tid;
 
@@ -204,20 +204,20 @@ static NAN_METHOD(PtyStartProcess) {
   if (SUCCEEDED(hr)) {
     // We were able to instantiate a conpty
     const int ptyId = InterlockedIncrement(&ptyCounter);
-    marshal->Set(Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(ptyId));
+    Nan::Set(marshal, Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(ptyId));
     ptyHandles.insert(ptyHandles.end(), new pty_baton(ptyId, hIn, hOut, hpc));
   } else {
     Nan::ThrowError("Cannot launch conpty");
     return;
   }
 
-  marshal->Set(Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
+  Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
   {
     std::string coninPipeNameStr(inName.begin(), inName.end());
-    marshal->Set(Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(coninPipeNameStr).ToLocalChecked());
+    Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(coninPipeNameStr).ToLocalChecked());
 
     std::string conoutPipeNameStr(outName.begin(), outName.end());
-    marshal->Set(Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
+    Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
   }
   info.GetReturnValue().Set(marshal);
 }
@@ -245,8 +245,9 @@ static void OnProcessExit(uv_async_t *async) {
   v8::Local<v8::Value> args[1] = {
     Nan::New<v8::Number>(exitCode)
   };
-  v8::Local<v8::Function> local = Nan::New(baton->cb);
-  local->Call(Nan::GetCurrentContext(), Nan::Null(), 1, args);
+
+  Nan::AsyncResource asyncResource("node-pty.callback");
+  baton->cb.Call(1, args, &asyncResource);
   // Clean up
   baton->cb.Reset();
 }
@@ -290,7 +291,7 @@ static NAN_METHOD(PtyConnect) {
   if (!envValues.IsEmpty()) {
     std::wstringstream envBlock;
     for(uint32_t i = 0; i < envValues->Length(); i++) {
-      std::wstring envValue(path_util::to_wstring(Nan::Utf8String(envValues->Get(i))));
+      std::wstring envValue(path_util::to_wstring(Nan::Utf8String(Nan::Get(envValues, i).ToLocalChecked())));
       envBlock << envValue << L'\0';
     }
     envBlock << L'\0';
@@ -308,12 +309,12 @@ static NAN_METHOD(PtyConnect) {
   // Attach the pseudoconsole to the client application we're creating
   STARTUPINFOEXW siEx{0};
   siEx.StartupInfo.cb = sizeof(STARTUPINFOEXW);
-  PSIZE_T size;
-  InitializeProcThreadAttributeList(NULL, 1, 0, size);
-  BYTE *attrList = new BYTE[*size];
+  SIZE_T size = 0;
+  InitializeProcThreadAttributeList(NULL, 1, 0, &size);
+  BYTE *attrList = new BYTE[size];
   siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(attrList);
 
-  fSuccess = InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, size);
+  fSuccess = InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
   if (!fSuccess) {
     return throwNanError(&info, "InitializeProcThreadAttributeList failed", true);
   }
@@ -358,7 +359,7 @@ static NAN_METHOD(PtyConnect) {
 
   // Return
   v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
-  marshal->Set(Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>(piClient.dwProcessId));
+  Nan::Set(marshal, Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>(piClient.dwProcessId));
   info.GetReturnValue().Set(marshal);
 }
 
