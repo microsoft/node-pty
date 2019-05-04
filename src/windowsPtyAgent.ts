@@ -115,10 +115,8 @@ export class WindowsPtyAgent {
     // TODO: Wait for ready event?
 
     if (this._useConpty) {
-      const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, c => {
-          console.warn('callback', c)
-          this._$onProcessExit(c)
-      });
+      const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, c => this._$onProcessExit(c)
+);
       this._innerPid = connect.pid;
     }
   }
