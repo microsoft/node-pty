@@ -275,7 +275,7 @@ export class UnixTerminal extends Terminal {
  */
 class PipeSocket extends net.Socket {
   constructor(fd: number) {
-    const { Pipe, constants } = (<any>process).binding('pipe_wrap')
+    const { Pipe, constants } = (<any>process).binding('pipe_wrap'); // tslint:disable-line
     // @types/node has fd as string? https://github.com/DefinitelyTyped/DefinitelyTyped/pull/18275
     const handle = new Pipe(constants.SOCKET);
     handle.open(fd);
