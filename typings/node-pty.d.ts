@@ -46,6 +46,16 @@ declare module 'node-pty' {
     pid: number;
 
     /**
+     * The column size in characters.
+     */
+    cols: number;
+
+    /**
+     * The row size in characters.
+     */
+    rows: number;
+
+    /**
      * The title of the active process.
      */
     process: string;

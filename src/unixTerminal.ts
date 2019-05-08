@@ -52,8 +52,8 @@ export class UnixTerminal extends Terminal {
     opt = opt || {};
     opt.env = opt.env || process.env;
 
-    const cols = opt.cols || DEFAULT_COLS;
-    const rows = opt.rows || DEFAULT_ROWS;
+    this._cols = opt.cols || DEFAULT_COLS;
+    this._rows = opt.rows || DEFAULT_ROWS;
     const uid = opt.uid || -1;
     const gid = opt.gid || -1;
     const env = assign({}, opt.env);
@@ -97,7 +97,7 @@ export class UnixTerminal extends Terminal {
     };
 
     // fork
-    const term = pty.fork(file, args, parsedEnv, cwd, cols, rows, uid, gid, (encoding === 'utf8'), onexit);
+    const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), onexit);
 
     this._socket = new PipeSocket(term.fd);
     if (encoding !== null) {
@@ -249,6 +249,8 @@ export class UnixTerminal extends Terminal {
 
   public resize(cols: number, rows: number): void {
     pty.resize(this._fd, cols, rows);
+    this._cols = cols;
+    this._rows = rows;
   }
 
   private _sanitizeEnv(env: IProcessEnv): void {
