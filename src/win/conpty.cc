@@ -18,7 +18,7 @@
 #include <strsafe.h>
 #include "path_util.h"
 
-extern "C" void init(v8::Handle<v8::Object>);
+extern "C" void init(v8::Local<v8::Object>);
 
 // Taken from the RS5 Windows SDK, but redefined here in case we're targeting <= 17134
 #ifndef PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE
@@ -245,10 +245,10 @@ static void OnProcessExit(uv_async_t *async) {
   GetExitCodeProcess(baton->hShell, &exitCode);
 
   // Call function
-  v8::Handle<v8::Value> args[1] = {
+  v8::Local<v8::Value> args[1] = {
     Nan::New<v8::Number>(exitCode)
   };
-  v8::Handle<v8::Function> local = Nan::New(baton->cb);
+  v8::Local<v8::Function> local = Nan::New(baton->cb);
   local->Call(Nan::GetCurrentContext()->Global(), 1, args);
 
   // Clean up
@@ -278,7 +278,7 @@ static NAN_METHOD(PtyConnect) {
   const int id = info[0]->Int32Value();
   const std::wstring cmdline(path_util::to_wstring(v8::String::Utf8Value(info[1]->ToString())));
   const std::wstring cwd(path_util::to_wstring(v8::String::Utf8Value(info[2]->ToString())));
-  const v8::Handle<v8::Array> envValues = info[3].As<v8::Array>();
+  const v8::Local<v8::Array> envValues = info[3].As<v8::Array>();
   const v8::Local<v8::Function> exitCallback = v8::Local<v8::Function>::Cast(info[4]);
 
   // Prepare command line
@@ -431,7 +431,7 @@ static NAN_METHOD(PtyKill) {
 * Init
 */
 
-extern "C" void init(v8::Handle<v8::Object> target) {
+extern "C" void init(v8::Local<v8::Object> target) {
   Nan::HandleScope scope;
   Nan::SetMethod(target, "startProcess", PtyStartProcess);
   Nan::SetMethod(target, "connect", PtyConnect);

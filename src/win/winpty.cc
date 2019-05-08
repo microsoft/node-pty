@@ -23,7 +23,7 @@
 /**
 * Misc
 */
-extern "C" void init(v8::Handle<v8::Object>);
+extern "C" void init(v8::Local<v8::Object>);
 
 #define WINPTY_DBG_VARIABLE TEXT("WINPTYDBG")
 
@@ -135,7 +135,7 @@ static NAN_METHOD(PtyStartProcess) {
 
   // create environment block
   std::wstring env;
-  const v8::Handle<v8::Array> envValues = v8::Handle<v8::Array>::Cast(info[2]);
+  const v8::Local<v8::Array> envValues = v8::Local<v8::Array>::Cast(info[2]);
   if (!envValues.IsEmpty()) {
 
     std::wstringstream envBlock;
@@ -300,7 +300,7 @@ static NAN_METHOD(PtyKill) {
 * Init
 */
 
-extern "C" void init(v8::Handle<v8::Object> target) {
+extern "C" void init(v8::Local<v8::Object> target) {
   Nan::HandleScope scope;
   Nan::SetMethod(target, "startProcess", PtyStartProcess);
   Nan::SetMethod(target, "resize", PtyResize);

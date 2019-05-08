@@ -35,7 +35,7 @@ static NAN_METHOD(ApiConsoleProcessList) {
   info.GetReturnValue().Set(result);
 }
 
-extern "C" void init(v8::Handle<v8::Object> target) {
+extern "C" void init(v8::Local<v8::Object> target) {
   Nan::HandleScope scope;
   Nan::SetMethod(target, "getConsoleProcessList", ApiConsoleProcessList);
 };
