@@ -3,7 +3,6 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
-
 import * as net from 'net';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
@@ -276,11 +275,10 @@ export class UnixTerminal extends Terminal {
  */
 class PipeSocket extends net.Socket {
   constructor(fd: number) {
-    const tty = (<any>process).binding('tty_wrap');
-    const guessHandleType = tty.guessHandleType;
-    tty.guessHandleType = () => 'PIPE';
+    const { Pipe, constants } = (<any>process).binding('pipe_wrap')
     // @types/node has fd as string? https://github.com/DefinitelyTyped/DefinitelyTyped/pull/18275
-    super({ fd: <any>fd });
-    tty.guessHandleType = guessHandleType;
+    const handle = new Pipe(constants.SOCKET);
+    handle.open(fd);
+    super(<any>{ handle });
   }
 }
