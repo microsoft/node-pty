@@ -35,6 +35,8 @@ export abstract class Terminal implements ITerminal {
   public get onExit(): IEvent<IExitEvent> { return this._onExit.event; }
 
   public get pid(): number { return this._pid; }
+  public get cols(): number { return this._cols; }
+  public get rows(): number { return this._rows; }
 
   constructor(opt?: IPtyForkOptions) {
     // for 'close'
