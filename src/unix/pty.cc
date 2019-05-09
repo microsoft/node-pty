@@ -151,7 +151,7 @@ NAN_METHOD(PtyFork) {
   signal(SIGINT, SIG_DFL);
 
   // file
-  v8::String::Utf8Value file(info[0]->ToString());
+  Nan::Utf8String file(info[0]);
 
   // args
   int i = 0;
@@ -162,7 +162,7 @@ NAN_METHOD(PtyFork) {
   argv[0] = strdup(*file);
   argv[argl-1] = NULL;
   for (; i < argc; i++) {
-    v8::String::Utf8Value arg(argv_->Get(Nan::New<v8::Integer>(i))->ToString());
+    Nan::Utf8String arg(Nan::Get(argv_, i).ToLocalChecked());
     argv[i+1] = strdup(*arg);
   }
 
@@ -173,18 +173,18 @@ NAN_METHOD(PtyFork) {
   char **env = new char*[envc+1];
   env[envc] = NULL;
   for (; i < envc; i++) {
-    v8::String::Utf8Value pair(env_->Get(Nan::New<v8::Integer>(i))->ToString());
+    Nan::Utf8String pair(Nan::Get(env_, i).ToLocalChecked());
     env[i] = strdup(*pair);
   }
 
   // cwd
-  v8::String::Utf8Value cwd_(info[3]->ToString());
+  Nan::Utf8String cwd_(info[3]);
   char *cwd = strdup(*cwd_);
 
   // size
   struct winsize winp;
-  winp.ws_col = info[4]->IntegerValue();
-  winp.ws_row = info[5]->IntegerValue();
+  winp.ws_col = info[4]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  winp.ws_row = info[5]->IntegerValue(Nan::GetCurrentContext()).FromJust();
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
@@ -192,7 +192,7 @@ NAN_METHOD(PtyFork) {
   struct termios t = termios();
   struct termios *term = &t;
   term->c_iflag = ICRNL | IXON | IXANY | IMAXBEL | BRKINT;
-  if (info[8]->ToBoolean()->Value()) {
+  if (info[8]->BooleanValue(Nan::GetCurrentContext()).FromJust()) {
 #if defined(IUTF8)
     term->c_iflag |= IUTF8;
 #endif
@@ -227,8 +227,8 @@ NAN_METHOD(PtyFork) {
   cfsetospeed(term, B38400);
 
   // uid / gid
-  int uid = info[6]->IntegerValue();
-  int gid = info[7]->IntegerValue();
+  int uid = info[6]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  int gid = info[7]->IntegerValue(Nan::GetCurrentContext()).FromJust();
 
   // fork the pty
   int master = -1;
@@ -312,8 +312,8 @@ NAN_METHOD(PtyOpen) {
 
   // size
   struct winsize winp;
-  winp.ws_col = info[0]->IntegerValue();
-  winp.ws_row = info[1]->IntegerValue();
+  winp.ws_col = info[0]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  winp.ws_row = info[1]->IntegerValue(Nan::GetCurrentContext()).FromJust();
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
@@ -357,11 +357,11 @@ NAN_METHOD(PtyResize) {
     return Nan::ThrowError("Usage: pty.resize(fd, cols, rows)");
   }
 
-  int fd = info[0]->IntegerValue();
+  int fd = info[0]->IntegerValue(Nan::GetCurrentContext()).FromJust();
 
   struct winsize winp;
-  winp.ws_col = info[1]->IntegerValue();
-  winp.ws_row = info[2]->IntegerValue();
+  winp.ws_col = info[1]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  winp.ws_row = info[2]->IntegerValue(Nan::GetCurrentContext()).FromJust();
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
@@ -390,9 +390,9 @@ NAN_METHOD(PtyGetProc) {
     return Nan::ThrowError("Usage: pty.process(fd, tty)");
   }
 
-  int fd = info[0]->IntegerValue();
+  int fd = info[0]->IntegerValue(Nan::GetCurrentContext()).FromJust();
 
-  v8::String::Utf8Value tty_(info[1]->ToString());
+  Nan::Utf8String tty_(info[1]);
   char *tty = strdup(*tty_);
   char *name = pty_getproc(fd, tty);
   free(tty);
@@ -706,18 +706,10 @@ pty_forkpty(int *amaster,
 
 NAN_MODULE_INIT(init) {
   Nan::HandleScope scope;
-  Nan::Set(target,
-           Nan::New<v8::String>("fork").ToLocalChecked(),
-           Nan::New<v8::FunctionTemplate>(PtyFork)->GetFunction());
-  Nan::Set(target,
-           Nan::New<v8::String>("open").ToLocalChecked(),
-           Nan::New<v8::FunctionTemplate>(PtyOpen)->GetFunction());
-  Nan::Set(target,
-           Nan::New<v8::String>("resize").ToLocalChecked(),
-           Nan::New<v8::FunctionTemplate>(PtyResize)->GetFunction());
-  Nan::Set(target,
-           Nan::New<v8::String>("process").ToLocalChecked(),
-           Nan::New<v8::FunctionTemplate>(PtyGetProc)->GetFunction());
+  Nan::Export(target, "fork", PtyFork);
+  Nan::Export(target, "open", PtyOpen);
+  Nan::Export(target, "resize", PtyResize);
+  Nan::Export(target, "process", PtyGetProc);
 }
 
 NODE_MODULE(pty, init)
