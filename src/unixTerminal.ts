@@ -175,17 +175,21 @@ export class UnixTerminal extends Terminal {
 
     const cols = opt.cols || DEFAULT_COLS;
     const rows = opt.rows || DEFAULT_ROWS;
-    const encoding = opt.encoding ? 'utf8' : opt.encoding;
+    const encoding = (opt.encoding === undefined ? 'utf8' : opt.encoding);
 
     // open
     const term: IUnixOpenProcess = pty.open(cols, rows);
 
     self._master = new PipeSocket(<number>term.master);
-    self._master.setEncoding(encoding);
+    if (encoding !== null) {
+        self._master.setEncoding(encoding);
+    }
     self._master.resume();
 
     self._slave = new PipeSocket(term.slave);
-    self._slave.setEncoding(encoding);
+    if (encoding !== null) {
+        self._slave.setEncoding(encoding);
+    }
     self._slave.resume();
 
     self._socket = self._master;
