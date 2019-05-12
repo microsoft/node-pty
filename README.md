@@ -1,6 +1,6 @@
 # node-pty
 
-[![Build Status](https://dev.azure.com/vscode/node-pty/_apis/build/status/Microsoft.node-pty)](https://dev.azure.com/vscode/node-pty/_apis/build/status/Microsoft.node-pty?branchName=master)
+[![Build Status](https://dev.azure.com/vscode/node-pty/_apis/build/status/Microsoft.node-pty)](https://dev.azure.com/vscode/node-pty/_build/latest?definitionId=11)
 
 `forkpty(3)` bindings for node.js. This allows you to fork processes with pseudoterminal file descriptors. It returns a terminal object which allows reads and writes.
 
@@ -24,6 +24,7 @@ This is useful for:
 - [atom-xterm](https://atom.io/packages/atom-xterm) - Atom plugin for providing terminals inside your Atom workspace.
 - [Termination](https://atom.io/packages/termination) - Another Atom plugin that provides terminals inside your Atom workspace.
 - [electerm](https://github.com/electerm/electerm) Terminal/ssh/sftp client(linux, mac, win).
+- [Extraterm](http://extraterm.org/)
 
 Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
 
@@ -69,6 +70,10 @@ npm run tsc
 sudo apt install -y make python build-essential
 ```
 
+The following are also needed:
+
+- Node.JS 10+
+
 ### Windows
 
 `npm install` requires some tools to be present in the system like Python and C++ compiler. Windows users can easily install them by running the following command in PowerShell as administrator. For more information see https://github.com/felixrieseberg/windows-build-tools:
@@ -77,7 +82,10 @@ sudo apt install -y make python build-essential
 npm install --global --production windows-build-tools
 ```
 
-The Windows SDK is also needed which can be [downloaded here](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk). Only the "Desktop C++ Apps" components are needed to be installed.
+The following are also needed:
+
+- [Windows SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk) - only the "Desktop C++ Apps" components are needed to be installed
+- Node.JS 10+
 
 ## Debugging
 

@@ -4,10 +4,11 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-import * as path from 'path';
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
 import { ITerminal, IPtyForkOptions } from './interfaces';
+import { EventEmitter2, IEvent } from './eventEmitter2';
+import { IExitEvent } from './types';
 
 export const DEFAULT_COLS: number = 80;
 export const DEFAULT_ROWS: number = 24;
@@ -28,7 +29,14 @@ export abstract class Terminal implements ITerminal {
 
   protected _internalee: EventEmitter;
 
+  private _onData = new EventEmitter2<string>();
+  public get onData(): IEvent<string> { return this._onData.event; }
+  private _onExit = new EventEmitter2<IExitEvent>();
+  public get onExit(): IEvent<IExitEvent> { return this._onExit.event; }
+
   public get pid(): number { return this._pid; }
+  public get cols(): number { return this._cols; }
+  public get rows(): number { return this._rows; }
 
   constructor(opt?: IPtyForkOptions) {
     // for 'close'
@@ -48,6 +56,11 @@ export abstract class Terminal implements ITerminal {
     this._checkType('uid', opt.uid ? opt.uid : null, 'number');
     this._checkType('gid', opt.gid ? opt.gid : null, 'number');
     this._checkType('encoding', opt.encoding ? opt.encoding : null, 'string');
+  }
+
+  protected _forwardEvents(): void {
+    this.on('data', e => this._onData.fire(e));
+    this.on('exit', (exitCode, signal) => this._onExit.fire({ exitCode, signal }));
   }
 
   private _checkType(name: string, value: any, type: string): void {

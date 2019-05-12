@@ -11,7 +11,7 @@
 
 namespace path_util {
 
-const wchar_t* to_wstring(const v8::String::Utf8Value& str) {
+const wchar_t* to_wstring(const Nan::Utf8String& str) {
   const char *bytes = *str;
   unsigned int sizeOfStr = MultiByteToWideChar(CP_UTF8, 0, bytes, -1, NULL, 0);
   wchar_t *output = new wchar_t[sizeOfStr];

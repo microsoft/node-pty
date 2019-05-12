@@ -33,8 +33,8 @@ export class WindowsTerminal extends Terminal {
     }
 
     const env = assign({}, opt.env);
-    const cols = opt.cols || DEFAULT_COLS;
-    const rows = opt.rows || DEFAULT_ROWS;
+    this._cols = opt.cols || DEFAULT_COLS;
+    this._rows = opt.rows || DEFAULT_ROWS;
     const cwd = opt.cwd || process.cwd();
     const name = opt.name || env.TERM || DEFAULT_NAME;
     const parsedEnv = this._parseEnv(env);
@@ -46,7 +46,7 @@ export class WindowsTerminal extends Terminal {
     this._deferreds = [];
 
     // Create new termal.
-    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, cols, rows, false, opt.experimentalUseConpty);
+    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.experimentalUseConpty);
     this._socket = this._agent.outSocket;
 
     // Not available until `ready` event emitted.
@@ -117,6 +117,8 @@ export class WindowsTerminal extends Terminal {
 
     this._readable = true;
     this._writable = true;
+
+    this._forwardEvents();
   }
 
   /**
@@ -147,6 +149,8 @@ export class WindowsTerminal extends Terminal {
     }
     this._defer(() => {
       this._agent.resize(cols, rows);
+      this._cols = cols;
+      this._rows = rows;
     });
   }
 
