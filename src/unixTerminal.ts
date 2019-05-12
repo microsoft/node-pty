@@ -3,14 +3,18 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
-
 import * as net from 'net';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
-import { assign, loadNative } from './utils';
+import { assign } from './utils';
 
-const pty: IUnixNative = loadNative('pty');
+let pty: IUnixNative;
+try {
+  pty = require('../build/Release/pty.node');
+} catch {
+  pty = require('../build/Debug/pty.node');
+}
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
@@ -47,8 +51,8 @@ export class UnixTerminal extends Terminal {
     opt = opt || {};
     opt.env = opt.env || process.env;
 
-    const cols = opt.cols || DEFAULT_COLS;
-    const rows = opt.rows || DEFAULT_ROWS;
+    this._cols = opt.cols || DEFAULT_COLS;
+    this._rows = opt.rows || DEFAULT_ROWS;
     const uid = opt.uid || -1;
     const gid = opt.gid || -1;
     const env = assign({}, opt.env);
@@ -92,7 +96,7 @@ export class UnixTerminal extends Terminal {
     };
 
     // fork
-    const term = pty.fork(file, args, parsedEnv, cwd, cols, rows, uid, gid, (encoding === 'utf8'), onexit);
+    const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), onexit);
 
     this._socket = new PipeSocket(term.fd);
     if (encoding !== null) {
@@ -150,6 +154,8 @@ export class UnixTerminal extends Terminal {
       this._close();
       this.emit('close');
     });
+
+    this._forwardEvents();
   }
 
   /**
@@ -246,6 +252,8 @@ export class UnixTerminal extends Terminal {
 
   public resize(cols: number, rows: number): void {
     pty.resize(this._fd, cols, rows);
+    this._cols = cols;
+    this._rows = rows;
   }
 
   private _sanitizeEnv(env: IProcessEnv): void {
@@ -273,11 +281,10 @@ export class UnixTerminal extends Terminal {
  */
 class PipeSocket extends net.Socket {
   constructor(fd: number) {
-    const tty = (<any>process).binding('tty_wrap');
-    const guessHandleType = tty.guessHandleType;
-    tty.guessHandleType = () => 'PIPE';
+    const { Pipe, constants } = (<any>process).binding('pipe_wrap'); // tslint:disable-line
     // @types/node has fd as string? https://github.com/DefinitelyTyped/DefinitelyTyped/pull/18275
-    super({ fd: <any>fd });
-    tty.guessHandleType = guessHandleType;
+    const handle = new Pipe(constants.SOCKET);
+    handle.open(fd);
+    super(<any>{ handle });
   }
 }

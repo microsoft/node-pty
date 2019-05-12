@@ -8,7 +8,6 @@ import * as os from 'os';
 import * as path from 'path';
 import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
-import { loadNative } from './utils';
 import { fork } from 'child_process';
 
 let conptyNative: IConptyNative;
@@ -59,11 +58,19 @@ export class WindowsPtyAgent {
     }
     if (this._useConpty) {
       if (!conptyNative) {
-        conptyNative = loadNative('conpty');
+        try {
+          conptyNative = require('../build/Release/conpty.node');
+        } catch (err) {
+          conptyNative = require('../build/Debug/conpty.node');
+        }
       }
     } else {
       if (!winptyNative) {
-        winptyNative = loadNative('pty');
+        try {
+          winptyNative = require('../build/Release/pty.node');
+        } catch (err) {
+          winptyNative = require('../build/Debug/pty.node');
+        }
       }
     }
     this._ptyNative = this._useConpty ? conptyNative : winptyNative;
@@ -108,7 +115,8 @@ export class WindowsPtyAgent {
     // TODO: Wait for ready event?
 
     if (this._useConpty) {
-      const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, this._$onProcessExit.bind(this));
+      const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, c => this._$onProcessExit(c)
+);
       this._innerPid = connect.pid;
     }
   }
