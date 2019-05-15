@@ -39,7 +39,7 @@
     "install": "node scripts/install.js",
     "postinstall": "node scripts/post-install.js",
     "test": "cross-env NODE_ENV=test mocha -R spec --exit lib/*.test.js",
-    "prepublish": "npm run tsc"
+    "prepare": "npm run tsc"
   },
   "dependencies": {
     "nan": "^2.13.2"
