@@ -177,7 +177,6 @@ export class WindowsPtyAgent {
       });
       const timeout = setTimeout(() => {
         // Something went wrong, just send back the shell PID
-        console.error('Could not fetch console process list');
         agent.kill();
         resolve([ this._innerPid ]);
       }, 5000);
