@@ -25,6 +25,7 @@ This is useful for:
 - [Termination](https://atom.io/packages/termination) - Another Atom plugin that provides terminals inside your Atom workspace.
 - [electerm](https://github.com/electerm/electerm) Terminal/ssh/sftp client(linux, mac, win).
 - [Extraterm](http://extraterm.org/)
+- [Wetty](https://github.com/krishnasrinivas/wetty) Browser based Terminal over HTTP and HTTPS
 
 Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
 
