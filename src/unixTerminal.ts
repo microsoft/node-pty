@@ -157,6 +157,9 @@ export class UnixTerminal extends Terminal {
       this._close();
       this.emit('close');
     });
+
+    // attach write method
+    this._writeMethod = (data: string) => this._socket.write(data);
   }
 
   /**
@@ -212,10 +215,6 @@ export class UnixTerminal extends Terminal {
     });
 
     return self;
-  }
-
-  public write(data: string): void {
-    this._socket.write(data);
   }
 
   public destroy(): void {
