@@ -11,6 +11,14 @@ import { ITerminal, IPtyForkOptions } from './interfaces';
 export const DEFAULT_COLS: number = 80;
 export const DEFAULT_ROWS: number = 24;
 
+/**
+ * Default messages to indicate PAUSE/RESUME for automatic flow control.
+ * To avoid conflicts with rebound XON/XOFF control codes,
+ * the sequences can be customized in `IPtyForkOptions`.
+ */
+const FLOW_PAUSE =  '\x13';   // defaults to XOFF
+const FLOW_RESUME = '\x11';   // defaults to XON
+
 export abstract class Terminal implements ITerminal {
   protected _socket: Socket;
   protected _pid: number;
@@ -26,6 +34,9 @@ export abstract class Terminal implements ITerminal {
   protected _writable: boolean;
 
   protected _internalee: EventEmitter;
+  private _realWrite: (data: string) => void = null;
+  private _flowPause: string;
+  private _flowResume: string;
 
   public get pid(): number { return this._pid; }
 
@@ -47,6 +58,56 @@ export abstract class Terminal implements ITerminal {
     this._checkType('uid', opt.uid ? opt.uid : null, 'number');
     this._checkType('gid', opt.gid ? opt.gid : null, 'number');
     this._checkType('encoding', opt.encoding ? opt.encoding : null, 'string');
+
+    // setup flow control handling
+    if (opt.handleFlowControl) {
+      this._flowPause = opt.flowPause || FLOW_PAUSE;
+      this._flowResume = opt.flowResume || FLOW_RESUME;
+      this.enableFlowHandling();
+    }
+  }
+
+  /**
+   * Enable automatic flow control handling.
+   * Instead of relying on XON/XOFF directly we pause/resume
+   * the underlying socket. Main advantage is that flow control will
+   * still work even when XON/XOFF is not available. As a downside it
+   * does not act immediately, instead the OS pty buffer and node's socket buffer
+   * fill up first before the slave program gets paused.
+   * Note that `flowPause` and `flowResume` must be in line with the
+   * messages sent by the terminal emulator to indicate PAUSE/RESUME.
+   * @param flowPause String to pause the pty. Defaults to XOFF (x13).
+   * @param flowResume String to resume the pty. Defaults to XON (x11).
+   */
+  public enableFlowHandling(flowPause: string = this._flowPause, flowResume: string = this._flowResume): void {
+    if (this._realWrite) {
+      return;
+    }
+    this._realWrite = this.write;
+    this.write = (data: string) => {
+      // PAUSE/RESUME messages are not forwarded to the pty
+      if (data === flowPause) {
+        this.pause();
+        return;
+      }
+      if (data === flowResume) {
+        this.resume();
+        return;
+      }
+      // normal pty.write
+      this._realWrite(data);
+    };
+  }
+
+  /**
+   * Disable automatic flow control handling.
+   */
+  public disableFlowHandling(): void {
+    if (!this._realWrite) {
+      return;
+    }
+    this.write = this._realWrite;
+    this._realWrite = null;
   }
 
   private _checkType(name: string, value: any, type: string): void {
