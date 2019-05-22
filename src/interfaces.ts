@@ -116,6 +116,9 @@ export interface IPtyForkOptions {
   uid?: number;
   gid?: number;
   encoding?: string;
+  handleFlowControl?: boolean;
+  flowControlPause?: string;
+  flowControlResume?: string;
 }
 
 export interface IWindowsPtyForkOptions {
@@ -127,6 +130,9 @@ export interface IWindowsPtyForkOptions {
   encoding?: string;
   experimentalUseConpty?: boolean;
   conptyInheritCursor?: boolean;
+  handleFlowControl?: boolean;
+  flowControlPause?: string;
+  flowControlResume?: string;
 }
 
 export interface IPtyOpenOptions {

@@ -100,6 +100,29 @@ All processes launched from node-pty will launch at the same permission level of
 
 Note that node-pty is not thread safe so running it across multiple worker threads in node.js could cause issues.
 
+## Flow Control
+
+Automatic flow control can be enabled by either providing `handleFlowControl = true` in the constructor options or setting it later on:
+
+```js
+const PAUSE = '\x13';   // XOFF
+const RESUME = '\x11';  // XON
+
+const ptyProcess = pty.spawn(shell, [], {handleFlowControl: true});
+
+// flow control in action
+ptyProcess.write(PAUSE);  // pty will block and pause the slave program
+...
+ptyProcess.write(RESUME); // pty will enter flow mode and resume the slave program
+
+// temporarily disable/re-enable flow control
+ptyProcess.handleFlowControl = false;
+...
+ptyProcess.handleFlowControl = true;
+```
+
+By default `PAUSE` and `RESUME` are XON/XOFF control codes (as shown above). To avoid conflicts in environments that use these control codes for different purposes the messages can be customized as `flowControlPause: string` and `flowControlResume: string` in the constructor options. `PAUSE` and `RESUME` are not passed to the underlying pseudoterminal if flow control is enabled.
+
 ## Troubleshooting
 
 ### Powershell gives error 8009001d
