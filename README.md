@@ -129,9 +129,9 @@ ptyProcess.write(PAUSE);  // pty will block and pause the slave program
 ptyProcess.write(RESUME); // pty will enter flow mode and resume the slave program
 
 // temporarily disable/re-enable flow control
-pty.disableFlowControl();
+ptyProcess.disableFlowControl();
 ...
-pty.enableFlowControl();
+ptyProcess.enableFlowControl();
 ```
 
 By default `PAUSE` and `RESUME` are XON/XOFF control codes (as shown above). To avoid conflicts in environments that
