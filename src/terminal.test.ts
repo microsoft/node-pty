@@ -35,17 +35,18 @@ describe('Terminal', () => {
       assert.equal((pty as any)._flowPause, 'abc');
       assert.equal((pty as any)._flowResume, '123');
     });
-    it('should do flow control automatically', (done) => {
+    it('should do flow control automatically', function(done) {
+      this.timeout(3000);
       const pty = new terminalConstructor(SHELL, [], {handleFlowControl: true, flowPause: 'PAUSE', flowResume: 'RESUME'});
       const read: string[] = [];
       pty.on('data', data => read.push(data));
       pty.on('pause', () => read.push('paused'));
       pty.on('resume', () => read.push('resumed'));
-      setTimeout(() => pty.write('1'), 500);
-      setTimeout(() => pty.write('PAUSE'), 600);
-      setTimeout(() => pty.write('2'), 700);
-      setTimeout(() => pty.write('RESUME'), 800);
-      setTimeout(() => pty.write('3'), 900);
+      setTimeout(() => pty.write('1'), 1000);
+      setTimeout(() => pty.write('PAUSE'), 1200);
+      setTimeout(() => pty.write('2'), 1400);
+      setTimeout(() => pty.write('RESUME'), 1600);
+      setTimeout(() => pty.write('3'), 1800);
       setTimeout(() => {
         // important here: no data should be delivered between 'paused' and 'resumed'
         if (process.platform === 'win32') {
@@ -55,7 +56,7 @@ describe('Terminal', () => {
           assert.deepEqual(read.slice(-5), ['1', 'paused', 'resumed', '2', '3']);
         }
         done();
-      }, 1000);
+      }, 2000);
     });
     it('should enable/disable automatic flow control', () => {
       const pty = new terminalConstructor(SHELL, []);
