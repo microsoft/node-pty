@@ -10,6 +10,7 @@ import { WindowsPtyAgent } from './windowsPtyAgent';
 import { IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 import { assign } from './utils';
+import { IWindowsPtyForkOptions } from 'node-pty';
 
 const DEFAULT_FILE = 'cmd.exe';
 const DEFAULT_NAME = 'Windows Shell';
@@ -19,7 +20,7 @@ export class WindowsTerminal extends Terminal {
   private _deferreds: any[];
   private _agent: WindowsPtyAgent;
 
-  constructor(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions) {
+  constructor(file?: string, args?: ArgvOrCommandLine, opt?: IWindowsPtyForkOptions) {
     super(opt);
 
     // Initialize arguments
@@ -46,7 +47,7 @@ export class WindowsTerminal extends Terminal {
     this._deferreds = [];
 
     // Create new termal.
-    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.experimentalUseConpty);
+    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.experimentalUseConpty, opt.conptyInheritCursor);
     this._socket = this._agent.outSocket;
 
     // Not available until `ready` event emitted.
