@@ -49,7 +49,7 @@ describe('Terminal', () => {
       setTimeout(() => pty.write('3'), 500);
       setTimeout(() => {
         // read should contain ['resumed', '<PROMPT>', '1', 'paused', 'resumed', '2', '3']
-        // import here: no data should be delivered between 'paused' and 'resumed'
+        // important here: no data should be delivered between 'paused' and 'resumed'
         assert.deepEqual(read.slice(2), ['1', 'paused', 'resumed', '2', '3']);
         done();
       }, 1000);
