@@ -41,15 +41,19 @@ describe('Terminal', () => {
       pty.on('data', data => read.push(data));
       pty.on('pause', () => read.push('paused'));
       pty.on('resume', () => read.push('resumed'));
-      setTimeout(() => pty.write('1'), 100);
-      setTimeout(() => pty.write('PAUSE'), 200);
-      setTimeout(() => pty.write('2'), 300);
-      setTimeout(() => pty.write('RESUME'), 400);
-      setTimeout(() => pty.write('3'), 500);
+      setTimeout(() => pty.write('1'), 500);
+      setTimeout(() => pty.write('PAUSE'), 600);
+      setTimeout(() => pty.write('2'), 700);
+      setTimeout(() => pty.write('RESUME'), 800);
+      setTimeout(() => pty.write('3'), 900);
       setTimeout(() => {
-        // read should contain ['resumed', '<PROMPT>', '1', 'paused', 'resumed', '2', '3']
         // important here: no data should be delivered between 'paused' and 'resumed'
-        assert.deepEqual(read.slice(2), ['1', 'paused', 'resumed', '2', '3']);
+        if (process.platform === 'win32') {
+          // cmd.exe always clears to the end of line?
+          assert.deepEqual(read.slice(2), ['1\u001b[0K', 'paused', 'resumed', '2\u001b[0K', '3\u001b[0K']);
+        } else {
+          assert.deepEqual(read.slice(2), ['1', 'paused', 'resumed', '2', '3']);
+        }
         done();
       }, 1000);
     });
