@@ -7,10 +7,9 @@
 import { Socket } from 'net';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { WindowsPtyAgent } from './windowsPtyAgent';
-import { IPtyForkOptions, IPtyOpenOptions } from './interfaces';
+import { IPtyOpenOptions, IWindowsPtyForkOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 import { assign } from './utils';
-import { IWindowsPtyForkOptions } from 'node-pty';
 
 const DEFAULT_FILE = 'cmd.exe';
 const DEFAULT_NAME = 'Windows Shell';
