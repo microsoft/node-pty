@@ -6,6 +6,7 @@
 import * as assert from 'assert';
 import { WindowsTerminal } from './windowsTerminal';
 import { UnixTerminal } from './unixTerminal';
+import pollUntil = require('pollUntil');
 
 const terminalConstructor = (process.platform === 'win32') ? WindowsTerminal : UnixTerminal;
 const SHELL = (process.platform === 'win32') ? 'cmd.exe' : '/bin/bash';
@@ -35,28 +36,26 @@ describe('Terminal', () => {
       assert.equal((pty as any)._flowControlPause, 'abc');
       assert.equal((pty as any)._flowControlResume, '123');
     });
-    it('should do flow control automatically', function(done: Function): void {
+    it('should do flow control automatically', async function(): Promise<void> {
       this.timeout(10000);
       const pty = new terminalConstructor(SHELL, [], {handleFlowControl: true, flowControlPause: 'PAUSE', flowControlResume: 'RESUME'});
-      const read: string[] = [];
-      pty.on('data', data => read.push(data));
-      pty.on('pause', () => read.push('paused'));
-      pty.on('resume', () => read.push('resumed'));
-      setTimeout(() => pty.write('1'), 7000);
-      setTimeout(() => pty.write('PAUSE'), 7200);
-      setTimeout(() => pty.write('2'), 7400);
-      setTimeout(() => pty.write('RESUME'), 7600);
-      setTimeout(() => pty.write('3'), 7800);
-      setTimeout(() => {
+      let read: string = '';
+      pty.on('data', data => read += data);
+      pty.on('pause', () => read += 'paused');
+      pty.on('resume', () => read += 'resumed');
+      pty.write('1');
+      pty.write('PAUSE');
+      pty.write('2');
+      pty.write('RESUME');
+      pty.write('3');
+      await (<any>pollUntil)(() => {
         // important here: no data should be delivered between 'paused' and 'resumed'
         if (process.platform === 'win32') {
-          // cmd.exe always clears to the end of line?
-          assert.deepEqual(read.slice(-5), ['1\u001b[0K', 'paused', 'resumed', '2\u001b[0K', '3\u001b[0K']);
+          read.endsWith('1\u001b[0Kpausedresumed2\u001b[0K3\u001b[0K');
         } else {
-          assert.deepEqual(read.slice(-5), ['1', 'paused', 'resumed', '2', '3']);
+          read.endsWith('1pausedresumed23');
         }
-        done();
-      }, 9500);
+      }, [], 200, 10);
     });
   });
 });
