@@ -50,9 +50,9 @@ describe('Terminal', () => {
         // important here: no data should be delivered between 'paused' and 'resumed'
         if (process.platform === 'win32') {
           // cmd.exe always clears to the end of line?
-          assert.deepEqual(read.slice(2), ['1\u001b[0K', 'paused', 'resumed', '2\u001b[0K', '3\u001b[0K']);
+          assert.deepEqual(read.slice(-5), ['1\u001b[0K', 'paused', 'resumed', '2\u001b[0K', '3\u001b[0K']);
         } else {
-          assert.deepEqual(read.slice(2), ['1', 'paused', 'resumed', '2', '3']);
+          assert.deepEqual(read.slice(-5), ['1', 'paused', 'resumed', '2', '3']);
         }
         done();
       }, 1000);
