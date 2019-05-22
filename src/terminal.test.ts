@@ -55,7 +55,7 @@ describe('Terminal', () => {
         } else {
           read.endsWith('1pausedresumed23');
         }
-      }, [], 200, 10);
+      }, [], 20, 10);
     });
   });
 });
