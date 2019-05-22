@@ -13,6 +13,14 @@ import { IExitEvent } from './types';
 export const DEFAULT_COLS: number = 80;
 export const DEFAULT_ROWS: number = 24;
 
+/**
+ * Default messages to indicate PAUSE/RESUME for automatic flow control.
+ * To avoid conflicts with rebound XON/XOFF control codes (such as on-my-zsh),
+ * the sequences can be customized in `IPtyForkOptions`.
+ */
+const FLOW_CONTROL_PAUSE =  '\x13';   // defaults to XOFF
+const FLOW_CONTROL_RESUME = '\x11';   // defaults to XON
+
 export abstract class Terminal implements ITerminal {
   protected _socket: Socket;
   protected _pid: number;
@@ -28,6 +36,10 @@ export abstract class Terminal implements ITerminal {
   protected _writable: boolean;
 
   protected _internalee: EventEmitter;
+  protected _writeMethod: (data: string) => void;
+  private _flowControlPause: string;
+  private _flowControlResume: string;
+  public handleFlowControl: boolean;
 
   private _onData = new EventEmitter2<string>();
   public get onData(): IEvent<string> { return this._onData.event; }
@@ -56,6 +68,27 @@ export abstract class Terminal implements ITerminal {
     this._checkType('uid', opt.uid ? opt.uid : null, 'number');
     this._checkType('gid', opt.gid ? opt.gid : null, 'number');
     this._checkType('encoding', opt.encoding ? opt.encoding : null, 'string');
+
+    // setup flow control handling
+    this.handleFlowControl = !!(opt.handleFlowControl);
+    this._flowControlPause = opt.flowControlPause || FLOW_CONTROL_PAUSE;
+    this._flowControlResume = opt.flowControlResume || FLOW_CONTROL_RESUME;
+  }
+
+  public write(data: string): void {
+    if (this.handleFlowControl) {
+      // PAUSE/RESUME messages are not forwarded to the pty
+      if (data === this._flowControlPause) {
+        this.pause();
+        return;
+      }
+      if (data === this._flowControlResume) {
+        this.resume();
+        return;
+      }
+    }
+    // everything else goes to the real pty
+    this._writeMethod(data);
   }
 
   protected _forwardEvents(): void {
@@ -131,7 +164,6 @@ export abstract class Terminal implements ITerminal {
     this._socket.once(eventName, listener);
   }
 
-  public abstract write(data: string): void;
   public abstract resize(cols: number, rows: number): void;
   public abstract destroy(): void;
   public abstract kill(signal?: string): void;

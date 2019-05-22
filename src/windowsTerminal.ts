@@ -120,6 +120,9 @@ export class WindowsTerminal extends Terminal {
     this._writable = true;
 
     this._forwardEvents();
+
+    // attach write method
+    this._writeMethod = (data: string) => this._defer(() => this._agent.inSocket.write(data));
   }
 
   /**
@@ -128,16 +131,6 @@ export class WindowsTerminal extends Terminal {
 
   public static open(options?: IPtyOpenOptions): void {
     throw new Error('open() not supported on windows, use Fork() instead.');
-  }
-
-  /**
-   * Events
-   */
-
-  public write(data: string): void {
-    this._defer(() => {
-      this._agent.inSocket.write(data);
-    });
   }
 
   /**
