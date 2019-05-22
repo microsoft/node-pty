@@ -115,6 +115,9 @@ export interface IPtyForkOptions {
   uid?: number;
   gid?: number;
   encoding?: string;
+  handleFlowControl?: boolean;
+  flowPause?: string;
+  flowResume?: string;
 }
 
 export interface IPtyOpenOptions {
