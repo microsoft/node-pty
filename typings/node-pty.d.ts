@@ -44,11 +44,11 @@ declare module 'node-pty' {
      */
     handleFlowControl?: boolean;
     /**
-     * String upon flow control shall pause the pty. Default is XOFF ('\x13').
+     * The string that should pause the pty when `handleFlowControl` is true. Default is XOFF ('\x13').
      */
     flowControlPause?: string;
     /**
-     * String upon flow control shall resume the pty. Default is XON ('\x11').
+     * The string that should resume the pty when `handleFlowControl` is true. Default is XON ('\x11').
      */
     flowControlResume?: string;
   }
