@@ -35,22 +35,22 @@ declare module 'node-pty' {
      */
     experimentalUseConpty?: boolean;
     /**
-     * Whether to enable flow control handling (false by default). If enabled a message of `flowPause`
+     * Whether to enable flow control handling (false by default). If enabled a message of `flowControlPause`
      * will pause the socket and thus blocking the slave program execution due to buffer back pressure.
-     * A message of `flowResume` will resume the socket into flow mode.
+     * A message of `flowControlResume` will resume the socket into flow mode.
      * For performance reasons only a single message as a whole will match (no message part matching).
-     * If flow control is enabled the `flowPause` and `flowResume` messages are not forwarded to
+     * If flow control is enabled the `flowControlPause` and `flowControlResume` messages are not forwarded to
      * the underlying pseudoterminal.
      */
     handleFlowControl?: boolean;
     /**
      * String upon flow control shall pause the pty. Default is XOFF ('\x13').
      */
-    flowPause: string;
+    flowControlPause?: string;
     /**
      * String upon flow control shall resume the pty. Default is XON ('\x11').
      */
-    flowResume: string;
+    flowControlResume?: string;
   }
 
   /**
@@ -76,6 +76,12 @@ declare module 'node-pty' {
      * The title of the active process.
      */
     process: string;
+
+    /**
+     * Whether to handle flow control. Useful to disable/re-enable flow control during runtime.
+     * Use this for binary data that is likely to contain the `flowControlPause` string by accident.
+     */
+    handleFlowControl: boolean;
 
     /**
      * Adds an event listener for when a data event fires. This happens when data is returned from
@@ -127,12 +133,6 @@ declare module 'node-pty' {
      * @throws Will throw when signal is used on Windows.
      */
     kill(signal?: string): void;
-
-    /**
-     * Whether to handle flow control. Useful to disable/re-enable flow control during runtime.
-     * Use this for binary data that is likely to contain the `flowPause` string by accident.
-     */
-    handleFlowControl: boolean;
   }
 
   /**

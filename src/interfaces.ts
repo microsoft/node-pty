@@ -118,8 +118,8 @@ export interface IPtyForkOptions {
   encoding?: string;
   experimentalUseConpty?: boolean | undefined;
   handleFlowControl?: boolean;
-  flowPause?: string;
-  flowResume?: string;
+  flowControlPause?: string;
+  flowControlResume?: string;
 }
 
 export interface IPtyOpenOptions {
