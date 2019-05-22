@@ -36,7 +36,7 @@ export abstract class Terminal implements ITerminal {
   protected _writable: boolean;
 
   protected _internalee: EventEmitter;
-  protected _writeMethod: (data: string) => void = () => {};
+  protected _writeMethod: (data: string) => void;
   private _flowControlPause: string;
   private _flowControlResume: string;
   public handleFlowControl: boolean;
