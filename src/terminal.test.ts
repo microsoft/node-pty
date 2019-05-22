@@ -5,12 +5,6 @@
 import * as assert from 'assert';
 import { WindowsTerminal } from './windowsTerminal';
 import { UnixTerminal } from './unixTerminal';
-import { IPtyForkOptions } from './interfaces';
-import { ArgvOrCommandLine } from './types';
-
-interface ITerminalCtor {
-  new(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions): WindowsTerminal | UnixTerminal;
-}
 
 const terminalConstructor = (process.platform === 'win32') ? WindowsTerminal : UnixTerminal;
 
