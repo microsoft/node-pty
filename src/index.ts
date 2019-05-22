@@ -1,6 +1,7 @@
 /**
  * Copyright (c) 2012-2015, Christopher Jeffrey, Peter Sunde (MIT License)
  * Copyright (c) 2016, Daniel Imms (MIT License).
+ * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
 import * as path from 'path';
@@ -49,4 +50,4 @@ export function open(options: IPtyOpenOptions): ITerminal {
  * Expose the native API when not Windows, note that this is not public API and
  * could be removed at any time.
  */
-export const native = (process.platform !== 'win32' ? require(path.join('..', 'build', 'Release', 'pty.node')) : null);
+export const native = (process.platform !== 'win32' ? require('../build/Release/pty.node') : null);
