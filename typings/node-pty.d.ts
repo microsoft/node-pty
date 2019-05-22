@@ -43,35 +43,35 @@ declare module 'node-pty' {
     /**
      * The process ID of the outer process.
      */
-    pid: number;
+    readonly pid: number;
 
     /**
      * The column size in characters.
      */
-    cols: number;
+    readonly cols: number;
 
     /**
      * The row size in characters.
      */
-    rows: number;
+    readonly rows: number;
 
     /**
      * The title of the active process.
      */
-    process: string;
+    readonly process: string;
 
     /**
      * Adds an event listener for when a data event fires. This happens when data is returned from
      * the pty.
      * @returns an `IDisposable` to stop listening.
      */
-    onData: IEvent<string>;
+    readonly onData: IEvent<string>;
 
     /**
      * Adds an event listener for when an exit event fires. This happens when the pty exits.
      * @returns an `IDisposable` to stop listening.
      */
-    onExit: IEvent<{ exitCode: number, signal?: number }>;
+    readonly onExit: IEvent<{ exitCode: number, signal?: number }>;
 
     /**
      * Adds a listener to the data event, fired when data is returned from the pty.
