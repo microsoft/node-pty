@@ -100,22 +100,9 @@ All processes launched from node-pty will launch at the same permission level of
 
 Note that node-pty is not thread safe so running it across multiple worker threads in node.js could cause issues.
 
-## Troubleshooting
-
-### Powershell gives error 8009001d
-
-> Internal Windows PowerShell error.  Loading managed Windows PowerShell failed with error 8009001d.
-
-This happens when PowerShell is launched with no `SystemRoot` environment variable present.
-
-### ConnectNamedPipe failed: Windows error 232
-
-This error can occur due to anti-virus software intercepting winpty from creating a pty. To workaround this you can exclude this file from your anti-virus scanning `node-pty\build\Release\winpty-agent.exe`
-
 ## Flow Control
 
-Automatic flow control can be enabled by either providing `handleFlowControl = true` in the constructor options or setting
-it later on:
+Automatic flow control can be enabled by either providing `handleFlowControl = true` in the constructor options or setting it later on:
 
 ```js
 const PAUSE = '\x13';   // XOFF
@@ -134,9 +121,19 @@ ptyProcess.handleFlowControl = false;
 ptyProcess.handleFlowControl = true;
 ```
 
-By default `PAUSE` and `RESUME` are XON/XOFF control codes (as shown above). To avoid conflicts in environments that
-use these control codes for different purposes the messages can be customized as `flowPause: string` and
-`flowResume: string` in the constructor options. `PAUSE` and `RESUME` are not passed to the underlying pseudoterminal if flow control is enabled.
+By default `PAUSE` and `RESUME` are XON/XOFF control codes (as shown above). To avoid conflicts in environments that use these control codes for different purposes the messages can be customized as `flowPause: string` and `flowResume: string` in the constructor options. `PAUSE` and `RESUME` are not passed to the underlying pseudoterminal if flow control is enabled.
+
+## Troubleshooting
+
+### Powershell gives error 8009001d
+
+> Internal Windows PowerShell error.  Loading managed Windows PowerShell failed with error 8009001d.
+
+This happens when PowerShell is launched with no `SystemRoot` environment variable present.
+
+### ConnectNamedPipe failed: Windows error 232
+
+This error can occur due to anti-virus software intercepting winpty from creating a pty. To workaround this you can exclude this file from your anti-virus scanning `node-pty\build\Release\winpty-agent.exe`
 
 ## pty.js
 
