@@ -7,7 +7,7 @@ import { WindowsTerminal } from './windowsTerminal';
 import { UnixTerminal } from './unixTerminal';
 
 const terminalConstructor = (process.platform === 'win32') ? WindowsTerminal : UnixTerminal;
-const IS_WIN = process.platform === 'win32';
+const SHELL = (process.platform === 'win32') ? 'cmd.exe' : '/bin/bash';
 
 let terminalCtor: WindowsTerminal | UnixTerminal;
 if (process.platform === 'win32') {
@@ -27,10 +27,9 @@ describe('Terminal', () => {
     });
   });
 
-  // FIXME: adopt for windows
   describe('automatic flow control', () => {
     it('should respect ctor flow control options', () => {
-      const pty = new terminalConstructor(IS_WIN ? 'cmd.exe' : '/bin/bash', [], {handleFlowControl: true, flowPause: 'abc', flowResume: '123'});
+      const pty = new terminalConstructor(SHELL, [], {handleFlowControl: true, flowPause: 'abc', flowResume: '123'});
       // write got replaced
       assert.equal((pty as any)._realWrite !== null, true);
       // correct values of flowPause and flowResume
@@ -38,7 +37,7 @@ describe('Terminal', () => {
       assert.equal((pty as any)._flowResume, '123');
     });
     it('should do flow control automatically', (done) => {
-      const pty = new terminalConstructor(IS_WIN ? 'cmd.exe' : '/bin/bash', [], {handleFlowControl: true, flowPause: 'PAUSE', flowResume: 'RESUME'});
+      const pty = new terminalConstructor(SHELL, [], {handleFlowControl: true, flowPause: 'PAUSE', flowResume: 'RESUME'});
       const read: string[] = [];
       pty.on('data', data => read.push(data));
       pty.on('pause', () => read.push('paused'));
@@ -56,7 +55,7 @@ describe('Terminal', () => {
       }, 1000);
     });
     it('should enable/disable automatic flow control', () => {
-      const pty = new terminalConstructor(IS_WIN ? 'cmd.exe' : '/bin/bash', []);
+      const pty = new terminalConstructor(SHELL, []);
       // write got not yet replaced
       assert.equal((pty as any)._realWrite, null);
       pty.enableFlowHandling();
