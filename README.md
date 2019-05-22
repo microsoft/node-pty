@@ -112,7 +112,7 @@ This happens when PowerShell is launched with no `SystemRoot` environment variab
 
 This error can occur due to anti-virus software intercepting winpty from creating a pty. To workaround this you can exclude this file from your anti-virus scanning `node-pty\build\Release\winpty-agent.exe`
 
-### Flow Control
+## Flow Control
 
 Automatic flow control can be enabled by either providing `handleFlowControl = true` in the constructor options or calling
 `enableFlowControl` later on:
