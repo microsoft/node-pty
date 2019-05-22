@@ -118,6 +118,9 @@ export class WindowsTerminal extends Terminal {
 
     this._readable = true;
     this._writable = true;
+
+    // attach write method
+    this._writeMethod = (data: string) => this._defer(() => this._agent.inSocket.write(data));
   }
 
   /**

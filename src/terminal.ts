@@ -34,9 +34,10 @@ export abstract class Terminal implements ITerminal {
   protected _writable: boolean;
 
   protected _internalee: EventEmitter;
-  private _realWrite: (data: string) => void = null;
+  protected _writeMethod: (data: string) => void = () => {};
   private _flowPause: string;
   private _flowResume: string;
+  private _handleFlowControl: boolean;
 
   public get pid(): number { return this._pid; }
 
@@ -60,11 +61,25 @@ export abstract class Terminal implements ITerminal {
     this._checkType('encoding', opt.encoding ? opt.encoding : null, 'string');
 
     // setup flow control handling
-    if (opt.handleFlowControl) {
-      this._flowPause = opt.flowPause || FLOW_PAUSE;
-      this._flowResume = opt.flowResume || FLOW_RESUME;
-      this.enableFlowHandling();
+    this._handleFlowControl = !!(opt.handleFlowControl);
+    this._flowPause = opt.flowPause || FLOW_PAUSE;
+    this._flowResume = opt.flowResume || FLOW_RESUME;
+  }
+
+  public write(data: string): void {
+    if (this._handleFlowControl) {
+      // PAUSE/RESUME messages are not forwarded to the pty
+      if (data === this._flowPause) {
+        this.pause();
+        return;
+      }
+      if (data === this._flowResume) {
+        this.resume();
+        return;
+      }
     }
+    // everything else goes to the real pty
+    this._writeMethod(data);
   }
 
   /**
@@ -79,35 +94,21 @@ export abstract class Terminal implements ITerminal {
    * @param flowPause String to pause the pty. Defaults to XOFF (x13).
    * @param flowResume String to resume the pty. Defaults to XON (x11).
    */
-  public enableFlowHandling(flowPause: string = this._flowPause, flowResume: string = this._flowResume): void {
-    if (this._realWrite) {
-      return;
+  public enableFlowControl(flowPause?: string, flowResume?: string): void {
+    if (flowPause) {
+      this._flowPause = flowPause;
     }
-    this._realWrite = this.write;
-    this.write = (data: string) => {
-      // PAUSE/RESUME messages are not forwarded to the pty
-      if (data === flowPause) {
-        this.pause();
-        return;
-      }
-      if (data === flowResume) {
-        this.resume();
-        return;
-      }
-      // normal pty.write
-      this._realWrite(data);
-    };
+    if (flowResume) {
+      this._flowResume = flowResume;
+    }
+    this._handleFlowControl = true;
   }
 
   /**
    * Disable automatic flow control handling.
    */
-  public disableFlowHandling(): void {
-    if (!this._realWrite) {
-      return;
-    }
-    this.write = this._realWrite;
-    this._realWrite = null;
+  public disableFlowControl(): void {
+    this._handleFlowControl = false;
   }
 
   private _checkType(name: string, value: any, type: string): void {
@@ -178,7 +179,6 @@ export abstract class Terminal implements ITerminal {
     this._socket.once(eventName, listener);
   }
 
-  public abstract write(data: string): void;
   public abstract resize(cols: number, rows: number): void;
   public abstract destroy(): void;
   public abstract kill(signal?: string): void;
