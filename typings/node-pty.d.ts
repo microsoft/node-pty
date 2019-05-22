@@ -1,5 +1,6 @@
 /**
  * Copyright (c) 2017, Daniel Imms (MIT License).
+ * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
 declare module 'node-pty' {
@@ -25,6 +26,14 @@ declare module 'node-pty' {
     uid?: number;
     gid?: number;
     encoding?: string;
+    /**
+     * Whether to use the experimental ConPTY system on Windows. When this is not set, ConPTY will
+     * be used when the Windows build number is >= 18309 (it's available in 17134 and 17692 but is
+     * too unstable to enable by default).
+     *
+     * This setting does nothing on non-Windows.
+     */
+    experimentalUseConpty?: boolean;
   }
 
   /**
@@ -37,14 +46,38 @@ declare module 'node-pty' {
     pid: number;
 
     /**
+     * The column size in characters.
+     */
+    cols: number;
+
+    /**
+     * The row size in characters.
+     */
+    rows: number;
+
+    /**
      * The title of the active process.
      */
     process: string;
 
     /**
+     * Adds an event listener for when a data event fires. This happens when data is returned from
+     * the pty.
+     * @returns an `IDisposable` to stop listening.
+     */
+    onData: IEvent<string>;
+
+    /**
+     * Adds an event listener for when an exit event fires. This happens when the pty exits.
+     * @returns an `IDisposable` to stop listening.
+     */
+    onExit: IEvent<{ exitCode: number, signal?: number }>;
+
+    /**
      * Adds a listener to the data event, fired when data is returned from the pty.
      * @param event The name of the event.
      * @param listener The callback function.
+     * @deprecated Use IPty.onData
      */
     on(event: 'data', listener: (data: string) => void): void;
 
@@ -53,6 +86,7 @@ declare module 'node-pty' {
      * @param event The name of the event.
      * @param listener The callback function, exitCode is the exit code of the process and signal is
      * the signal that triggered the exit. signal is not supported on Windows.
+     * @deprecated Use IPty.onExit
      */
     on(event: 'exit', listener: (exitCode: number, signal?: number) => void): void;
 
@@ -76,5 +110,20 @@ declare module 'node-pty' {
      * @throws Will throw when signal is used on Windows.
      */
     kill(signal?: string): void;
+  }
+
+  /**
+   * An object that can be disposed via a dispose function.
+   */
+  export interface IDisposable {
+    dispose(): void;
+  }
+
+  /**
+   * An event that can be listened to.
+   * @returns an `IDisposable` to stop listening.
+   */
+  export interface IEvent<T> {
+    (listener: (e: T) => any): IDisposable;
   }
 }

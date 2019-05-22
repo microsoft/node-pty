@@ -2,9 +2,9 @@
   "name": "node-pty",
   "description": "Fork pseudoterminals in Node.JS",
   "author": {
-    "name": "Daniel Imms"
+    "name": "Microsoft Corporation"
   },
-  "version": "0.7.8",
+  "version": "0.8.1",
   "license": "MIT",
   "main": "./lib/index.js",
   "types": "./typings/node-pty.d.ts",
@@ -34,14 +34,16 @@
   ],
   "scripts": {
     "tsc": "tsc",
+    "watch": "tsc -w",
     "lint": "tslint 'src/**/*.ts'",
     "install": "node scripts/install.js",
     "postinstall": "node scripts/post-install.js",
     "test": "cross-env NODE_ENV=test mocha -R spec --exit lib/*.test.js",
-    "prepublish": "npm run tsc"
+    "prepare": "npm run tsc",
+    "prepublishOnly": "npm run tsc"
   },
   "dependencies": {
-    "nan": "2.10.0"
+    "nan": "^2.13.2"
   },
   "devDependencies": {
     "@types/mocha": "^5.0.0",
@@ -49,8 +51,9 @@
     "cross-env": "^5.1.4",
     "mocha": "^5.0.5",
     "pollUntil": "^1.0.3",
-    "tslint": "^5.9.1",
-    "tslint-consistent-codestyle": "^1.13.0",
-    "typescript": "^2.8.1"
+    "ps-list": "^6.0.0",
+    "tslint": "^5.12.1",
+    "tslint-consistent-codestyle": "^1.15.0",
+    "typescript": "^3.2.2"
   }
 }

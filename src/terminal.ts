@@ -1,12 +1,14 @@
 /**
  * Copyright (c) 2012-2015, Christopher Jeffrey (MIT License)
  * Copyright (c) 2016, Daniel Imms (MIT License).
+ * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-import * as path from 'path';
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
 import { ITerminal, IPtyForkOptions } from './interfaces';
+import { EventEmitter2, IEvent } from './eventEmitter2';
+import { IExitEvent } from './types';
 
 export const DEFAULT_COLS: number = 80;
 export const DEFAULT_ROWS: number = 24;
@@ -39,7 +41,14 @@ export abstract class Terminal implements ITerminal {
   private _flowResume: string;
   private _handleFlowControl: boolean;
 
+  private _onData = new EventEmitter2<string>();
+  public get onData(): IEvent<string> { return this._onData.event; }
+  private _onExit = new EventEmitter2<IExitEvent>();
+  public get onExit(): IEvent<IExitEvent> { return this._onExit.event; }
+
   public get pid(): number { return this._pid; }
+  public get cols(): number { return this._cols; }
+  public get rows(): number { return this._rows; }
 
   constructor(opt?: IPtyForkOptions) {
     // for 'close'
@@ -109,6 +118,11 @@ export abstract class Terminal implements ITerminal {
    */
   public disableFlowControl(): void {
     this._handleFlowControl = false;
+  }
+
+  protected _forwardEvents(): void {
+    this.on('data', e => this._onData.fire(e));
+    this.on('exit', (exitCode, signal) => this._onExit.fire({ exitCode, signal }));
   }
 
   private _checkType(name: string, value: any, type: string): void {
@@ -186,19 +200,6 @@ export abstract class Terminal implements ITerminal {
   public abstract get process(): string;
   public abstract get master(): Socket;
   public abstract get slave(): Socket;
-
-  // TODO: Should this be in the API?
-  public redraw(): void {
-    let cols = this._cols;
-    let rows = this._rows;
-
-    // We could just send SIGWINCH, but most programs will  ignore it if the
-    // size hasn't actually changed.
-
-    this.resize(cols + 1, rows + 1);
-
-    setTimeout(() => this.resize(cols, rows), 30);
-  }
 
   protected _close(): void {
     this._socket.writable = false;
