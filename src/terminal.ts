@@ -39,7 +39,7 @@ export abstract class Terminal implements ITerminal {
   protected _writeMethod: (data: string) => void = () => {};
   private _flowPause: string;
   private _flowResume: string;
-  private _handleFlowControl: boolean;
+  public handleFlowControl: boolean;
 
   private _onData = new EventEmitter2<string>();
   public get onData(): IEvent<string> { return this._onData.event; }
@@ -70,13 +70,13 @@ export abstract class Terminal implements ITerminal {
     this._checkType('encoding', opt.encoding ? opt.encoding : null, 'string');
 
     // setup flow control handling
-    this._handleFlowControl = !!(opt.handleFlowControl);
+    this.handleFlowControl = !!(opt.handleFlowControl);
     this._flowPause = opt.flowPause || FLOW_PAUSE;
     this._flowResume = opt.flowResume || FLOW_RESUME;
   }
 
   public write(data: string): void {
-    if (this._handleFlowControl) {
+    if (this.handleFlowControl) {
       // PAUSE/RESUME messages are not forwarded to the pty
       if (data === this._flowPause) {
         this.pause();
@@ -89,35 +89,6 @@ export abstract class Terminal implements ITerminal {
     }
     // everything else goes to the real pty
     this._writeMethod(data);
-  }
-
-  /**
-   * Enable automatic flow control handling.
-   * Instead of relying on XON/XOFF directly we pause/resume
-   * the underlying socket. Main advantage is that flow control will
-   * still work even when XON/XOFF is not available. As a downside it
-   * does not act immediately, instead the OS pty buffer and node's socket buffer
-   * fill up first before the slave program gets paused.
-   * Note that `flowPause` and `flowResume` must be in line with the
-   * messages sent by the terminal emulator to indicate PAUSE/RESUME.
-   * @param flowPause String to pause the pty. Defaults to XOFF (x13).
-   * @param flowResume String to resume the pty. Defaults to XON (x11).
-   */
-  public enableFlowControl(flowPause?: string, flowResume?: string): void {
-    if (flowPause) {
-      this._flowPause = flowPause;
-    }
-    if (flowResume) {
-      this._flowResume = flowResume;
-    }
-    this._handleFlowControl = true;
-  }
-
-  /**
-   * Disable automatic flow control handling.
-   */
-  public disableFlowControl(): void {
-    this._handleFlowControl = false;
   }
 
   protected _forwardEvents(): void {

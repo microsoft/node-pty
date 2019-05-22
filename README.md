@@ -114,8 +114,8 @@ This error can occur due to anti-virus software intercepting winpty from creatin
 
 ## Flow Control
 
-Automatic flow control can be enabled by either providing `handleFlowControl = true` in the constructor options or calling
-`enableFlowControl` later on:
+Automatic flow control can be enabled by either providing `handleFlowControl = true` in the constructor options or setting
+it later on:
 
 ```js
 const PAUSE = '\x13';   // XOFF
@@ -129,14 +129,14 @@ ptyProcess.write(PAUSE);  // pty will block and pause the slave program
 ptyProcess.write(RESUME); // pty will enter flow mode and resume the slave program
 
 // temporarily disable/re-enable flow control
-ptyProcess.disableFlowControl();
+ptyProcess.handleFlowControl = false;
 ...
-ptyProcess.enableFlowControl();
+ptyProcess.handleFlowControl = true;
 ```
 
 By default `PAUSE` and `RESUME` are XON/XOFF control codes (as shown above). To avoid conflicts in environments that
 use these control codes for different purposes the messages can be customized as `flowPause: string` and
-`flowResume: string` in the constructor options or arguments to `enableFlowControl`. `PAUSE` and `RESUME` are not passed to the underlying pseudoterminal if flow control is enabled.
+`flowResume: string` in the constructor options. `PAUSE` and `RESUME` are not passed to the underlying pseudoterminal if flow control is enabled.
 
 ## pty.js
 

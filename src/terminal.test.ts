@@ -31,7 +31,7 @@ describe('Terminal', () => {
   describe('automatic flow control', () => {
     it('should respect ctor flow control options', () => {
       const pty = new terminalConstructor(SHELL, [], {handleFlowControl: true, flowPause: 'abc', flowResume: '123'});
-      assert.equal((pty as any)._handleFlowControl, true);
+      assert.equal(pty.handleFlowControl, true);
       assert.equal((pty as any)._flowPause, 'abc');
       assert.equal((pty as any)._flowResume, '123');
     });
@@ -57,15 +57,6 @@ describe('Terminal', () => {
         }
         done();
       }, 9500);
-    });
-    it('should enable/disable automatic flow control', () => {
-      const pty = new terminalConstructor(SHELL, []);
-      // write got not yet replaced
-      assert.equal((pty as any)._realWrite, null);
-      pty.enableFlowControl();
-      assert.equal((pty as any)._realWrite !== null, true);
-      pty.disableFlowControl();
-      assert.equal((pty as any)._realWrite, null);
     });
   });
 });
