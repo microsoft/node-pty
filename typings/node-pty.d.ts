@@ -48,6 +48,23 @@ declare module 'node-pty' {
      * @see https://docs.microsoft.com/en-us/windows/console/createpseudoconsole
      */
     conptyInheritCursor?: boolean;
+    /**
+     * Whether to enable flow control handling (false by default). If enabled a message of `flowControlPause`
+     * will pause the socket and thus blocking the slave program execution due to buffer back pressure.
+     * A message of `flowControlResume` will resume the socket into flow mode.
+     * For performance reasons only a single message as a whole will match (no message part matching).
+     * If flow control is enabled the `flowControlPause` and `flowControlResume` messages are not forwarded to
+     * the underlying pseudoterminal.
+     */
+    handleFlowControl?: boolean;
+    /**
+     * The string that should pause the pty when `handleFlowControl` is true. Default is XOFF ('\x13').
+     */
+    flowControlPause?: string;
+    /**
+     * The string that should resume the pty when `handleFlowControl` is true. Default is XON ('\x11').
+     */
+    flowControlResume?: string;
   }
 
   /**
@@ -73,6 +90,12 @@ declare module 'node-pty' {
      * The title of the active process.
      */
     readonly process: string;
+
+    /**
+     * Whether to handle flow control. Useful to disable/re-enable flow control during runtime.
+     * Use this for binary data that is likely to contain the `flowControlPause` string by accident.
+     */
+    handleFlowControl: boolean;
 
     /**
      * Adds an event listener for when a data event fires. This happens when data is returned from
