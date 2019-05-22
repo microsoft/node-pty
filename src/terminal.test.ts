@@ -30,14 +30,14 @@ describe('Terminal', () => {
 
   describe('automatic flow control', () => {
     it('should respect ctor flow control options', () => {
-      const pty = new terminalConstructor(SHELL, [], {handleFlowControl: true, flowPause: 'abc', flowResume: '123'});
+      const pty = new terminalConstructor(SHELL, [], {handleFlowControl: true, flowControlPause: 'abc', flowControlResume: '123'});
       assert.equal(pty.handleFlowControl, true);
-      assert.equal((pty as any)._flowPause, 'abc');
-      assert.equal((pty as any)._flowResume, '123');
+      assert.equal((pty as any)._flowControlPause, 'abc');
+      assert.equal((pty as any)._flowControlResume, '123');
     });
     it('should do flow control automatically', function(done: Function): void {
       this.timeout(10000);
-      const pty = new terminalConstructor(SHELL, [], {handleFlowControl: true, flowPause: 'PAUSE', flowResume: 'RESUME'});
+      const pty = new terminalConstructor(SHELL, [], {handleFlowControl: true, flowControlPause: 'PAUSE', flowControlResume: 'RESUME'});
       const read: string[] = [];
       pty.on('data', data => read.push(data));
       pty.on('pause', () => read.push('paused'));

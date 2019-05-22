@@ -15,11 +15,11 @@ export const DEFAULT_ROWS: number = 24;
 
 /**
  * Default messages to indicate PAUSE/RESUME for automatic flow control.
- * To avoid conflicts with rebound XON/XOFF control codes,
+ * To avoid conflicts with rebound XON/XOFF control codes (such as on-my-zsh),
  * the sequences can be customized in `IPtyForkOptions`.
  */
-const FLOW_PAUSE =  '\x13';   // defaults to XOFF
-const FLOW_RESUME = '\x11';   // defaults to XON
+const FLOW_CONTROL_PAUSE =  '\x13';   // defaults to XOFF
+const FLOW_CONTROL_RESUME = '\x11';   // defaults to XON
 
 export abstract class Terminal implements ITerminal {
   protected _socket: Socket;
@@ -37,8 +37,8 @@ export abstract class Terminal implements ITerminal {
 
   protected _internalee: EventEmitter;
   protected _writeMethod: (data: string) => void = () => {};
-  private _flowPause: string;
-  private _flowResume: string;
+  private _flowControlPause: string;
+  private _flowControlResume: string;
   public handleFlowControl: boolean;
 
   private _onData = new EventEmitter2<string>();
@@ -71,18 +71,18 @@ export abstract class Terminal implements ITerminal {
 
     // setup flow control handling
     this.handleFlowControl = !!(opt.handleFlowControl);
-    this._flowPause = opt.flowPause || FLOW_PAUSE;
-    this._flowResume = opt.flowResume || FLOW_RESUME;
+    this._flowControlPause = opt.flowControlPause || FLOW_CONTROL_PAUSE;
+    this._flowControlResume = opt.flowControlResume || FLOW_CONTROL_RESUME;
   }
 
   public write(data: string): void {
     if (this.handleFlowControl) {
       // PAUSE/RESUME messages are not forwarded to the pty
-      if (data === this._flowPause) {
+      if (data === this._flowControlPause) {
         this.pause();
         return;
       }
-      if (data === this._flowResume) {
+      if (data === this._flowControlResume) {
         this.resume();
         return;
       }
