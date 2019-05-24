@@ -156,9 +156,10 @@ export class UnixTerminal extends Terminal {
     });
 
     this._forwardEvents();
+  }
 
-    // attach write method
-    this._writeMethod = (data: string) => this._socket.write(data);
+  protected _write(data: string): void {
+    this._socket.write(data);
   }
 
   /**
