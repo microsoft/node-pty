@@ -17,37 +17,41 @@ declare module 'node-pty' {
    */
   export function spawn(file: string, args: string[] | string, options: IPtyForkOptions | IWindowsPtyForkOptions): IPty;
 
-  export interface IPtyForkOptions {
-    name?: string;
-    cols?: number;
-    rows?: number;
-    cwd?: string;
-    env?: { [key: string]: string };
-    uid?: number;
-    gid?: number;
-    encoding?: string;
-  }
+  export interface IBasePtyForkOptions {
 
-  export interface IWindowsPtyForkOptions {
+    /**
+     * Name of the terminal to be set in environment ($TERM variable).
+     */
     name?: string;
+
+    /**
+     * Number of intial cols of the pty.
+     */
     cols?: number;
+
+    /**
+     * Number of initial rows of the pty.
+     */
     rows?: number;
+
+    /**
+     * Working directory to be set for the slave program.
+     */
     cwd?: string;
+
+    /**
+     * Environment to be set for the slave program.
+     */
     env?: { [key: string]: string };
+
+    /**
+     * String encoding of the underlying pty.
+     * If set, incoming data will be decoded to strings and outgoing strings to bytes applying this encoding.
+     * If unset, incoming data will be delivered as raw bytes (Buffer type).
+     * By default 'utf8' is assumed, to unset it explicitly set it to `null`.
+     */
     encoding?: string;
-    /**
-     * Whether to use the experimental ConPTY system on Windows. When this is not set, ConPTY will
-     * be used when the Windows build number is >= 18309 (it's available in 17134 and 17692 but is
-     * too unstable to enable by default).
-     *
-     * This setting does nothing on non-Windows.
-     */
-    experimentalUseConpty?: boolean;
-    /**
-     * Whether to use PSEUDOCONSOLE_INHERIT_CURSOR in conpty.
-     * @see https://docs.microsoft.com/en-us/windows/console/createpseudoconsole
-     */
-    conptyInheritCursor?: boolean;
+
     /**
      * Whether to enable flow control handling (false by default). If enabled a message of `flowControlPause`
      * will pause the socket and thus blocking the slave program execution due to buffer back pressure.
@@ -57,14 +61,42 @@ declare module 'node-pty' {
      * the underlying pseudoterminal.
      */
     handleFlowControl?: boolean;
+
     /**
      * The string that should pause the pty when `handleFlowControl` is true. Default is XOFF ('\x13').
      */
     flowControlPause?: string;
+
     /**
      * The string that should resume the pty when `handleFlowControl` is true. Default is XON ('\x11').
      */
     flowControlResume?: string;
+  }
+
+  export interface IPtyForkOptions extends IBasePtyForkOptions {
+    /**
+     * Security warning: use this option with great caution, as opened file descriptors
+     * with higher privileges might leak to the slave program.
+     */
+    uid?: number;
+    gid?: number;
+  }
+
+  export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
+    /**
+     * Whether to use the experimental ConPTY system on Windows. When this is not set, ConPTY will
+     * be used when the Windows build number is >= 18309 (it's available in 17134 and 17692 but is
+     * too unstable to enable by default).
+     *
+     * This setting does nothing on non-Windows.
+     */
+    experimentalUseConpty?: boolean;
+
+    /**
+     * Whether to use PSEUDOCONSOLE_INHERIT_CURSOR in conpty.
+     * @see https://docs.microsoft.com/en-us/windows/console/createpseudoconsole
+     */
+    conptyInheritCursor?: boolean;
   }
 
   /**
