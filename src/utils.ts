@@ -3,8 +3,6 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-import * as path from 'path';
-
 export function assign(target: any, ...sources: any[]): any {
   sources.forEach(source => Object.keys(source).forEach(key => target[key] = source[key]));
   return target;

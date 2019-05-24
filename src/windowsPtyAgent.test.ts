@@ -3,7 +3,7 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
- import * as assert from 'assert';
+import * as assert from 'assert';
 import { argsToCommandLine } from './windowsPtyAgent';
 
 function check(file: string, args: string | string[], expected: string): void {

@@ -112,11 +112,27 @@ export interface IPtyForkOptions {
   cols?: number;
   rows?: number;
   cwd?: string;
-  env?: IProcessEnv;
+  env?: { [key: string]: string };
   uid?: number;
   gid?: number;
   encoding?: string;
-  experimentalUseConpty?: boolean | undefined;
+  handleFlowControl?: boolean;
+  flowControlPause?: string;
+  flowControlResume?: string;
+}
+
+export interface IWindowsPtyForkOptions {
+  name?: string;
+  cols?: number;
+  rows?: number;
+  cwd?: string;
+  env?: { [key: string]: string };
+  encoding?: string;
+  experimentalUseConpty?: boolean;
+  conptyInheritCursor?: boolean;
+  handleFlowControl?: boolean;
+  flowControlPause?: string;
+  flowControlResume?: string;
 }
 
 export interface IPtyOpenOptions {
