@@ -119,9 +119,14 @@ export class WindowsTerminal extends Terminal {
     this._writable = true;
 
     this._forwardEvents();
+  }
 
-    // attach write method
-    this._writeMethod = (data: string) => this._defer(() => this._agent.inSocket.write(data));
+  protected _write(data: string): void {
+    this._defer(this._doWrite, data);
+  }
+
+  private _doWrite(data: string): void {
+    this._agent.inSocket.write(data);
   }
 
   /**
@@ -163,7 +168,7 @@ export class WindowsTerminal extends Terminal {
     });
   }
 
-  private _defer(deferredFn: Function): void {
+  private _defer(deferredFn: Function, arg?: any): void {
 
     // Ensure that this method is only used within Terminal class.
     if (!(this instanceof WindowsTerminal)) {
@@ -172,13 +177,13 @@ export class WindowsTerminal extends Terminal {
 
     // If the terminal is ready, execute.
     if (this._isReady) {
-      deferredFn.apply(this, null);
+      deferredFn.call(this, arg);
       return;
     }
 
     // Queue until terminal is ready.
     this._deferreds.push({
-      run: () => deferredFn.apply(this, null)
+      run: () => deferredFn.call(this, arg)
     });
   }
 
