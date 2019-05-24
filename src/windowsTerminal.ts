@@ -168,7 +168,7 @@ export class WindowsTerminal extends Terminal {
     });
   }
 
-  private _defer(deferredFn: Function, arg?: any): void {
+  private _defer<A extends any>(deferredFn: (arg?: A) => void, arg?: A): void {
 
     // Ensure that this method is only used within Terminal class.
     if (!(this instanceof WindowsTerminal)) {
