@@ -169,12 +169,6 @@ export class WindowsTerminal extends Terminal {
   }
 
   private _defer<A extends any>(deferredFn: (arg?: A) => void, arg?: A): void {
-
-    // Ensure that this method is only used within Terminal class.
-    if (!(this instanceof WindowsTerminal)) {
-      throw new Error('Must be instanceof WindowsTerminal');
-    }
-
     // If the terminal is ready, execute.
     if (this._isReady) {
       deferredFn.call(this, arg);
