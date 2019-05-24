@@ -160,13 +160,14 @@ static NAN_METHOD(PtyStartProcess) {
   std::unique_ptr<wchar_t[]> mutableCommandline;
   PROCESS_INFORMATION _piClient{};
 
-  if (info.Length() != 5 ||
+  if (info.Length() != 6 ||
       !info[0]->IsString() ||
       !info[1]->IsNumber() ||
       !info[2]->IsNumber() ||
       !info[3]->IsBoolean() ||
-      !info[4]->IsString()) {
-    Nan::ThrowError("Usage: pty.startProcess(file, cols, rows, debug, pipeName)");
+      !info[4]->IsString() ||
+      !info[5]->IsBoolean()) {
+    Nan::ThrowError("Usage: pty.startProcess(file, cols, rows, debug, pipeName, inheritCursor)");
     return;
   }
 
@@ -175,6 +176,7 @@ static NAN_METHOD(PtyStartProcess) {
   const SHORT rows = info[2]->Uint32Value(Nan::GetCurrentContext()).FromJust();
   const bool debug = info[3]->ToBoolean(Nan::GetCurrentContext()).ToLocalChecked()->IsTrue();
   const std::wstring pipeName(path_util::to_wstring(Nan::Utf8String(info[4])));
+  const bool inheritCursor = info[5]->ToBoolean(Nan::GetCurrentContext()).ToLocalChecked()->IsTrue();
 
   // use environment 'Path' variable to determine location of
   // the relative path that we have recieved (e.g cmd.exe)
@@ -196,7 +198,7 @@ static NAN_METHOD(PtyStartProcess) {
 
   HANDLE hIn, hOut;
   HPCON hpc;
-  HRESULT hr = CreateNamedPipesAndPseudoConsole({cols, rows}, 0, &hIn, &hOut, &hpc, inName, outName, pipeName);
+  HRESULT hr = CreateNamedPipesAndPseudoConsole({cols, rows}, inheritCursor ? 1/*PSEUDOCONSOLE_INHERIT_CURSOR*/ : 0, &hIn, &hOut, &hpc, inName, outName, pipeName);
 
   // Restore default handling of ctrl+c
   SetConsoleCtrlHandler(NULL, FALSE);
