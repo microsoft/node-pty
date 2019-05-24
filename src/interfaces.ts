@@ -107,32 +107,26 @@ export interface ITerminal {
   once(eventName: string, listener: (...args: any[]) => any): void;
 }
 
-export interface IPtyForkOptions {
+interface IBasePtyForkOptions {
   name?: string;
   cols?: number;
   rows?: number;
   cwd?: string;
   env?: { [key: string]: string };
-  uid?: number;
-  gid?: number;
   encoding?: string;
   handleFlowControl?: boolean;
   flowControlPause?: string;
   flowControlResume?: string;
 }
 
-export interface IWindowsPtyForkOptions {
-  name?: string;
-  cols?: number;
-  rows?: number;
-  cwd?: string;
-  env?: { [key: string]: string };
-  encoding?: string;
+export interface IPtyForkOptions extends IBasePtyForkOptions {
+  uid?: number;
+  gid?: number;
+}
+
+export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
   experimentalUseConpty?: boolean;
   conptyInheritCursor?: boolean;
-  handleFlowControl?: boolean;
-  flowControlPause?: string;
-  flowControlResume?: string;
 }
 
 export interface IPtyOpenOptions {
