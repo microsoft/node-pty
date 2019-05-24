@@ -36,7 +36,6 @@ export abstract class Terminal implements ITerminal {
   protected _writable: boolean;
 
   protected _internalee: EventEmitter;
-  protected _writeMethod: (data: string) => void;
   private _flowControlPause: string;
   private _flowControlResume: string;
   public handleFlowControl: boolean;
@@ -75,6 +74,8 @@ export abstract class Terminal implements ITerminal {
     this._flowControlResume = opt.flowControlResume || FLOW_CONTROL_RESUME;
   }
 
+  protected abstract _write(data: string): void;
+
   public write(data: string): void {
     if (this.handleFlowControl) {
       // PAUSE/RESUME messages are not forwarded to the pty
@@ -88,7 +89,7 @@ export abstract class Terminal implements ITerminal {
       }
     }
     // everything else goes to the real pty
-    this._writeMethod(data);
+    this._write(data);
   }
 
   protected _forwardEvents(): void {
