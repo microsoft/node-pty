@@ -8,6 +8,12 @@
  *   with pseudo-terminal file descriptors.
  */
 
+// node versions lower than 10 define this as 0x502 which disables many of the definitions needed to compile
+#include <node_version.h>
+#if NODE_MODULE_VERSION <= 57
+  #define _WIN32_WINNT 0x600
+#endif
+
 #include <iostream>
 #include <nan.h>
 #include <Shlwapi.h> // PathCombine, PathIsRelative
