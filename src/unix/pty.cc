@@ -192,7 +192,7 @@ NAN_METHOD(PtyFork) {
   struct termios t = termios();
   struct termios *term = &t;
   term->c_iflag = ICRNL | IXON | IXANY | IMAXBEL | BRKINT;
-  if (info[8]->BooleanValue(Nan::GetCurrentContext()).FromJust()) {
+  if (Nan::To<bool>(info[8]).FromJust()) {
 #if defined(IUTF8)
     term->c_iflag |= IUTF8;
 #endif
