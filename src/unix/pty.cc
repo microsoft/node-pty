@@ -492,7 +492,8 @@ pty_after_waitpid(uv_async_t *async, int unhelpful) {
   v8::Local<v8::Function> cb = Nan::New<v8::Function>(baton->cb);
   baton->cb.Reset();
   memset(&baton->cb, -1, sizeof(baton->cb));
-  Nan::Callback(cb).Call(Nan::GetCurrentContext()->Global(), 2, argv);
+  Nan::AsyncResource resource("pty_after_waitpid");
+  resource.runInAsyncScope(Nan::GetCurrentContext()->Global(), cb, 2, argv);
 
   uv_close((uv_handle_t *)async, pty_after_close);
 }
