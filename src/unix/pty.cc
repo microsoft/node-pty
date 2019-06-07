@@ -34,15 +34,7 @@
 #if defined(__GLIBC__) || defined(__CYGWIN__)
 #include <pty.h>
 #elif defined(__APPLE__) || defined(__OpenBSD__) || defined(__NetBSD__)
-/**
- * From node v0.10.28 (at least?) there is also a "util.h" in node/src, which
- * would confuse the compiler when looking for "util.h".
- */
-#if NODE_VERSION_AT_LEAST(0, 10, 28)
-#include <../include/util.h>
-#else
 #include <util.h>
-#endif
 #elif defined(__FreeBSD__)
 #include <libutil.h>
 #elif defined(__sun)
@@ -120,11 +112,7 @@ static void
 pty_waitpid(void *);
 
 static void
-#if NODE_VERSION_AT_LEAST(0, 11, 0)
 pty_after_waitpid(uv_async_t *);
-#else
-pty_after_waitpid(uv_async_t *, int);
-#endif
 
 static void
 pty_after_close(uv_handle_t *);
@@ -192,7 +180,7 @@ NAN_METHOD(PtyFork) {
   struct termios t = termios();
   struct termios *term = &t;
   term->c_iflag = ICRNL | IXON | IXANY | IMAXBEL | BRKINT;
-  if (info[8]->BooleanValue(Nan::GetCurrentContext()).FromJust()) {
+  if (Nan::To<bool>(info[8]).FromJust()) {
 #if defined(IUTF8)
     term->c_iflag |= IUTF8;
 #endif
@@ -476,11 +464,7 @@ pty_waitpid(void *data) {
  */
 
 static void
-#if NODE_VERSION_AT_LEAST(0, 11, 0)
 pty_after_waitpid(uv_async_t *async) {
-#else
-pty_after_waitpid(uv_async_t *async, int unhelpful) {
-#endif
   Nan::HandleScope scope;
   pty_baton *baton = static_cast<pty_baton*>(async->data);
 
@@ -492,7 +476,8 @@ pty_after_waitpid(uv_async_t *async, int unhelpful) {
   v8::Local<v8::Function> cb = Nan::New<v8::Function>(baton->cb);
   baton->cb.Reset();
   memset(&baton->cb, -1, sizeof(baton->cb));
-  Nan::Callback(cb).Call(Nan::GetCurrentContext()->Global(), 2, argv);
+  Nan::AsyncResource resource("pty_after_waitpid");
+  resource.runInAsyncScope(Nan::GetCurrentContext()->Global(), cb, 2, argv);
 
   uv_close((uv_handle_t *)async, pty_after_close);
 }
