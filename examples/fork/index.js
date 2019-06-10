@@ -13,7 +13,7 @@ var ptyProcess = pty.spawn(shell, [], {
   experimentalUseConpty: true
 });
 
-ptyProcess.onData(data => process.stdout.write(data));
+ptyProcess.on('data', data => process.stdout.write(data));
 
 ptyProcess.write(isWindows ? 'dir\r' : 'ls\r');
 
