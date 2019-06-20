@@ -105,8 +105,8 @@ if (process.platform !== 'win32') {
       });
     });
 
-    describe('exec event', function() {
-      it('should fire an exec event on success', function(done) {
+    describe('exec event', () => {
+      it('should fire an exec event on success', (done) => {
         const term = new UnixTerminal('/bin/ls');
         term.on('exec', (reason: string | undefined) => {
           assert.strictEqual(reason, undefined);
@@ -114,7 +114,7 @@ if (process.platform !== 'win32') {
         });
       });
 
-      it('should fire an exec event on ENOENT failure', function(done) {
+      it('should fire an exec event on ENOENT failure', (done) => {
         const term = new UnixTerminal('/this/path/does/not/exist');
         term.on('exec', (reason: string | undefined) => {
           assert.strictEqual(reason, 'ENOENT');
@@ -122,7 +122,7 @@ if (process.platform !== 'win32') {
         });
       });
 
-      it('should fire an exec event on EACCES failure', function(done) {
+      it('should fire an exec event on EACCES failure', (done) => {
         const term = new UnixTerminal('/bin');
         term.on('exec', (reason: string | undefined) => {
           assert.strictEqual(reason, 'EACCES');
