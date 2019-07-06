@@ -180,9 +180,9 @@ static NAN_METHOD(PtyStartProcess) {
   const std::wstring filename(path_util::to_wstring(Nan::Utf8String(info[0])));
   const SHORT cols = info[1]->Uint32Value(Nan::GetCurrentContext()).FromJust();
   const SHORT rows = info[2]->Uint32Value(Nan::GetCurrentContext()).FromJust();
-  const bool debug = info[3]->ToBoolean(Nan::GetCurrentContext()).ToLocalChecked()->IsTrue();
+  const bool debug = Nan::To<bool>(info[3]).FromJust();
   const std::wstring pipeName(path_util::to_wstring(Nan::Utf8String(info[4])));
-  const bool inheritCursor = info[5]->ToBoolean(Nan::GetCurrentContext()).ToLocalChecked()->IsTrue();
+  const bool inheritCursor = Nan::To<bool>(info[5]).FromJust();
 
   // use environment 'Path' variable to determine location of
   // the relative path that we have recieved (e.g cmd.exe)
