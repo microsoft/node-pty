@@ -320,6 +320,11 @@ static NAN_METHOD(PtyConnect) {
   // Attach the pseudoconsole to the client application we're creating
   STARTUPINFOEXW siEx{0};
   siEx.StartupInfo.cb = sizeof(STARTUPINFOEXW);
+  siEx.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
+  siEx.StartupInfo.hStdError = nullptr;
+  siEx.StartupInfo.hStdInput = nullptr;
+  siEx.StartupInfo.hStdOutput = nullptr;
+
   SIZE_T size = 0;
   InitializeProcThreadAttributeList(NULL, 1, 0, &size);
   BYTE *attrList = new BYTE[size];
