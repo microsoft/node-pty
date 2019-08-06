@@ -43,7 +43,7 @@
     "prepublishOnly": "npm run tsc"
   },
   "dependencies": {
-    "nan": "^2.13.2"
+    "nan": "^2.14.0"
   },
   "devDependencies": {
     "@types/mocha": "^5.0.0",
