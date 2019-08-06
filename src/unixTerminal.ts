@@ -12,8 +12,14 @@ import { assign } from './utils';
 let pty: IUnixNative;
 try {
   pty = require('../build/Release/pty.node');
-} catch {
-  pty = require('../build/Debug/pty.node');
+} catch (outerError) {
+  try {
+    pty = require('../build/Debug/pty.node');
+  } catch (innerError) {
+    console.error('innerError', innerError);
+    // Re-throw the exception from the Release require if the Debug require fails as well
+    throw outerError;
+  }
 }
 
 const DEFAULT_FILE = 'sh';
