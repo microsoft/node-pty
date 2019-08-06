@@ -61,16 +61,28 @@ export class WindowsPtyAgent {
       if (!conptyNative) {
         try {
           conptyNative = require('../build/Release/conpty.node');
-        } catch (err) {
-          conptyNative = require('../build/Debug/conpty.node');
+        } catch (outerError) {
+          try {
+            conptyNative = require('../build/Debug/conpty.node');
+          } catch (innerError) {
+            console.error('innerError', innerError);
+            // Re-throw the exception from the Release require if the Debug require fails as well
+            throw outerError;
+          }
         }
       }
     } else {
       if (!winptyNative) {
         try {
           winptyNative = require('../build/Release/pty.node');
-        } catch (err) {
-          winptyNative = require('../build/Debug/pty.node');
+        } catch (outerError) {
+          try {
+            winptyNative = require('../build/Debug/pty.node');
+          } catch (innerError) {
+            console.error('innerError', innerError);
+            // Re-throw the exception from the Release require if the Debug require fails as well
+            throw outerError;
+          }
         }
       }
     }
