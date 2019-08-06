@@ -167,7 +167,7 @@ static NAN_METHOD(PtyStartProcess) {
 
   int cols = info[4]->Int32Value(Nan::GetCurrentContext()).FromJust();
   int rows = info[5]->Int32Value(Nan::GetCurrentContext()).FromJust();
-  bool debug = info[6]->ToBoolean(Nan::GetCurrentContext()).ToLocalChecked()->IsTrue();
+  bool debug = Nan::To<bool>(info[6]).FromJust();
 
   // Enable/disable debugging
   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
