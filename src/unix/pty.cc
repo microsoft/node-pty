@@ -34,7 +34,16 @@
 #if defined(__GLIBC__) || defined(__CYGWIN__)
 #include <pty.h>
 #elif defined(__APPLE__) || defined(__OpenBSD__) || defined(__NetBSD__)
+/**
+ * From node v0.10.28 there is also a "util.h" in node/src, which
+ * confuses the compiler when looking for "util.h".
+ * without this compiles of electron 3.x in macOS fail.
+ */
+#if NODE_VERSION_AT_LEAST(10, 0, 0)
+#include <../include/util.h>
+#else
 #include <util.h>
+#endif
 #elif defined(__FreeBSD__)
 #include <libutil.h>
 #elif defined(__sun)
