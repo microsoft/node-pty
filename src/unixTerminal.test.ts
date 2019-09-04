@@ -62,7 +62,7 @@ if (process.platform !== 'win32') {
           buffer += data;
         });
         term.on('exit', () => {
-          assert.equal(new Buffer(buffer, 'base64').toString().replace('\r', '').replace('\n', ''), text);
+          assert.equal(Buffer.alloc(8, buffer, 'base64').toString().replace('\r', '').replace('\n', ''), text);
           done();
         });
       });
