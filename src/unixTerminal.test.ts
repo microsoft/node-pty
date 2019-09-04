@@ -5,8 +5,8 @@
 
 import { UnixTerminal } from './unixTerminal';
 import * as assert from 'assert';
-import pollUntil = require('pollUntil');
 import * as path from 'path';
+import { pollUntil } from './testUtils.test';
 
 const FIXTURES_PATH = path.normalize(path.join(__dirname, '..', 'fixtures', 'utf8-character.txt'));
 
@@ -62,7 +62,7 @@ if (process.platform !== 'win32') {
           buffer += data;
         });
         term.on('exit', () => {
-          assert.equal(new Buffer(buffer, 'base64').toString().replace('\r', '').replace('\n', ''), text);
+          assert.equal(Buffer.alloc(8, buffer, 'base64').toString().replace('\r', '').replace('\n', ''), text);
           done();
         });
       });
@@ -92,13 +92,13 @@ if (process.platform !== 'win32') {
           masterbuf += data;
         });
 
-        (<any>pollUntil)(() => {
+        pollUntil(() => {
           if (masterbuf === 'slave\r\nmaster\r\n' && slavebuf === 'master\n') {
             done();
             return true;
           }
           return false;
-        }, [], 200, 10);
+        }, 200, 10);
 
         term.slave.write('slave\n');
         term.master.write('master\n');
