@@ -17,9 +17,7 @@ const xterm = new Terminal();
 xterm.open(document.getElementById('xterm'));
 
 // Setup communication between xterm.js and node-pty
-xterm.on('data', (data) => {
-  ptyProcess.write(data);
-});
+xterm.onData(data => ptyProcess.write(data));
 ptyProcess.on('data', function (data) {
   xterm.write(data);
 });
