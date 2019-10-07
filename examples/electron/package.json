@@ -11,6 +11,6 @@
   "dependencies": {
     "electron": "4.0.1",
     "node-pty": "^0.8.0",
-    "xterm": "^4.0.0"
+    "xterm": "4.1.0"
   }
 }
