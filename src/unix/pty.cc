@@ -45,6 +45,14 @@
 
 #include <termios.h> /* tcgetattr, tty_ioctl */
 
+/* Some platforms name VWERASE and VDISCARD differently */
+#if !defined(VWERASE) && defined(VWERSE)
+#define VWERASE	VWERSE
+#endif
+#if !defined(VDISCARD) && defined(VDISCRD)
+#define VDISCARD	VDISCRD
+#endif
+
 /* environ for execvpe */
 /* node/src/node_child_process.cc */
 #if defined(__APPLE__) && !TARGET_OS_IPHONE
