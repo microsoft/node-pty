@@ -142,7 +142,7 @@ export class WindowsTerminal extends Terminal {
    */
 
   public resize(cols: number, rows: number): void {
-    if (cols <= 0 || rows <= 0) {
+    if (cols <= 0 || rows <= 0 || isNaN(cols) || isNaN(rows) || cols === Infinity || rows === Infinity) {
       throw new Error('resizing must be done using positive cols and rows');
     }
     this._defer(() => {
