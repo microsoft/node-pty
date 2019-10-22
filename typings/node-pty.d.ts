@@ -50,7 +50,7 @@ declare module 'node-pty' {
      * If unset, incoming data will be delivered as raw bytes (Buffer type).
      * By default 'utf8' is assumed, to unset it explicitly set it to `null`.
      */
-    encoding?: string;
+    encoding?: string | null;
 
     /**
      * Whether to enable flow control handling (false by default). If enabled a message of `flowControlPause`
