@@ -59,7 +59,7 @@ export interface ITerminal {
   /**
    * Set the pty socket encoding.
    */
-  setEncoding(encoding: string): void;
+  setEncoding(encoding: string | null): void;
 
   /**
    * Resume the pty socket.
