@@ -257,6 +257,9 @@ export class UnixTerminal extends Terminal {
    */
 
   public resize(cols: number, rows: number): void {
+    if (cols <= 0 || rows <= 0 || isNaN(cols) || isNaN(rows) || cols === Infinity || rows === Infinity) {
+      throw new Error('resizing must be done using positive cols and rows');
+    }
     pty.resize(this._fd, cols, rows);
     this._cols = cols;
     this._rows = rows;
