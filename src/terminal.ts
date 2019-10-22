@@ -124,7 +124,7 @@ export abstract class Terminal implements ITerminal {
   }
 
   /** See net.Socket.setEncoding */
-  public setEncoding(encoding: string): void {
+  public setEncoding(encoding: string | null): void {
     if ((<any>this._socket)._decoder) {
       delete (<any>this._socket)._decoder;
     }
