@@ -53,6 +53,7 @@ declare module 'node-pty' {
     encoding?: string;
 
     /**
+     * (EXPERIMENTAL)
      * Whether to enable flow control handling (false by default). If enabled a message of `flowControlPause`
      * will pause the socket and thus blocking the slave program execution due to buffer back pressure.
      * A message of `flowControlResume` will resume the socket into flow mode.
@@ -63,11 +64,13 @@ declare module 'node-pty' {
     handleFlowControl?: boolean;
 
     /**
+     * (EXPERIMENTAL)
      * The string that should pause the pty when `handleFlowControl` is true. Default is XOFF ('\x13').
      */
     flowControlPause?: string;
 
     /**
+     * (EXPERIMENTAL)
      * The string that should resume the pty when `handleFlowControl` is true. Default is XON ('\x11').
      */
     flowControlResume?: string;
@@ -124,6 +127,7 @@ declare module 'node-pty' {
     readonly process: string;
 
     /**
+     * (EXPERIMENTAL)
      * Whether to handle flow control. Useful to disable/re-enable flow control during runtime.
      * Use this for binary data that is likely to contain the `flowControlPause` string by accident.
      */
