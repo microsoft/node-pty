@@ -1,22 +1,27 @@
 var os = require('os');
 var pty = require('../..');
 
-var shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
+var isWindows = os.platform() === 'win32';
+var shell = isWindows ? 'powershell.exe' : 'bash';
 
 var ptyProcess = pty.spawn(shell, [], {
-  name: 'xterm-color',
+  name: 'xterm-256color',
   cols: 80,
-  rows: 30,
-  cwd: process.env.HOME,
-  env: process.env
+  rows: 26,
+  cwd: isWindows ? process.env.USERPROFILE : process.env.HOME,
+  env: Object.assign({ TEST: "Environment vars work" }, process.env),
+  useConpty: true
 });
 
-ptyProcess.on('data', function(data) {
-  console.log(data);
-});
+ptyProcess.onData(data => process.stdout.write(data));
 
-ptyProcess.write('ls\r');
-ptyProcess.resize(100, 40);
-ptyProcess.write('ls\r');
+ptyProcess.write(isWindows ? 'dir\r' : 'ls\r');
 
-setTimeout(ptyProcess.kill.bind(ptyProcess), 5000);
+setTimeout(() => {
+  ptyProcess.resize(30, 19);
+  ptyProcess.write(isWindows ? '$Env:TEST\r' : 'echo $TEST\r');
+}, 2000);
+
+process.on('exit', () => ptyProcess.kill());
+
+setTimeout(() => process.exit(), 4000);

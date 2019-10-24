@@ -1,15 +1,25 @@
 /**
  * Copyright (c) 2012-2015, Christopher Jeffrey (MIT License)
  * Copyright (c) 2016, Daniel Imms (MIT License).
+ * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-import * as path from 'path';
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
 import { ITerminal, IPtyForkOptions } from './interfaces';
+import { EventEmitter2, IEvent } from './eventEmitter2';
+import { IExitEvent } from './types';
 
 export const DEFAULT_COLS: number = 80;
 export const DEFAULT_ROWS: number = 24;
+
+/**
+ * Default messages to indicate PAUSE/RESUME for automatic flow control.
+ * To avoid conflicts with rebound XON/XOFF control codes (such as on-my-zsh),
+ * the sequences can be customized in `IPtyForkOptions`.
+ */
+const FLOW_CONTROL_PAUSE =  '\x13';   // defaults to XOFF
+const FLOW_CONTROL_RESUME = '\x11';   // defaults to XON
 
 export abstract class Terminal implements ITerminal {
   protected _socket: Socket;
@@ -26,8 +36,18 @@ export abstract class Terminal implements ITerminal {
   protected _writable: boolean;
 
   protected _internalee: EventEmitter;
+  private _flowControlPause: string;
+  private _flowControlResume: string;
+  public handleFlowControl: boolean;
+
+  private _onData = new EventEmitter2<string>();
+  public get onData(): IEvent<string> { return this._onData.event; }
+  private _onExit = new EventEmitter2<IExitEvent>();
+  public get onExit(): IEvent<IExitEvent> { return this._onExit.event; }
 
   public get pid(): number { return this._pid; }
+  public get cols(): number { return this._cols; }
+  public get rows(): number { return this._rows; }
 
   constructor(opt?: IPtyForkOptions) {
     // for 'close'
@@ -47,6 +67,34 @@ export abstract class Terminal implements ITerminal {
     this._checkType('uid', opt.uid ? opt.uid : null, 'number');
     this._checkType('gid', opt.gid ? opt.gid : null, 'number');
     this._checkType('encoding', opt.encoding ? opt.encoding : null, 'string');
+
+    // setup flow control handling
+    this.handleFlowControl = !!(opt.handleFlowControl);
+    this._flowControlPause = opt.flowControlPause || FLOW_CONTROL_PAUSE;
+    this._flowControlResume = opt.flowControlResume || FLOW_CONTROL_RESUME;
+  }
+
+  protected abstract _write(data: string): void;
+
+  public write(data: string): void {
+    if (this.handleFlowControl) {
+      // PAUSE/RESUME messages are not forwarded to the pty
+      if (data === this._flowControlPause) {
+        this.pause();
+        return;
+      }
+      if (data === this._flowControlResume) {
+        this.resume();
+        return;
+      }
+    }
+    // everything else goes to the real pty
+    this._write(data);
+  }
+
+  protected _forwardEvents(): void {
+    this.on('data', e => this._onData.fire(e));
+    this.on('exit', (exitCode, signal) => this._onExit.fire({ exitCode, signal }));
   }
 
   private _checkType(name: string, value: any, type: string): void {
@@ -56,7 +104,7 @@ export abstract class Terminal implements ITerminal {
   }
 
   /** See net.Socket.end */
-  public end(data: string): void{
+  public end(data: string): void {
     this._socket.end(data);
   }
 
@@ -76,7 +124,7 @@ export abstract class Terminal implements ITerminal {
   }
 
   /** See net.Socket.setEncoding */
-  public setEncoding(encoding: string): void {
+  public setEncoding(encoding: string | null): void {
     if ((<any>this._socket)._decoder) {
       delete (<any>this._socket)._decoder;
     }
@@ -117,7 +165,6 @@ export abstract class Terminal implements ITerminal {
     this._socket.once(eventName, listener);
   }
 
-  public abstract write(data: string): void;
   public abstract resize(cols: number, rows: number): void;
   public abstract destroy(): void;
   public abstract kill(signal?: string): void;
@@ -125,19 +172,6 @@ export abstract class Terminal implements ITerminal {
   public abstract get process(): string;
   public abstract get master(): Socket;
   public abstract get slave(): Socket;
-
-  // TODO: Should this be in the API?
-  public redraw(): void {
-    let cols = this._cols;
-    let rows = this._rows;
-
-    // We could just send SIGWINCH, but most programs will  ignore it if the
-    // size hasn't actually changed.
-
-    this.resize(cols + 1, rows + 1);
-
-    setTimeout(() => this.resize(cols, rows), 30);
-  }
 
   protected _close(): void {
     this._socket.writable = false;
