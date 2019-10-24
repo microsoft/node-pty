@@ -48,6 +48,7 @@ public:
 
 private:
     void doWrite(bool isEof);
+    void flushInputRecords(std::vector<INPUT_RECORD> &records);
     int scanInput(std::vector<INPUT_RECORD> &records,
                   const char *input,
                   int inputSize,

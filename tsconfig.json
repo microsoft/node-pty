@@ -5,7 +5,12 @@
     "rootDir": "src",
     "outDir": "lib",
     "sourceMap": true,
-    "declaration": true
+    "lib": [
+      "es2015"
+    ],
+    "alwaysStrict": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true
   },
   "exclude": [
     "node_modules",

@@ -1,26 +1,30 @@
 /**
  * Copyright (c) 2012-2015, Christopher Jeffrey (MIT License)
  * Copyright (c) 2016, Daniel Imms (MIT License).
+ * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
-
 import * as net from 'net';
-import * as path from 'path';
-import * as tty from 'tty';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
-import { ProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
+import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 import { assign } from './utils';
 
-declare type NativePty = {
-  master: number;
-  slave: number;
-  pty: string;
-};
-
-const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
+let pty: IUnixNative;
+try {
+  pty = require('../build/Release/pty.node');
+} catch (outerError) {
+  try {
+    pty = require('../build/Debug/pty.node');
+  } catch (innerError) {
+    console.error('innerError', innerError);
+    // Re-throw the exception from the Release require if the Debug require fails as well
+    throw outerError;
+  }
+}
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
+const DESTROY_SOCKET_TIMEOUT_MS = 200;
 
 export class UnixTerminal extends Terminal {
   protected _fd: number;
@@ -53,8 +57,8 @@ export class UnixTerminal extends Terminal {
     opt = opt || {};
     opt.env = opt.env || process.env;
 
-    const cols = opt.cols || DEFAULT_COLS;
-    const rows = opt.rows || DEFAULT_ROWS;
+    this._cols = opt.cols || DEFAULT_COLS;
+    this._rows = opt.rows || DEFAULT_ROWS;
     const uid = opt.uid || -1;
     const gid = opt.gid || -1;
     const env = assign({}, opt.env);
@@ -71,20 +75,35 @@ export class UnixTerminal extends Terminal {
 
     const encoding = (opt.encoding === undefined ? 'utf8' : opt.encoding);
 
-    const onexit = (code: any, signal: any) => {
+    const onexit = (code: number, signal: number) => {
       // XXX Sometimes a data event is emitted after exit. Wait til socket is
       // destroyed.
       if (!this._emittedClose) {
-        if (this._boundClose) return;
+        if (this._boundClose) {
+          return;
+        }
         this._boundClose = true;
-        this.once('close', () => this.emit('exit', code, signal));
+        // From macOS High Sierra 10.13.2 sometimes the socket never gets
+        // closed. A timeout is applied here to avoid the terminal never being
+        // destroyed when this occurs.
+        let timeout = setTimeout(() => {
+          timeout = null;
+          // Destroying the socket now will cause the close event to fire
+          this._socket.destroy();
+        }, DESTROY_SOCKET_TIMEOUT_MS);
+        this.once('close', () => {
+          if (timeout !== null) {
+            clearTimeout(timeout);
+          }
+          this.emit('exit', code, signal);
+        });
         return;
       }
       this.emit('exit', code, signal);
     };
 
     // fork
-    const term = pty.fork(file, args, parsedEnv, cwd, cols, rows, uid, gid, (encoding === 'utf8'), onexit);
+    const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), onexit);
 
     this._socket = new PipeSocket(term.fd);
     if (encoding !== null) {
@@ -142,6 +161,12 @@ export class UnixTerminal extends Terminal {
       this._close();
       this.emit('close');
     });
+
+    this._forwardEvents();
+  }
+
+  protected _write(data: string): void {
+    this._socket.write(data);
   }
 
   /**
@@ -161,17 +186,21 @@ export class UnixTerminal extends Terminal {
 
     const cols = opt.cols || DEFAULT_COLS;
     const rows = opt.rows || DEFAULT_ROWS;
-    const encoding = opt.encoding ? 'utf8' : opt.encoding;
+    const encoding = (opt.encoding === undefined ? 'utf8' : opt.encoding);
 
     // open
-    const term: NativePty = pty.open(cols, rows);
+    const term: IUnixOpenProcess = pty.open(cols, rows);
 
     self._master = new PipeSocket(<number>term.master);
-    self._master.setEncoding(encoding);
+    if (encoding !== null) {
+        self._master.setEncoding(encoding);
+    }
     self._master.resume();
 
     self._slave = new PipeSocket(term.slave);
-    self._slave.setEncoding(encoding);
+    if (encoding !== null) {
+        self._slave.setEncoding(encoding);
+    }
     self._slave.resume();
 
     self._socket = self._master;
@@ -197,10 +226,6 @@ export class UnixTerminal extends Terminal {
     });
 
     return self;
-  };
-
-  public write(data: string): void {
-    this._socket.write(data);
   }
 
   public destroy(): void {
@@ -233,10 +258,15 @@ export class UnixTerminal extends Terminal {
    */
 
   public resize(cols: number, rows: number): void {
+    if (cols <= 0 || rows <= 0 || isNaN(cols) || isNaN(rows) || cols === Infinity || rows === Infinity) {
+      throw new Error('resizing must be done using positive cols and rows');
+    }
     pty.resize(this._fd, cols, rows);
+    this._cols = cols;
+    this._rows = rows;
   }
 
-  private _sanitizeEnv(env: ProcessEnv): void {
+  private _sanitizeEnv(env: IProcessEnv): void {
       // Make sure we didn't start our server from inside tmux.
       delete env['TMUX'];
       delete env['TMUX_PANE'];
@@ -261,11 +291,10 @@ export class UnixTerminal extends Terminal {
  */
 class PipeSocket extends net.Socket {
   constructor(fd: number) {
-    const tty = (<any>process).binding('tty_wrap');
-    const guessHandleType = tty.guessHandleType;
-    tty.guessHandleType = () => 'PIPE';
+    const { Pipe, constants } = (<any>process).binding('pipe_wrap'); // tslint:disable-line
     // @types/node has fd as string? https://github.com/DefinitelyTyped/DefinitelyTyped/pull/18275
-    super({ fd: <any>fd });
-    tty.guessHandleType = guessHandleType;
+    const handle = new Pipe(constants.SOCKET);
+    handle.open(fd);
+    super(<any>{ handle });
   }
 }
