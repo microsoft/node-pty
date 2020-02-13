@@ -34,7 +34,11 @@
 #if defined(__GLIBC__) || defined(__CYGWIN__)
 #include <pty.h>
 #elif defined(__APPLE__) || defined(__OpenBSD__) || defined(__NetBSD__)
-#include <util.h>
+/**
+ * From node v0.10.28 (at least?) there is also a "util.h" in node/src, which
+ * would confuse the compiler when looking for "util.h".
+ */
+#include <../include/util.h>
 #elif defined(__FreeBSD__)
 #include <libutil.h>
 #elif defined(__sun)
