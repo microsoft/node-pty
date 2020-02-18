@@ -21,9 +21,11 @@ This is useful for:
 - [Script Runner](https://github.com/ioquatix/script-runner) for Atom.
 - [Theia](https://github.com/theia-ide/theia)
 - [FreeMAN](https://github.com/matthew-matvei/freeman) file manager
-- [atom-xterm](https://atom.io/packages/atom-xterm) - Atom plugin for providing terminals inside your Atom workspace.
-- [Termination](https://atom.io/packages/termination) - Another Atom plugin that provides terminals inside your Atom workspace.
-- [electerm](https://github.com/electerm/electerm) Terminal/ssh/sftp client(linux, mac, win).
+- [terminus](https://atom.io/packages/terminus) - An Atom plugin for providing terminals inside your Atom workspace.
+- [x-terminal](https://atom.io/packages/x-terminal) - Also an Atom plugin that provides terminals inside your Atom workspace.
+- [Termination](https://atom.io/packages/termination) - Also an Atom plugin that provides terminals inside your Atom workspace.
+- [atom-xterm](https://atom.io/packages/atom-xterm) - Also an Atom plugin that provides terminals inside your Atom workspace.
+- [electerm](https://github.com/electerm/electerm) Terminal/SSH/SFTP client(Linux, macOS, Windows).
 - [Extraterm](http://extraterm.org/)
 - [Wetty](https://github.com/krishnasrinivas/wetty) Browser based Terminal over HTTP and HTTPS
 
