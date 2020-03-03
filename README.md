@@ -28,6 +28,7 @@ This is useful for:
 - [electerm](https://github.com/electerm/electerm) Terminal/SSH/SFTP client(Linux, macOS, Windows).
 - [Extraterm](http://extraterm.org/)
 - [Wetty](https://github.com/krishnasrinivas/wetty) Browser based Terminal over HTTP and HTTPS
+- [nomad](https://github.com/lukebarnard1/nomad-term)
 
 Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
 
