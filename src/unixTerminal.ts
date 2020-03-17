@@ -3,7 +3,6 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
-
 import * as net from 'net';
 import * as os from 'os';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
@@ -11,10 +10,17 @@ import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 import { assign, loadNative } from './utils';
 
-declare interface INativePty {
-  master: number;
-  slave: number;
-  pty: string;
+let pty: IUnixNative;
+try {
+  pty = require('../build/Release/pty.node');
+} catch (outerError) {
+  try {
+    pty = require('../build/Debug/pty.node');
+  } catch (innerError) {
+    console.error('innerError', innerError);
+    // Re-throw the exception from the Release require if the Debug require fails as well
+    throw outerError;
+  }
 }
 
 /**
@@ -25,14 +31,12 @@ declare interface INativePty {
  */
 function errnoToString(errno: number): string {
   for (const str in os.constants.errno) {
-    if (os.constants.errno[str] === errno) {
+    if (os.constants.errno[str as keyof typeof os.constants.errno] === errno) {
       return str;
     }
   }
   return errno.toString();
 }
-
-const pty: IUnixNative = loadNative('pty');
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
@@ -69,8 +73,8 @@ export class UnixTerminal extends Terminal {
     opt = opt || {};
     opt.env = opt.env || process.env;
 
-    const cols = opt.cols || DEFAULT_COLS;
-    const rows = opt.rows || DEFAULT_ROWS;
+    this._cols = opt.cols || DEFAULT_COLS;
+    this._rows = opt.rows || DEFAULT_ROWS;
     const uid = opt.uid || -1;
     const gid = opt.gid || -1;
     const env = assign({}, opt.env);
@@ -80,6 +84,7 @@ export class UnixTerminal extends Terminal {
     }
 
     const cwd = opt.cwd || process.cwd();
+    env.PWD = cwd;
     const name = opt.name || env.TERM || DEFAULT_NAME;
     env.TERM = name;
     const parsedEnv = this._parseEnv(env);
@@ -114,7 +119,7 @@ export class UnixTerminal extends Terminal {
     };
 
     // fork
-    const term = pty.fork(file, args, parsedEnv, cwd, cols, rows, uid, gid, (encoding === 'utf8'), onexit);
+    const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), onexit);
 
     process.nextTick(() => {
       const { _exec_errno: execErrno } = term as any;
@@ -182,6 +187,12 @@ export class UnixTerminal extends Terminal {
       this._close();
       this.emit('close');
     });
+
+    this._forwardEvents();
+  }
+
+  protected _write(data: string): void {
+    this._socket.write(data);
   }
 
   /**
@@ -201,17 +212,21 @@ export class UnixTerminal extends Terminal {
 
     const cols = opt.cols || DEFAULT_COLS;
     const rows = opt.rows || DEFAULT_ROWS;
-    const encoding = opt.encoding ? 'utf8' : opt.encoding;
+    const encoding = (opt.encoding === undefined ? 'utf8' : opt.encoding);
 
     // open
     const term: IUnixOpenProcess = pty.open(cols, rows);
 
     self._master = new PipeSocket(<number>term.master);
-    self._master.setEncoding(encoding);
+    if (encoding !== null) {
+        self._master.setEncoding(encoding);
+    }
     self._master.resume();
 
     self._slave = new PipeSocket(term.slave);
-    self._slave.setEncoding(encoding);
+    if (encoding !== null) {
+        self._slave.setEncoding(encoding);
+    }
     self._slave.resume();
 
     self._socket = self._master;
@@ -237,10 +252,6 @@ export class UnixTerminal extends Terminal {
     });
 
     return self;
-  }
-
-  public write(data: string): void {
-    this._socket.write(data);
   }
 
   public destroy(): void {
@@ -273,7 +284,12 @@ export class UnixTerminal extends Terminal {
    */
 
   public resize(cols: number, rows: number): void {
+    if (cols <= 0 || rows <= 0 || isNaN(cols) || isNaN(rows) || cols === Infinity || rows === Infinity) {
+      throw new Error('resizing must be done using positive cols and rows');
+    }
     pty.resize(this._fd, cols, rows);
+    this._cols = cols;
+    this._rows = rows;
   }
 
   private _sanitizeEnv(env: IProcessEnv): void {
@@ -301,11 +317,10 @@ export class UnixTerminal extends Terminal {
  */
 class PipeSocket extends net.Socket {
   constructor(fd: number) {
-    const tty = (<any>process).binding('tty_wrap');
-    const guessHandleType = tty.guessHandleType;
-    tty.guessHandleType = () => 'PIPE';
+    const { Pipe, constants } = (<any>process).binding('pipe_wrap'); // tslint:disable-line
     // @types/node has fd as string? https://github.com/DefinitelyTyped/DefinitelyTyped/pull/18275
-    super({ fd: <any>fd });
-    tty.guessHandleType = guessHandleType;
+    const handle = new Pipe(constants.SOCKET);
+    handle.open(fd);
+    super(<any>{ handle });
   }
 }

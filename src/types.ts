@@ -4,3 +4,12 @@
  */
 
 export type ArgvOrCommandLine = string[] | string;
+
+export interface IExitEvent {
+  exitCode: number;
+  signal: number | undefined;
+}
+
+export interface IDisposable {
+  dispose(): void;
+}

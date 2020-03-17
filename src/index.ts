@@ -4,9 +4,7 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-import * as path from 'path';
-import { Terminal as BaseTerminal } from './terminal';
-import { ITerminal, IPtyOpenOptions, IPtyForkOptions } from './interfaces';
+import { ITerminal, IPtyOpenOptions, IPtyForkOptions, IWindowsPtyForkOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 
 let terminalCtor: any;
@@ -28,17 +26,17 @@ if (process.platform === 'win32') {
  * @see Parsing C++ Comamnd-Line Arguments https://msdn.microsoft.com/en-us/library/17w5ykft.aspx
  * @see GetCommandLine https://msdn.microsoft.com/en-us/library/windows/desktop/ms683156.aspx
  */
-export function spawn(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions): ITerminal {
+export function spawn(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions | IWindowsPtyForkOptions): ITerminal {
   return new terminalCtor(file, args, opt);
 }
 
 /** @deprecated */
-export function fork(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions): ITerminal {
+export function fork(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions | IWindowsPtyForkOptions): ITerminal {
   return new terminalCtor(file, args, opt);
 }
 
 /** @deprecated */
-export function createTerminal(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions): ITerminal {
+export function createTerminal(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions | IWindowsPtyForkOptions): ITerminal {
   return new terminalCtor(file, args, opt);
 }
 
@@ -50,4 +48,4 @@ export function open(options: IPtyOpenOptions): ITerminal {
  * Expose the native API when not Windows, note that this is not public API and
  * could be removed at any time.
  */
-export const native = (process.platform !== 'win32' ? require(path.join('..', 'build', 'Release', 'pty.node')) : null);
+export const native = (process.platform !== 'win32' ? require('../build/Release/pty.node') : null);

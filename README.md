@@ -1,6 +1,6 @@
 # node-pty
 
-[![Build Status](https://dev.azure.com/vscode/node-pty/_apis/build/status/Microsoft.node-pty)](https://dev.azure.com/vscode/node-pty/_apis/build/status/Microsoft.node-pty?branchName=master)
+[![Build Status](https://dev.azure.com/vscode/node-pty/_apis/build/status/Microsoft.node-pty)](https://dev.azure.com/vscode/node-pty/_build/latest?definitionId=11)
 
 `forkpty(3)` bindings for node.js. This allows you to fork processes with pseudoterminal file descriptors. It returns a terminal object which allows reads and writes.
 
@@ -21,8 +21,14 @@ This is useful for:
 - [Script Runner](https://github.com/ioquatix/script-runner) for Atom.
 - [Theia](https://github.com/theia-ide/theia)
 - [FreeMAN](https://github.com/matthew-matvei/freeman) file manager
-- [atom-xterm](https://atom.io/packages/atom-xterm) - Atom plugin for providing terminals inside your Atom workspace.
-- [Termination](https://atom.io/packages/termination) - Another Atom plugin that provides terminals inside your Atom workspace.
+- [terminus](https://atom.io/packages/terminus) - An Atom plugin for providing terminals inside your Atom workspace.
+- [x-terminal](https://atom.io/packages/x-terminal) - Also an Atom plugin that provides terminals inside your Atom workspace.
+- [Termination](https://atom.io/packages/termination) - Also an Atom plugin that provides terminals inside your Atom workspace.
+- [atom-xterm](https://atom.io/packages/atom-xterm) - Also an Atom plugin that provides terminals inside your Atom workspace.
+- [electerm](https://github.com/electerm/electerm) Terminal/SSH/SFTP client(Linux, macOS, Windows).
+- [Extraterm](http://extraterm.org/)
+- [Wetty](https://github.com/krishnasrinivas/wetty) Browser based Terminal over HTTP and HTTPS
+- [nomad](https://github.com/lukebarnard1/nomad-term)
 
 Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
 
@@ -68,6 +74,10 @@ npm run tsc
 sudo apt install -y make python build-essential
 ```
 
+The following are also needed:
+
+- Node.JS 10+
+
 ### Windows
 
 `npm install` requires some tools to be present in the system like Python and C++ compiler. Windows users can easily install them by running the following command in PowerShell as administrator. For more information see https://github.com/felixrieseberg/windows-build-tools:
@@ -76,7 +86,10 @@ sudo apt install -y make python build-essential
 npm install --global --production windows-build-tools
 ```
 
-The Windows SDK is also needed which can be [downloaded here](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk). Only the "Desktop C++ Apps" components are needed to be installed.
+The following are also needed:
+
+- [Windows SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk) - only the "Desktop C++ Apps" components are needed to be installed
+- Node.JS 10+
 
 ## Debugging
 
@@ -90,13 +103,40 @@ All processes launched from node-pty will launch at the same permission level of
 
 Note that node-pty is not thread safe so running it across multiple worker threads in node.js could cause issues.
 
+## Flow Control
+
+Automatic flow control can be enabled by either providing `handleFlowControl = true` in the constructor options or setting it later on:
+
+```js
+const PAUSE = '\x13';   // XOFF
+const RESUME = '\x11';  // XON
+
+const ptyProcess = pty.spawn(shell, [], {handleFlowControl: true});
+
+// flow control in action
+ptyProcess.write(PAUSE);  // pty will block and pause the slave program
+...
+ptyProcess.write(RESUME); // pty will enter flow mode and resume the slave program
+
+// temporarily disable/re-enable flow control
+ptyProcess.handleFlowControl = false;
+...
+ptyProcess.handleFlowControl = true;
+```
+
+By default `PAUSE` and `RESUME` are XON/XOFF control codes (as shown above). To avoid conflicts in environments that use these control codes for different purposes the messages can be customized as `flowControlPause: string` and `flowControlResume: string` in the constructor options. `PAUSE` and `RESUME` are not passed to the underlying pseudoterminal if flow control is enabled.
+
 ## Troubleshooting
 
-**Powershell gives error 8009001d**
+### Powershell gives error 8009001d
 
 > Internal Windows PowerShell error.  Loading managed Windows PowerShell failed with error 8009001d.
 
 This happens when PowerShell is launched with no `SystemRoot` environment variable present.
+
+### ConnectNamedPipe failed: Windows error 232
+
+This error can occur due to anti-virus software intercepting winpty from creating a pty. To workaround this you can exclude this file from your anti-virus scanning `node-pty\build\Release\winpty-agent.exe`
 
 ## pty.js
 

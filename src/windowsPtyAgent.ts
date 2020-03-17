@@ -8,7 +8,6 @@ import * as os from 'os';
 import * as path from 'path';
 import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
-import { loadNative } from './utils';
 import { fork } from 'child_process';
 
 let conptyNative: IConptyNative;
@@ -52,18 +51,39 @@ export class WindowsPtyAgent {
     cols: number,
     rows: number,
     debug: boolean,
-    private _useConpty: boolean | undefined
+    private _useConpty: boolean | undefined,
+    conptyInheritCursor: boolean = false
   ) {
     if (this._useConpty === undefined || this._useConpty === true) {
       this._useConpty = this._getWindowsBuildNumber() >= 18309;
     }
     if (this._useConpty) {
       if (!conptyNative) {
-        conptyNative = loadNative('conpty');
+        try {
+          conptyNative = require('../build/Release/conpty.node');
+        } catch (outerError) {
+          try {
+            conptyNative = require('../build/Debug/conpty.node');
+          } catch (innerError) {
+            console.error('innerError', innerError);
+            // Re-throw the exception from the Release require if the Debug require fails as well
+            throw outerError;
+          }
+        }
       }
     } else {
       if (!winptyNative) {
-        winptyNative = loadNative('pty');
+        try {
+          winptyNative = require('../build/Release/pty.node');
+        } catch (outerError) {
+          try {
+            winptyNative = require('../build/Debug/pty.node');
+          } catch (innerError) {
+            console.error('innerError', innerError);
+            // Re-throw the exception from the Release require if the Debug require fails as well
+            throw outerError;
+          }
+        }
       }
     }
     this._ptyNative = this._useConpty ? conptyNative : winptyNative;
@@ -77,7 +97,7 @@ export class WindowsPtyAgent {
     // Open pty session.
     let term: IConptyProcess | IWinptyProcess;
     if (this._useConpty) {
-      term = (this._ptyNative as IConptyNative).startProcess(file, cols, rows, debug, this._generatePipeName());
+      term = (this._ptyNative as IConptyNative).startProcess(file, cols, rows, debug, this._generatePipeName(), conptyInheritCursor);
     } else {
       term = (this._ptyNative as IWinptyNative).startProcess(file, commandLine, env, cwd, cols, rows, debug);
       this._pid = (term as IWinptyProcess).pid;
@@ -108,7 +128,8 @@ export class WindowsPtyAgent {
     // TODO: Wait for ready event?
 
     if (this._useConpty) {
-      const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, this._$onProcessExit.bind(this));
+      const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, c => this._$onProcessExit(c)
+);
       this._innerPid = connect.pid;
     }
   }
@@ -169,7 +190,6 @@ export class WindowsPtyAgent {
       });
       const timeout = setTimeout(() => {
         // Something went wrong, just send back the shell PID
-        console.error('Could not fetch console process list');
         agent.kill();
         resolve([ this._innerPid ]);
       }, 5000);
