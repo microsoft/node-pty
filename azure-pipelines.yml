@@ -36,7 +36,7 @@ jobs:
 
 - job: macOS
   pool:
-    vmImage: 'xcode9-macos10.13'
+    vmImage: 'macOS-10.15'
   strategy:
     matrix:
       node_8_x:
