@@ -9,14 +9,8 @@ jobs:
     vmImage: 'ubuntu-16.04'
   strategy:
     matrix:
-      node_8_x:
-        node_version: 8.x
-      node_9_x:
-        node_version: 9.x
       node_10_x:
         node_version: 10.x
-      node_11_x:
-        node_version: 11.x
       node_12_x:
         node_version: 12.x
   steps:
@@ -36,17 +30,11 @@ jobs:
 
 - job: macOS
   pool:
-    vmImage: 'xcode9-macos10.13'
+    vmImage: 'macOS-10.15'
   strategy:
     matrix:
-      node_8_x:
-        node_version: 8.x
-      node_9_x:
-        node_version: 9.x
       node_10_x:
         node_version: 10.x
-      node_11_x:
-        node_version: 11.x
       node_12_x:
         node_version: 12.x
   steps:
@@ -69,14 +57,8 @@ jobs:
     vmImage: 'vs2017-win2016'
   strategy:
     matrix:
-      node_8_x:
-        node_version: 8.x
-      node_9_x:
-        node_version: 9.x
       node_10_x:
         node_version: 10.x
-      node_11_x:
-        node_version: 11.x
       node_12_x:
         node_version: 12.x
   steps:
