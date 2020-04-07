@@ -76,7 +76,7 @@ describe('Terminal', () => {
           return true;
         }
         return false;
-      }, 200, 10);
+      });
       terminal.write('hello');
       terminal.write('world');
     });
@@ -95,48 +95,44 @@ describe('Terminal', () => {
   });
 
   describe('write() data flush and "drain" event', () => {
-    function buildLongInput(): string {
-      const count = process.platform === 'win32' ? 8 : 6;
-      let s = buildLongInput.toString() + '\f';
-      for (let i = 0; i < count; i++) {
-        s += s;
+    it('should provide meanings to know if the entire data was flushed successfully to the kernel buffer or was queued in user memory', async () => {
+      let shouldEmitDrain: boolean = false;
+      let drainEmitted: boolean = false;
+      function buildLongInput(): string {
+        const count = process.platform === 'win32' ? 8 : 6;
+        let s = buildLongInput.toString() + '\f';
+        for (let i = 0; i < count; i++) {
+          s += s;
+        }
+        return s;
       }
-      return s;
-    }
-    let shouldEmitDrain = false;
-    let drainEmitted = false;
 
-
-    it('should provide meanings to know if the entire data was flushed successfully to the kernel buffer or was queued in user memory', (done) => {
       const longString = buildLongInput();
       const terminal = newTerminal();
       terminal.on('drain', () => {
         drainEmitted = true;
       });
       let flushedAlready = false;
-      terminal.write(longString, (flushed: boolean) => {
-        if (!flushedAlready && flushed) {
-          flushedAlready = true;
-          done && done();
-          done = null;
-        }
-        else {
-          shouldEmitDrain = true;
-        }
+      await new Promise<void>(r => {
+        terminal.write(longString, (flushed: boolean) => {
+          if (!flushedAlready && flushed) {
+            flushedAlready = true;
+            r();
+          } else {
+            shouldEmitDrain = true;
+          }
+        });
       });
-    }).timeout(4000);
 
-    it('should emit "drain" event to know when the kernel buffer is free again', () => {
+      // should emit "drain" event to know when the kernel buffer is free again
       if (process.platform === 'win32') {
         assert.ok(true, 'winpty doesn\'t support "drain" event');
-      }
-      else if (shouldEmitDrain) {
+      } else if (shouldEmitDrain) {
         assert.ok(drainEmitted, '"drain" event should be emitted when input to write cannot be flushed entirely');
-      }
-      else {
+      } else {
         assert.ok(!drainEmitted, '"drain" event shouldn\'t be emitted if write input was flushed entirely');
       }
-    });
+    }).timeout(4000);
   });
 
   describe('checkType', () => {

@@ -98,7 +98,7 @@ if (process.platform !== 'win32') {
             return true;
           }
           return false;
-        }, 200, 10);
+        });
 
         term.slave.write('slave\n');
         term.master.write('master\n');

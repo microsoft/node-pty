@@ -2,7 +2,7 @@
  * Copyright (c) 2019, Microsoft Corporation (MIT License).
  */
 
-export function pollUntil(cb: () => boolean, timeout: number, interval: number): Promise<void> {
+export function pollUntil(cb: () => boolean, timeout: number = 1000, interval: number = 10): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const intervalId = setInterval(() => {
       if (cb()) {
