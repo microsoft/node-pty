@@ -16,7 +16,7 @@ if (process.platform !== 'win32') {
     describe('Constructor', () => {
       it('should set a valid pts name', () => {
         const term = new UnixTerminal('/bin/bash', [], {});
-        let regExp;
+        let regExp: RegExp;
         if (process.platform === 'linux') {
           // https://linux.die.net/man/4/pts
           regExp = /^\/dev\/pts\/\d+$/;
@@ -80,7 +80,6 @@ if (process.platform !== 'win32') {
       });
 
       it('should open a pty with access to a master and slave socket', (done) => {
-        let doneCalled = false;
         term = UnixTerminal.open({});
 
         let slavebuf = '';
@@ -125,7 +124,7 @@ if (process.platform !== 'win32') {
         setTimeout(() => null, 500);
         console.log('ready', ptyProcess.pid);
         `;
-        let buffer: string[] = [];
+        const buffer: string[] = [];
         const p = cp.spawn('node', ['-e', data]);
         let sub = '';
         p.stdout.on('data', (data) => {
@@ -166,7 +165,7 @@ if (process.platform !== 'win32') {
         setTimeout(() => null, 500);
         console.log('ready', ptyProcess.pid);
         `;
-        let buffer: string[] = [];
+        const buffer: string[] = [];
         const p = cp.spawn('node', ['-e', data]);
         let sub = '';
         p.stdout.on('data', (data) => {
