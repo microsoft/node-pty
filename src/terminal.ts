@@ -42,6 +42,8 @@ export abstract class Terminal implements ITerminal {
 
   private _onData = new EventEmitter2<string>();
   public get onData(): IEvent<string> { return this._onData.event; }
+  private _onDrain = new EventEmitter2<void>();
+  public get onDrain(): IEvent<void> { return this._onDrain.event; }
   private _onExit = new EventEmitter2<IExitEvent>();
   public get onExit(): IEvent<IExitEvent> { return this._onExit.event; }
 
@@ -94,6 +96,7 @@ export abstract class Terminal implements ITerminal {
 
   protected _forwardEvents(): void {
     this.on('data', e => this._onData.fire(e));
+    this.on('drain', () => this._onDrain.fire());
     this.on('exit', (exitCode, signal) => this._onExit.fire({ exitCode, signal }));
   }
 

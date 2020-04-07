@@ -141,6 +141,14 @@ declare module 'node-pty' {
     readonly onData: IEvent<string>;
 
     /**
+     * Adds an event listener for when the write buffer becomes empty. This can
+     * be used to throttle writes.
+     * @see `IPty.write` for more
+     * @returns an `IDisposable` to stop listening.
+     */
+    readonly onDrain: IEvent<void>;
+
+    /**
      * Adds an event listener for when an exit event fires. This happens when the pty exits.
      * @returns an `IDisposable` to stop listening.
      */
@@ -183,7 +191,7 @@ declare module 'node-pty' {
      * @see {@link https://nodejs.org/api/net.html#net_socket_write_data_encoding_callback}
      * for more information on how the callback parameter works.
      */
-    write(data: string): void;
+    write(data: string, callback?: (flushed: boolean) => any): void;
 
     /**
      * Kills the pty.

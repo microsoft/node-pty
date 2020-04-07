@@ -33,7 +33,6 @@ export interface ITerminal {
 
   /**
    * Writes data to the socket.
-   *
    * @param data The data to write. If you want to simulate pressing the ENTER
    * key like when entering a command, finish the string with the character
    * `'\r'`.
