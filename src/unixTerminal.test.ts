@@ -105,8 +105,8 @@ if (process.platform !== 'win32') {
         term.master.write('master\n');
       });
     });
-    describe('signals in parent and child', function(): void {
-      it('SIGINT - custom in parent and child', function(done): void {
+    describe('signals in parent and child', () => {
+      it('SIGINT - custom in parent and child', done => {
         // this test is cumbersome - we have to run it in a sub process to
         // see behavior of SIGINT handlers
         const data = `
@@ -146,7 +146,7 @@ if (process.platform !== 'win32') {
           done();
         });
       });
-      it('SIGINT - custom in parent, default in child', function(done): void {
+      it('SIGINT - custom in parent, default in child', done => {
         // this tests the original idea of the signal(...) change in pty.cc:
         // to make sure the SIGINT handler of a pty child is reset to default
         // and does not interfere with the handler in the parent
@@ -187,7 +187,7 @@ if (process.platform !== 'win32') {
           done();
         });
       });
-      it('SIGHUP default (child only)', function(done): void {
+      it('SIGHUP default (child only)', done => {
         const term = new UnixTerminal('node', [ '-e', `
         console.log('ready');
         setTimeout(()=>console.log('timeout'), 200);`
@@ -206,13 +206,13 @@ if (process.platform !== 'win32') {
           done();
         });
       });
-      it('SIGUSR1 - custom in parent and child', function(done): void {
+      it('SIGUSR1 - custom in parent and child', done => {
         let pHandlerCalled = 0;
         const handleSigUsr = function(h: any): any {
           return function(): void {
             pHandlerCalled += 1;
             process.removeListener('SIGUSR1', h);
-          }
+          };
         };
         process.on('SIGUSR1', handleSigUsr(handleSigUsr));
 
