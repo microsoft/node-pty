@@ -63,7 +63,7 @@ ptyProcess.write('ls\r');
 # Install dependencies and build C++
 npm install
 # Compile TypeScript -> JavaScript
-npm run tsc
+npm run build
 ```
 
 ## Dependencies

@@ -33,15 +33,15 @@
     "openpty"
   ],
   "scripts": {
-    "tsc": "tsc -b ./src/tsconfig.json",
+    "build": "tsc -b ./src/tsconfig.json",
     "watch": "tsc -b -w ./src/tsconfig.json",
     "lint": "eslint -c .eslintrc.js --ext .ts src/",
     "install": "node scripts/install.js",
     "postinstall": "node scripts/post-install.js",
     "test": "cross-env NODE_ENV=test mocha -R spec --exit lib/*.test.js",
     "posttest": "npm run lint",
-    "prepare": "npm run tsc",
-    "prepublishOnly": "npm run tsc"
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "nan": "^2.14.0"
