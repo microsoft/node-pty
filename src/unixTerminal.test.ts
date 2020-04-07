@@ -5,6 +5,7 @@
 
 import { UnixTerminal } from './unixTerminal';
 import * as assert from 'assert';
+import * as cp from 'child_process';
 import * as path from 'path';
 import { pollUntil } from './testUtils.test';
 
@@ -125,7 +126,6 @@ if (process.platform !== 'win32') {
         console.log('ready', ptyProcess.pid);
         `;
         let buffer: string[] = [];
-        const cp = require('child_process');
         const p = cp.spawn('node', ['-e', data]);
         let sub = '';
         p.stdout.on('data', (data) => {
@@ -134,7 +134,7 @@ if (process.platform !== 'win32') {
             setTimeout(() => {
               process.kill(parseInt(sub), 'SIGINT');  // SIGINT to child
               p.kill('SIGINT');                       // SIGINT to parent
-              }, 200);
+            }, 200);
           } else {
             buffer.push(data.toString().replace(/^\s+|\s+$/g, ''));
           }
@@ -167,7 +167,6 @@ if (process.platform !== 'win32') {
         console.log('ready', ptyProcess.pid);
         `;
         let buffer: string[] = [];
-        const cp = require('child_process');
         const p = cp.spawn('node', ['-e', data]);
         let sub = '';
         p.stdout.on('data', (data) => {
