@@ -75,7 +75,7 @@ export class UnixTerminal extends Terminal {
 
     const encoding = (opt.encoding === undefined ? 'utf8' : opt.encoding);
 
-    const onexit = (code: number, signal: number) => {
+    const onexit = (code: number, signal: number): void => {
       // XXX Sometimes a data event is emitted after exit. Wait til socket is
       // destroyed.
       if (!this._emittedClose) {
@@ -193,13 +193,13 @@ export class UnixTerminal extends Terminal {
 
     self._master = new PipeSocket(<number>term.master);
     if (encoding !== null) {
-        self._master.setEncoding(encoding);
+      self._master.setEncoding(encoding);
     }
     self._master.resume();
 
     self._slave = new PipeSocket(term.slave);
     if (encoding !== null) {
-        self._slave.setEncoding(encoding);
+      self._slave.setEncoding(encoding);
     }
     self._slave.resume();
 
@@ -267,20 +267,20 @@ export class UnixTerminal extends Terminal {
   }
 
   private _sanitizeEnv(env: IProcessEnv): void {
-      // Make sure we didn't start our server from inside tmux.
-      delete env['TMUX'];
-      delete env['TMUX_PANE'];
+    // Make sure we didn't start our server from inside tmux.
+    delete env['TMUX'];
+    delete env['TMUX_PANE'];
 
-      // Make sure we didn't start our server from inside screen.
-      // http://web.mit.edu/gnu/doc/html/screen_20.html
-      delete env['STY'];
-      delete env['WINDOW'];
+    // Make sure we didn't start our server from inside screen.
+    // http://web.mit.edu/gnu/doc/html/screen_20.html
+    delete env['STY'];
+    delete env['WINDOW'];
 
-      // Delete some variables that might confuse our terminal.
-      delete env['WINDOWID'];
-      delete env['TERMCAP'];
-      delete env['COLUMNS'];
-      delete env['LINES'];
+    // Delete some variables that might confuse our terminal.
+    delete env['WINDOWID'];
+    delete env['TERMCAP'];
+    delete env['COLUMNS'];
+    delete env['LINES'];
   }
 }
 
@@ -291,9 +291,9 @@ export class UnixTerminal extends Terminal {
  */
 class PipeSocket extends net.Socket {
   constructor(fd: number) {
-    const { Pipe, constants } = (<any>process).binding('pipe_wrap'); // tslint:disable-line
+    const pipeWrap = (<any>process).binding('pipe_wrap'); // tslint:disable-line
     // @types/node has fd as string? https://github.com/DefinitelyTyped/DefinitelyTyped/pull/18275
-    const handle = new Pipe(constants.SOCKET);
+    const handle = new pipeWrap.Pipe(pipeWrap.constants.SOCKET);
     handle.open(fd);
     super(<any>{ handle });
   }
