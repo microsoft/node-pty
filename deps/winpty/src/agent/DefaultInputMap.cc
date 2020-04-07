@@ -65,10 +65,11 @@ const int kSuffixBoth  = kSuffixCtrl | kSuffixShift;
 
 static const EscapeEncoding escapeLetterEncodings[] = {
     // Conventional arrow keys
-    { true,  '[', 'A', kBare | kSemiMod,            { VK_UP,      '\0', 0             } },
-    { true,  '[', 'B', kBare | kSemiMod,            { VK_DOWN,    '\0', 0             } },
-    { true,  '[', 'C', kBare | kSemiMod,            { VK_RIGHT,   '\0', 0             } },
-    { true,  '[', 'D', kBare | kSemiMod,            { VK_LEFT,    '\0', 0             } },
+    // kBareMod: Ubuntu /etc/inputrc and IntelliJ/JediTerm use escapes like: ESC [ n ABCD
+    { true,  '[', 'A', kBare | kBareMod | kSemiMod, { VK_UP,      '\0', 0             } },
+    { true,  '[', 'B', kBare | kBareMod | kSemiMod, { VK_DOWN,    '\0', 0             } },
+    { true,  '[', 'C', kBare | kBareMod | kSemiMod, { VK_RIGHT,   '\0', 0             } },
+    { true,  '[', 'D', kBare | kBareMod | kSemiMod, { VK_LEFT,    '\0', 0             } },
 
     // putty.  putty uses this sequence for Ctrl-Arrow, Shift-Arrow, and
     // Ctrl-Shift-Arrow, but I can only decode to one choice, so I'm just
@@ -102,8 +103,9 @@ static const EscapeEncoding escapeLetterEncodings[] = {
 
     // Home/End, letter version
     //  * gnome-terminal uses `ESC O [HF]`.  I never saw it modified.
-    { true,  '[', 'H', kBare | kSemiMod,            { VK_HOME,    '\0', 0             } },
-    { true,  '[', 'F', kBare | kSemiMod,            { VK_END,     '\0', 0             } },
+    // kBareMod: IntelliJ/JediTerm uses escapes like: ESC [ n HF
+    { true,  '[', 'H', kBare | kBareMod | kSemiMod, { VK_HOME,    '\0', 0             } },
+    { true,  '[', 'F', kBare | kBareMod | kSemiMod, { VK_END,     '\0', 0             } },
     { true,  'O', 'H', kBare,                       { VK_HOME,    '\0', 0             } },
     { true,  'O', 'F', kBare,                       { VK_END,     '\0', 0             } },
 
@@ -235,6 +237,7 @@ static void addSimpleEntries(InputMap &inputMap) {
 
         {   "\x7F",         { VK_BACK,  '\x08', 0,                                  } },
         {   ESC "\x7F",     { VK_BACK,  '\x08', LEFT_ALT_PRESSED,                   } },
+        {   "\x03",         { 'C',      '\x03', LEFT_CTRL_PRESSED,                  } },
 
         // Handle special F1-F5 for TERM=linux and TERM=cygwin.
         {   ESC "[[A",      { VK_F1,    '\0',   0                                   } },
