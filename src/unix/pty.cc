@@ -28,6 +28,7 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <signal.h>
 
 /* forkpty */
 /* http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html */
@@ -69,6 +70,11 @@ extern char **environ;
 #elif defined(__APPLE__)
 #include <sys/sysctl.h>
 #include <libproc.h>
+#endif
+
+/* NSIG - macro for highest signal + 1, should be defined */
+#ifndef NSIG
+#define NSIG 32
 #endif
 
 /**
@@ -142,9 +148,6 @@ NAN_METHOD(PtyFork) {
     return Nan::ThrowError(
         "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, onexit)");
   }
-
-  // Make sure the process still listens to SIGINT
-  signal(SIGINT, SIG_DFL);
 
   // file
   Nan::Utf8String file(info[0]);
@@ -228,7 +231,30 @@ NAN_METHOD(PtyFork) {
 
   // fork the pty
   int master = -1;
+
+  sigset_t newmask, oldmask;
+  struct sigaction sig_action;
+
+  // temporarily block all signals
+  // this is needed due to a race condition in openpty
+  // and to avoid running signal handlers in the child
+  // before exec* happened
+  sigfillset(&newmask);
+  pthread_sigmask(SIG_SETMASK, &newmask, &oldmask);
+
   pid_t pid = pty_forkpty(&master, nullptr, term, &winp);
+
+  if (!pid) {
+    // remove all signal handler from child
+    sig_action.sa_handler = SIG_DFL;
+    sig_action.sa_flags = 0;
+    sigemptyset(&sig_action.sa_mask);
+    for (int i = 0 ; i < NSIG ; i++) {    // NSIG is a macro for all signals + 1
+      sigaction(i, &sig_action, NULL);
+    }
+  }
+  // reenable signals
+  pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
 
   if (pid) {
     for (i = 0; i < argl; i++) free(argv[i]);
@@ -659,13 +685,12 @@ pty_forkpty(int *amaster,
   pid_t pid = fork();
 
   switch (pid) {
-    case -1:
+    case -1:  // error in fork, we are still in parent
       close(master);
       close(slave);
       return -1;
-    case 0:
+    case 0:  // we are in the child process
       close(master);
-
       setsid();
 
 #if defined(TIOCSCTTY)
@@ -682,7 +707,7 @@ pty_forkpty(int *amaster,
       if (slave > 2) close(slave);
 
       return 0;
-    default:
+    default:  // we are in the parent process
       close(slave);
       return pid;
   }
@@ -692,6 +717,7 @@ pty_forkpty(int *amaster,
   return forkpty(amaster, name, (termios *)termp, (winsize *)winp);
 #endif
 }
+
 
 /**
  * Init
