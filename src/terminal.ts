@@ -59,14 +59,14 @@ export abstract class Terminal implements ITerminal {
 
     // Do basic type checks here in case node-pty is being used within JavaScript. If the wrong
     // types go through to the C++ side it can lead to hard to diagnose exceptions.
-    this._checkType('name', opt.name ? opt.name : null, 'string');
-    this._checkType('cols', opt.cols ? opt.cols : null, 'number');
-    this._checkType('rows', opt.rows ? opt.rows : null, 'number');
-    this._checkType('cwd', opt.cwd ? opt.cwd : null, 'string');
-    this._checkType('env', opt.env ? opt.env : null, 'object');
-    this._checkType('uid', opt.uid ? opt.uid : null, 'number');
-    this._checkType('gid', opt.gid ? opt.gid : null, 'number');
-    this._checkType('encoding', opt.encoding ? opt.encoding : null, 'string');
+    this._checkType('name', opt.name ? opt.name : undefined, 'string');
+    this._checkType('cols', opt.cols ? opt.cols : undefined, 'number');
+    this._checkType('rows', opt.rows ? opt.rows : undefined, 'number');
+    this._checkType('cwd', opt.cwd ? opt.cwd : undefined, 'string');
+    this._checkType('env', opt.env ? opt.env : undefined, 'object');
+    this._checkType('uid', opt.uid ? opt.uid : undefined, 'number');
+    this._checkType('gid', opt.gid ? opt.gid : undefined, 'number');
+    this._checkType('encoding', opt.encoding ? opt.encoding : undefined, 'string');
 
     // setup flow control handling
     this.handleFlowControl = !!(opt.handleFlowControl);
@@ -97,8 +97,21 @@ export abstract class Terminal implements ITerminal {
     this.on('exit', (exitCode, signal) => this._onExit.fire({ exitCode, signal }));
   }
 
-  private _checkType(name: string, value: any, type: string): void {
-    if (value && typeof value !== type) {
+  protected _checkType<T>(name: string, value: T | undefined, type: string, allowArray: boolean = false): void {
+    if (value === undefined) {
+      return;
+    }
+    if (allowArray) {
+      if (Array.isArray(value)) {
+        value.forEach((v, i) => {
+          if (typeof v !== type) {
+            throw new Error(`${name}[${i}] must be a ${type} (not a ${typeof v[i]})`);
+          }
+        });
+        return;
+      }
+    }
+    if (typeof value !== type) {
       throw new Error(`${name} must be a ${type} (not a ${typeof value})`);
     }
   }

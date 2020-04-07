@@ -22,6 +22,8 @@ export class WindowsTerminal extends Terminal {
   constructor(file?: string, args?: ArgvOrCommandLine, opt?: IWindowsPtyForkOptions) {
     super(opt);
 
+    this._checkType('args', args, 'string', true);
+
     // Initialize arguments
     args = args || [];
     file = file || DEFAULT_FILE;
