@@ -34,11 +34,16 @@ export interface ITerminal {
   /**
    * Writes data to the socket.
    *
-   * Optional parameter `callback` will be called with `true` if the entire data was flushed successfully to the kernel buffer or called with `false` if all or part of the data was queued in user memory. 'drain' event will be emitted when the buffer is again free.
-   *
-   * @param data The data to write. If you want to simulate pressing the ENTER key, like when entering a command, finish the string with the character `'\r'`
-   *
-   * @param callback Function called with true or false as explained in the method description. Take in consideration that this listener could be called several times.
+   * @param data The data to write. If you want to simulate pressing the ENTER
+   * key like when entering a command, finish the string with the character
+   * `'\r'`.
+   * @param callback An optional function that is called and provides `true` if
+   * the entire data was flushed successfully to the kernal buffer or called
+   * with `false` if all or part of the data was queued in user memory. The
+   * 'drain' event will be emitted when the buffer is again free. Note that this
+   * callback could be called several times.
+   * @see {@link https://nodejs.org/api/net.html#net_socket_write_data_encoding_callback}
+   * for more information on how the callback parameter works.
    */
   write(data: string, callback?: (flushed: boolean) => any): void;
 
