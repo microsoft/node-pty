@@ -2,9 +2,15 @@
   "compilerOptions": {
     "module": "commonjs",
     "target": "es5",
-    "rootDir": "src",
-    "outDir": "lib",
-    "sourceMap": true
+    "rootDir": ".",
+    "outDir": "../lib",
+    "sourceMap": true,
+    "lib": [
+      "es2015"
+    ],
+    "alwaysStrict": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true
   },
   "exclude": [
     "node_modules",

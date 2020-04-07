@@ -1,24 +1,26 @@
 /**
  * Copyright (c) 2012-2015, Christopher Jeffrey (MIT License)
  * Copyright (c) 2016, Daniel Imms (MIT License).
+ * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
-
 import * as net from 'net';
-import * as path from 'path';
-import * as tty from 'tty';
-import * as os from 'os';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 import { assign } from './utils';
 
-declare interface INativePty {
-  master: number;
-  slave: number;
-  pty: string;
+let pty: IUnixNative;
+try {
+  pty = require('../build/Release/pty.node');
+} catch (outerError) {
+  try {
+    pty = require('../build/Debug/pty.node');
+  } catch (innerError) {
+    console.error('innerError', innerError);
+    // Re-throw the exception from the Release require if the Debug require fails as well
+    throw outerError;
+  }
 }
-
-const pty = require(path.join('..', 'build', 'Release', 'pty.node'));
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
@@ -55,8 +57,8 @@ export class UnixTerminal extends Terminal {
     opt = opt || {};
     opt.env = opt.env || process.env;
 
-    const cols = opt.cols || DEFAULT_COLS;
-    const rows = opt.rows || DEFAULT_ROWS;
+    this._cols = opt.cols || DEFAULT_COLS;
+    this._rows = opt.rows || DEFAULT_ROWS;
     const uid = opt.uid || -1;
     const gid = opt.gid || -1;
     const env = assign({}, opt.env);
@@ -66,13 +68,14 @@ export class UnixTerminal extends Terminal {
     }
 
     const cwd = opt.cwd || process.cwd();
+    env.PWD = cwd;
     const name = opt.name || env.TERM || DEFAULT_NAME;
     env.TERM = name;
     const parsedEnv = this._parseEnv(env);
 
     const encoding = (opt.encoding === undefined ? 'utf8' : opt.encoding);
 
-    const onexit = (code: number, signal: number) => {
+    const onexit = (code: number, signal: number): void => {
       // XXX Sometimes a data event is emitted after exit. Wait til socket is
       // destroyed.
       if (!this._emittedClose) {
@@ -100,7 +103,7 @@ export class UnixTerminal extends Terminal {
     };
 
     // fork
-    const term = pty.fork(file, args, parsedEnv, cwd, cols, rows, uid, gid, (encoding === 'utf8'), onexit);
+    const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), onexit);
 
     this._socket = new PipeSocket(term.fd);
     if (encoding !== null) {
@@ -158,6 +161,12 @@ export class UnixTerminal extends Terminal {
       this._close();
       this.emit('close');
     });
+
+    this._forwardEvents();
+  }
+
+  protected _write(data: string, callback?: (flushed: boolean) => any): void {
+    return callback ? callback(this._socket.write(data, () => callback(true))) : this._socket.write(data);
   }
 
   /**
@@ -177,17 +186,21 @@ export class UnixTerminal extends Terminal {
 
     const cols = opt.cols || DEFAULT_COLS;
     const rows = opt.rows || DEFAULT_ROWS;
-    const encoding = opt.encoding ? 'utf8' : opt.encoding;
+    const encoding = (opt.encoding === undefined ? 'utf8' : opt.encoding);
 
     // open
-    const term: INativePty = pty.open(cols, rows);
+    const term: IUnixOpenProcess = pty.open(cols, rows);
 
     self._master = new PipeSocket(<number>term.master);
-    self._master.setEncoding(encoding);
+    if (encoding !== null) {
+      self._master.setEncoding(encoding);
+    }
     self._master.resume();
 
     self._slave = new PipeSocket(term.slave);
-    self._slave.setEncoding(encoding);
+    if (encoding !== null) {
+      self._slave.setEncoding(encoding);
+    }
     self._slave.resume();
 
     self._socket = self._master;
@@ -215,10 +228,6 @@ export class UnixTerminal extends Terminal {
     return self;
   }
 
-  public write(data: string, callback?: (flushed: boolean) => any): void {
-    return callback ? callback(this._socket.write(data, () => callback(true))) : this._socket.write(data);
-  }
-
   public destroy(): void {
     this._close();
 
@@ -231,20 +240,10 @@ export class UnixTerminal extends Terminal {
     this._socket.destroy();
   }
 
-  public kill(signal: string = 'SIGHUP'): void {
-    if (signal in os.constants.signals) {
-      try {
-        // pty.kill will not be available on systems which don't support
-        // the TIOCSIG/TIOCSIGNAL ioctl
-        if (pty.kill && signal !== 'SIGHUP') {
-          pty.kill(this._fd, os.constants.signals[signal]);
-        } else {
-          process.kill(this.pid, signal);
-        }
-      } catch (e) { /* swallow */ }
-    } else {
-      throw new Error('Unknown signal: ' + signal);
-    }
+  public kill(signal?: string): void {
+    try {
+      process.kill(this.pid, signal || 'SIGHUP');
+    } catch (e) { /* swallow */ }
   }
 
   /**
@@ -259,24 +258,29 @@ export class UnixTerminal extends Terminal {
    */
 
   public resize(cols: number, rows: number): void {
+    if (cols <= 0 || rows <= 0 || isNaN(cols) || isNaN(rows) || cols === Infinity || rows === Infinity) {
+      throw new Error('resizing must be done using positive cols and rows');
+    }
     pty.resize(this._fd, cols, rows);
+    this._cols = cols;
+    this._rows = rows;
   }
 
   private _sanitizeEnv(env: IProcessEnv): void {
-      // Make sure we didn't start our server from inside tmux.
-      delete env['TMUX'];
-      delete env['TMUX_PANE'];
+    // Make sure we didn't start our server from inside tmux.
+    delete env['TMUX'];
+    delete env['TMUX_PANE'];
 
-      // Make sure we didn't start our server from inside screen.
-      // http://web.mit.edu/gnu/doc/html/screen_20.html
-      delete env['STY'];
-      delete env['WINDOW'];
+    // Make sure we didn't start our server from inside screen.
+    // http://web.mit.edu/gnu/doc/html/screen_20.html
+    delete env['STY'];
+    delete env['WINDOW'];
 
-      // Delete some variables that might confuse our terminal.
-      delete env['WINDOWID'];
-      delete env['TERMCAP'];
-      delete env['COLUMNS'];
-      delete env['LINES'];
+    // Delete some variables that might confuse our terminal.
+    delete env['WINDOWID'];
+    delete env['TERMCAP'];
+    delete env['COLUMNS'];
+    delete env['LINES'];
   }
 }
 
@@ -287,11 +291,10 @@ export class UnixTerminal extends Terminal {
  */
 class PipeSocket extends net.Socket {
   constructor(fd: number) {
-    const tty = (<any>process).binding('tty_wrap');
-    const guessHandleType = tty.guessHandleType;
-    tty.guessHandleType = () => 'PIPE';
+    const pipeWrap = (<any>process).binding('pipe_wrap'); // tslint:disable-line
     // @types/node has fd as string? https://github.com/DefinitelyTyped/DefinitelyTyped/pull/18275
-    super({ fd: <any>fd });
-    tty.guessHandleType = guessHandleType;
+    const handle = new pipeWrap.Pipe(pipeWrap.constants.SOCKET);
+    handle.open(fd);
+    super(<any>{ handle });
   }
 }

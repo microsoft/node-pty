@@ -28,21 +28,14 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <signal.h>
 
 /* forkpty */
 /* http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html */
 #if defined(__GLIBC__) || defined(__CYGWIN__)
 #include <pty.h>
 #elif defined(__APPLE__) || defined(__OpenBSD__) || defined(__NetBSD__)
-/**
- * From node v0.10.28 (at least?) there is also a "util.h" in node/src, which
- * would confuse the compiler when looking for "util.h".
- */
-#if NODE_VERSION_AT_LEAST(0, 10, 28)
-#include <../include/util.h>
-#else
 #include <util.h>
-#endif
 #elif defined(__FreeBSD__)
 #include <libutil.h>
 #elif defined(__sun)
@@ -52,6 +45,14 @@
 #endif
 
 #include <termios.h> /* tcgetattr, tty_ioctl */
+
+/* Some platforms name VWERASE and VDISCARD differently */
+#if !defined(VWERASE) && defined(VWERSE)
+#define VWERASE	VWERSE
+#endif
+#if !defined(VDISCARD) && defined(VDISCRD)
+#define VDISCARD	VDISCRD
+#endif
 
 /* environ for execvpe */
 /* node/src/node_child_process.cc */
@@ -69,6 +70,11 @@ extern char **environ;
 #elif defined(__APPLE__)
 #include <sys/sysctl.h>
 #include <libproc.h>
+#endif
+
+/* NSIG - macro for highest signal + 1, should be defined */
+#ifndef NSIG
+#define NSIG 32
 #endif
 
 /**
@@ -92,13 +98,6 @@ NAN_METHOD(PtyFork);
 NAN_METHOD(PtyOpen);
 NAN_METHOD(PtyResize);
 NAN_METHOD(PtyGetProc);
-
-#if defined(TIOCSIG) || defined(TIOCSIGNAL)
-#define DEFINE_PTY_KILL
-NAN_METHOD(PtyKill);
-#else
-#warning "The function PtyKill will be unavailable because the ioctls TIOCSIG and TIOCSIGNAL don't exist"
-#endif
 
 /**
  * Functions
@@ -127,11 +126,7 @@ static void
 pty_waitpid(void *);
 
 static void
-#if NODE_VERSION_AT_LEAST(0, 11, 0)
 pty_after_waitpid(uv_async_t *);
-#else
-pty_after_waitpid(uv_async_t *, int);
-#endif
 
 static void
 pty_after_close(uv_handle_t *);
@@ -154,11 +149,8 @@ NAN_METHOD(PtyFork) {
         "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, onexit)");
   }
 
-  // Make sure the process still listens to SIGINT
-  signal(SIGINT, SIG_DFL);
-
   // file
-  v8::String::Utf8Value file(info[0]->ToString());
+  Nan::Utf8String file(info[0]);
 
   // args
   int i = 0;
@@ -169,7 +161,7 @@ NAN_METHOD(PtyFork) {
   argv[0] = strdup(*file);
   argv[argl-1] = NULL;
   for (; i < argc; i++) {
-    v8::String::Utf8Value arg(argv_->Get(Nan::New<v8::Integer>(i))->ToString());
+    Nan::Utf8String arg(Nan::Get(argv_, i).ToLocalChecked());
     argv[i+1] = strdup(*arg);
   }
 
@@ -180,18 +172,18 @@ NAN_METHOD(PtyFork) {
   char **env = new char*[envc+1];
   env[envc] = NULL;
   for (; i < envc; i++) {
-    v8::String::Utf8Value pair(env_->Get(Nan::New<v8::Integer>(i))->ToString());
+    Nan::Utf8String pair(Nan::Get(env_, i).ToLocalChecked());
     env[i] = strdup(*pair);
   }
 
   // cwd
-  v8::String::Utf8Value cwd_(info[3]->ToString());
+  Nan::Utf8String cwd_(info[3]);
   char *cwd = strdup(*cwd_);
 
   // size
   struct winsize winp;
-  winp.ws_col = info[4]->IntegerValue();
-  winp.ws_row = info[5]->IntegerValue();
+  winp.ws_col = info[4]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  winp.ws_row = info[5]->IntegerValue(Nan::GetCurrentContext()).FromJust();
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
@@ -199,7 +191,7 @@ NAN_METHOD(PtyFork) {
   struct termios t = termios();
   struct termios *term = &t;
   term->c_iflag = ICRNL | IXON | IXANY | IMAXBEL | BRKINT;
-  if (info[8]->ToBoolean()->Value()) {
+  if (Nan::To<bool>(info[8]).FromJust()) {
 #if defined(IUTF8)
     term->c_iflag |= IUTF8;
 #endif
@@ -234,12 +226,35 @@ NAN_METHOD(PtyFork) {
   cfsetospeed(term, B38400);
 
   // uid / gid
-  int uid = info[6]->IntegerValue();
-  int gid = info[7]->IntegerValue();
+  int uid = info[6]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  int gid = info[7]->IntegerValue(Nan::GetCurrentContext()).FromJust();
 
   // fork the pty
   int master = -1;
+
+  sigset_t newmask, oldmask;
+  struct sigaction sig_action;
+
+  // temporarily block all signals
+  // this is needed due to a race condition in openpty
+  // and to avoid running signal handlers in the child
+  // before exec* happened
+  sigfillset(&newmask);
+  pthread_sigmask(SIG_SETMASK, &newmask, &oldmask);
+
   pid_t pid = pty_forkpty(&master, nullptr, term, &winp);
+
+  if (!pid) {
+    // remove all signal handler from child
+    sig_action.sa_handler = SIG_DFL;
+    sig_action.sa_flags = 0;
+    sigemptyset(&sig_action.sa_mask);
+    for (int i = 0 ; i < NSIG ; i++) {    // NSIG is a macro for all signals + 1
+      sigaction(i, &sig_action, NULL);
+    }
+  }
+  // reenable signals
+  pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
 
   if (pid) {
     for (i = 0; i < argl; i++) free(argv[i]);
@@ -319,8 +334,8 @@ NAN_METHOD(PtyOpen) {
 
   // size
   struct winsize winp;
-  winp.ws_col = info[0]->IntegerValue();
-  winp.ws_row = info[1]->IntegerValue();
+  winp.ws_col = info[0]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  winp.ws_row = info[1]->IntegerValue(Nan::GetCurrentContext()).FromJust();
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
@@ -354,29 +369,6 @@ NAN_METHOD(PtyOpen) {
   return info.GetReturnValue().Set(obj);
 }
 
-#ifdef DEFINE_PTY_KILL
-NAN_METHOD(PtyKill) {
-  Nan::HandleScope scope;
-
-  if (info.Length() != 2 ||
-      !info[0]->IsNumber() ||
-      !info[1]->IsNumber()) {
-    return Nan::ThrowError("Usage: pty.kill(fd, signal)");
-  }
-
-  int fd = info[0]->IntegerValue();
-  int signal = info[1]->IntegerValue();
-
-#if defined(TIOCSIG)
-  if (ioctl(fd, TIOCSIG, signal) == -1)
-    return Nan::ThrowError("ioctl(2) failed.");
-#elif defined(TIOCSIGNAL)
-  if (ioctl(fd, TIOCSIGNAL, signal) == -1)
-    return Nan::ThrowError("ioctl(2) failed.");
-#endif
-}
-#endif
-
 NAN_METHOD(PtyResize) {
   Nan::HandleScope scope;
 
@@ -387,16 +379,22 @@ NAN_METHOD(PtyResize) {
     return Nan::ThrowError("Usage: pty.resize(fd, cols, rows)");
   }
 
-  int fd = info[0]->IntegerValue();
+  int fd = info[0]->IntegerValue(Nan::GetCurrentContext()).FromJust();
 
   struct winsize winp;
-  winp.ws_col = info[1]->IntegerValue();
-  winp.ws_row = info[2]->IntegerValue();
+  winp.ws_col = info[1]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  winp.ws_row = info[2]->IntegerValue(Nan::GetCurrentContext()).FromJust();
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
   if (ioctl(fd, TIOCSWINSZ, &winp) == -1) {
-    return Nan::ThrowError("ioctl(2) failed.");
+    switch (errno) {
+      case EBADF: return Nan::ThrowError("ioctl(2) failed, EBADF");
+      case EFAULT: return Nan::ThrowError("ioctl(2) failed, EFAULT");
+      case EINVAL: return Nan::ThrowError("ioctl(2) failed, EINVAL");
+      case ENOTTY: return Nan::ThrowError("ioctl(2) failed, ENOTTY");
+    }
+    return Nan::ThrowError("ioctl(2) failed");
   }
 
   return info.GetReturnValue().SetUndefined();
@@ -414,9 +412,9 @@ NAN_METHOD(PtyGetProc) {
     return Nan::ThrowError("Usage: pty.process(fd, tty)");
   }
 
-  int fd = info[0]->IntegerValue();
+  int fd = info[0]->IntegerValue(Nan::GetCurrentContext()).FromJust();
 
-  v8::String::Utf8Value tty_(info[1]->ToString());
+  Nan::Utf8String tty_(info[1]);
   char *tty = strdup(*tty_);
   char *name = pty_getproc(fd, tty);
   free(tty);
@@ -500,11 +498,7 @@ pty_waitpid(void *data) {
  */
 
 static void
-#if NODE_VERSION_AT_LEAST(0, 11, 0)
 pty_after_waitpid(uv_async_t *async) {
-#else
-pty_after_waitpid(uv_async_t *async, int unhelpful) {
-#endif
   Nan::HandleScope scope;
   pty_baton *baton = static_cast<pty_baton*>(async->data);
 
@@ -516,7 +510,8 @@ pty_after_waitpid(uv_async_t *async, int unhelpful) {
   v8::Local<v8::Function> cb = Nan::New<v8::Function>(baton->cb);
   baton->cb.Reset();
   memset(&baton->cb, -1, sizeof(baton->cb));
-  Nan::Callback(cb).Call(Nan::GetCurrentContext()->Global(), 2, argv);
+  Nan::AsyncResource resource("pty_after_waitpid");
+  resource.runInAsyncScope(Nan::GetCurrentContext()->Global(), cb, 2, argv);
 
   uv_close((uv_handle_t *)async, pty_after_close);
 }
@@ -690,13 +685,12 @@ pty_forkpty(int *amaster,
   pid_t pid = fork();
 
   switch (pid) {
-    case -1:
+    case -1:  // error in fork, we are still in parent
       close(master);
       close(slave);
       return -1;
-    case 0:
+    case 0:  // we are in the child process
       close(master);
-
       setsid();
 
 #if defined(TIOCSCTTY)
@@ -713,7 +707,7 @@ pty_forkpty(int *amaster,
       if (slave > 2) close(slave);
 
       return 0;
-    default:
+    default:  // we are in the parent process
       close(slave);
       return pid;
   }
@@ -724,29 +718,17 @@ pty_forkpty(int *amaster,
 #endif
 }
 
+
 /**
  * Init
  */
 
 NAN_MODULE_INIT(init) {
   Nan::HandleScope scope;
-  Nan::Set(target,
-           Nan::New<v8::String>("fork").ToLocalChecked(),
-           Nan::New<v8::FunctionTemplate>(PtyFork)->GetFunction());
-  Nan::Set(target,
-           Nan::New<v8::String>("open").ToLocalChecked(),
-           Nan::New<v8::FunctionTemplate>(PtyOpen)->GetFunction());
-#ifdef DEFINE_PTY_KILL
-  Nan::Set(target,
-           Nan::New<v8::String>("kill").ToLocalChecked(),
-           Nan::New<v8::FunctionTemplate>(PtyKill)->GetFunction());
-#endif
-  Nan::Set(target,
-           Nan::New<v8::String>("resize").ToLocalChecked(),
-           Nan::New<v8::FunctionTemplate>(PtyResize)->GetFunction());
-  Nan::Set(target,
-           Nan::New<v8::String>("process").ToLocalChecked(),
-           Nan::New<v8::FunctionTemplate>(PtyGetProc)->GetFunction());
+  Nan::Export(target, "fork", PtyFork);
+  Nan::Export(target, "open", PtyOpen);
+  Nan::Export(target, "resize", PtyResize);
+  Nan::Export(target, "process", PtyGetProc);
 }
 
 NODE_MODULE(pty, init)

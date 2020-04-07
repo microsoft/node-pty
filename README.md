@@ -1,7 +1,6 @@
 # node-pty
 
-[![Travis CI build status](https://travis-ci.org/Tyriar/node-pty.svg?branch=master)](https://travis-ci.org/Tyriar/node-pty)
-[![Appveyor build status](https://ci.appveyor.com/api/projects/status/1064dcr2t2r90q4n/branch/master?svg=true)](https://ci.appveyor.com/project/Tyriar/node-pty/branch/master)
+[![Build Status](https://dev.azure.com/vscode/node-pty/_apis/build/status/Microsoft.node-pty)](https://dev.azure.com/vscode/node-pty/_build/latest?definitionId=11)
 
 `forkpty(3)` bindings for node.js. This allows you to fork processes with pseudoterminal file descriptors. It returns a terminal object which allows reads and writes.
 
@@ -10,7 +9,7 @@ This is useful for:
 - Writing a terminal emulator (eg. via [xterm.js](https://github.com/sourcelair/xterm.js)).
 - Getting certain programs to *think* you're a terminal, such as when you need a program to send you control sequences.
 
-`node-pty` supports Linux, macOS and Windows. Windows support is possible by utilizing the [winpty](https://github.com/rprichard/winpty) library.
+`node-pty` supports Linux, macOS and Windows. Windows support is possible by utilizing the [Windows conpty API](https://blogs.msdn.microsoft.com/commandline/2018/08/02/windows-command-line-introducing-the-windows-pseudo-console-conpty/) on Windows 1809+ and the [winpty](https://github.com/rprichard/winpty) library in older version.
 
 ## Real-world Uses
 
@@ -22,7 +21,14 @@ This is useful for:
 - [Script Runner](https://github.com/ioquatix/script-runner) for Atom.
 - [Theia](https://github.com/theia-ide/theia)
 - [FreeMAN](https://github.com/matthew-matvei/freeman) file manager
-- [atom-xterm](https://atom.io/packages/atom-xterm) - Atom plugin for providing terminals inside your Atom workspace.
+- [terminus](https://atom.io/packages/terminus) - An Atom plugin for providing terminals inside your Atom workspace.
+- [x-terminal](https://atom.io/packages/x-terminal) - Also an Atom plugin that provides terminals inside your Atom workspace.
+- [Termination](https://atom.io/packages/termination) - Also an Atom plugin that provides terminals inside your Atom workspace.
+- [atom-xterm](https://atom.io/packages/atom-xterm) - Also an Atom plugin that provides terminals inside your Atom workspace.
+- [electerm](https://github.com/electerm/electerm) Terminal/SSH/SFTP client(Linux, macOS, Windows).
+- [Extraterm](http://extraterm.org/)
+- [Wetty](https://github.com/krishnasrinivas/wetty) Browser based Terminal over HTTP and HTTPS
+- [nomad](https://github.com/lukebarnard1/nomad-term)
 
 Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
 
@@ -43,7 +49,7 @@ var ptyProcess = pty.spawn(shell, [], {
 });
 
 ptyProcess.on('data', function(data) {
-  console.log(data);
+  process.stdout.write(data);
 });
 
 ptyProcess.write('ls\r');
@@ -57,28 +63,80 @@ ptyProcess.write('ls\r');
 # Install dependencies and build C++
 npm install
 # Compile TypeScript -> JavaScript
-npm run tsc
+npm run build
 ```
 
-### Dependencies on Windows
+## Dependencies
 
-`npm install` requires some tools to be present in the system like Python and C++ compiler. Windows users can easily install them by running the following command in PowerShell as administrator. For more information see https://github.com/felixrieseberg/windows-build-tools: 
+### Linux/Ubuntu
+
+```
+sudo apt install -y make python build-essential
+```
+
+The following are also needed:
+
+- Node.JS 10+
+
+### Windows
+
+`npm install` requires some tools to be present in the system like Python and C++ compiler. Windows users can easily install them by running the following command in PowerShell as administrator. For more information see https://github.com/felixrieseberg/windows-build-tools:
 
 ```sh
 npm install --global --production windows-build-tools
 ```
 
+The following are also needed:
+
+- [Windows SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk) - only the "Desktop C++ Apps" components are needed to be installed
+- Node.JS 10+
+
 ## Debugging
 
-On Windows, you can show the winpty agent console window by adding the environment variable `WINPTY_SHOW_CONSOLE=1` to the pty's environment. See https://github.com/rprichard/winpty#debugging-winpty for more information.
+[The wiki](https://github.com/Microsoft/node-pty/wiki/Debugging) contains instructions for debugging node-pty.
+
+## Security
+
+All processes launched from node-pty will launch at the same permission level of the parent process. Take care particularly when using node-pty inside a server that's accessible on the internet. We recommend launching the pty inside a container to protect your host machine.
+
+## Thread Safety
+
+Note that node-pty is not thread safe so running it across multiple worker threads in node.js could cause issues.
+
+## Flow Control
+
+Automatic flow control can be enabled by either providing `handleFlowControl = true` in the constructor options or setting it later on:
+
+```js
+const PAUSE = '\x13';   // XOFF
+const RESUME = '\x11';  // XON
+
+const ptyProcess = pty.spawn(shell, [], {handleFlowControl: true});
+
+// flow control in action
+ptyProcess.write(PAUSE);  // pty will block and pause the slave program
+...
+ptyProcess.write(RESUME); // pty will enter flow mode and resume the slave program
+
+// temporarily disable/re-enable flow control
+ptyProcess.handleFlowControl = false;
+...
+ptyProcess.handleFlowControl = true;
+```
+
+By default `PAUSE` and `RESUME` are XON/XOFF control codes (as shown above). To avoid conflicts in environments that use these control codes for different purposes the messages can be customized as `flowControlPause: string` and `flowControlResume: string` in the constructor options. `PAUSE` and `RESUME` are not passed to the underlying pseudoterminal if flow control is enabled.
 
 ## Troubleshooting
 
-**Powershell gives error 8009001d**
+### Powershell gives error 8009001d
 
 > Internal Windows PowerShell error.  Loading managed Windows PowerShell failed with error 8009001d.
 
 This happens when PowerShell is launched with no `SystemRoot` environment variable present.
+
+### ConnectNamedPipe failed: Windows error 232
+
+This error can occur due to anti-virus software intercepting winpty from creating a pty. To workaround this you can exclude this file from your anti-virus scanning `node-pty\build\Release\winpty-agent.exe`
 
 ## pty.js
 
@@ -86,5 +144,6 @@ This project is forked from [chjj/pty.js](https://github.com/chjj/pty.js) with t
 
 ## License
 
-Copyright (c) 2012-2015, Christopher Jeffrey (MIT License).
-Copyright (c) 2016, Daniel Imms (MIT License).
+Copyright (c) 2012-2015, Christopher Jeffrey (MIT License).<br>
+Copyright (c) 2016, Daniel Imms (MIT License).<br>
+Copyright (c) 2018, Microsoft Corporation (MIT License).

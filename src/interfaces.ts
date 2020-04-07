@@ -1,5 +1,6 @@
 /**
  * Copyright (c) 2016, Daniel Imms (MIT License).
+ * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
 import * as net from 'net';
@@ -63,7 +64,7 @@ export interface ITerminal {
   /**
    * Set the pty socket encoding.
    */
-  setEncoding(encoding: string): void;
+  setEncoding(encoding: string | null): void;
 
   /**
    * Resume the pty socket.
@@ -111,15 +112,26 @@ export interface ITerminal {
   once(eventName: string, listener: (...args: any[]) => any): void;
 }
 
-export interface IPtyForkOptions {
+interface IBasePtyForkOptions {
   name?: string;
   cols?: number;
   rows?: number;
   cwd?: string;
-  env?: IProcessEnv;
+  env?: { [key: string]: string };
+  encoding?: string;
+  handleFlowControl?: boolean;
+  flowControlPause?: string;
+  flowControlResume?: string;
+}
+
+export interface IPtyForkOptions extends IBasePtyForkOptions {
   uid?: number;
   gid?: number;
-  encoding?: string;
+}
+
+export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
+  useConpty?: boolean;
+  conptyInheritCursor?: boolean;
 }
 
 export interface IPtyOpenOptions {

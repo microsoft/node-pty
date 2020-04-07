@@ -11,9 +11,7 @@ var ptyProcess = pty.spawn(shell, [], {
   env: process.env
 });
 
-ptyProcess.on('data', function(data) {
-  console.log(data);
-});
+ptyProcess.onData((data) => process.stdout.write(data));
 
 ptyProcess.write('start notepad\r');
 ptyProcess.write('npm start\r');
