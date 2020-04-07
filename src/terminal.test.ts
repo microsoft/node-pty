@@ -7,8 +7,8 @@ import * as assert from 'assert';
 import { WindowsTerminal } from './windowsTerminal';
 import { UnixTerminal } from './unixTerminal';
 import { Terminal } from './terminal';
-import pollUntil = require('pollUntil');
 import { Socket } from 'net';
+import { pollUntil } from './testUtils.test';
 
 const terminalConstructor = (process.platform === 'win32') ? WindowsTerminal : UnixTerminal;
 const SHELL = (process.platform === 'win32') ? 'cmd.exe' : '/bin/bash';
@@ -70,14 +70,13 @@ describe('Terminal', () => {
       terminal.on('data', (chunk) => {
         allTheData += chunk;
       });
-      (<any>pollUntil)(() => {
+      pollUntil(() => {
         if (allTheData.indexOf('hello') !== -1 && allTheData.indexOf('world') !== -1) {
-          // terminal.destroy();
           done();
           return true;
         }
         return false;
-      });
+      }, 200, 10);
       terminal.write('hello');
       terminal.write('world');
     });
@@ -85,10 +84,12 @@ describe('Terminal', () => {
     it('should let us know if the entire data was flushed successfully to the kernel buffer or was queued in user memory and in the later case when it finish to be consumed', (done) => {
       const shortString = 'ls';
       const terminal = newTerminal();
+      let isDone = false;
       terminal.write(shortString, (flushed: boolean) => {
-          done && done(); // because we are notified several times and we want to call done once
-          done = null;
-          // terminal.destroy();
+        if (!isDone) {
+          isDone = true;
+          done();
+        }
       });
     });
   });
@@ -107,7 +108,7 @@ describe('Terminal', () => {
 
 
     it('should provide meanings to know if the entire data was flushed successfully to the kernel buffer or was queued in user memory', (done) => {
-      let longString = buildLongInput();
+      const longString = buildLongInput();
       const terminal = newTerminal();
       terminal.on('drain', () => {
         drainEmitted = true;
