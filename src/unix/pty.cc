@@ -609,7 +609,7 @@ pty_getproc(int fd, char *tty) {
     return NULL;
   }
 
-  if (*kp.kp_proc.p_comm == '\0') {
+  if (size != (sizeof kp) || *kp.kp_proc.p_comm == '\0') {
     return NULL;
   }
 
