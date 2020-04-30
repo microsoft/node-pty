@@ -29,6 +29,7 @@ This is useful for:
 - [Extraterm](http://extraterm.org/)
 - [Wetty](https://github.com/krishnasrinivas/wetty) Browser based Terminal over HTTP and HTTPS
 - [nomad](https://github.com/lukebarnard1/nomad-term)
+- [DockerStacks](https://github.com/sfx101/docker-stacks) Local LAMP/LEMP stack using Docker
 
 Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
 
