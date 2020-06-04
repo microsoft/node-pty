@@ -79,6 +79,10 @@ The following are also needed:
 
 - Node.JS 10+
 
+### macOS
+
+Xcode is needed to compile the sources, this can be installed from the App Store.
+
 ### Windows
 
 `npm install` requires some tools to be present in the system like Python and C++ compiler. Windows users can easily install them by running the following command in PowerShell as administrator. For more information see https://github.com/felixrieseberg/windows-build-tools:
