@@ -9,6 +9,7 @@ import * as path from 'path';
 import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
 import { fork } from 'child_process';
+import { ConoutConnection } from './windowsConoutConnection';
 
 let conptyNative: IConptyNative;
 let winptyNative: IWinptyNative;
@@ -18,7 +19,7 @@ let winptyNative: IWinptyNative;
  * shutting down the socket. The timer will be reset if a new data event comes in after the timer
  * has started.
  */
-const FLUSH_DATA_INTERVAL = 20;
+const FLUSH_DATA_INTERVAL = 1000;
 
 /**
  * This agent sits between the WindowsTerminal class and provides a common interface for both conpty
@@ -32,6 +33,7 @@ export class WindowsPtyAgent {
   private _innerPidHandle: number;
   private _closeTimeout: NodeJS.Timer;
   private _exitCode: number | undefined;
+  private _conoutSocketWorker: ConoutConnection;
 
   private _fd: any;
   private _pty: number;
@@ -115,17 +117,18 @@ export class WindowsPtyAgent {
     // Create terminal pipe IPC channel and forward to a local unix socket.
     this._outSocket = new Socket();
     this._outSocket.setEncoding('utf8');
-    this._outSocket.connect(term.conout, () => {
-      // TODO: Emit event on agent instead of socket?
-
-      // Emit ready event.
+    // The conout socket must be ready out on another thread to avoid deadlocks
+    this._conoutSocketWorker = new ConoutConnection(term.conout);
+    this._conoutSocketWorker.onReady(() => {
+      this._conoutSocketWorker.connectSocket(this._outSocket);
+    });
+    this._outSocket.on('connect', () => {
       this._outSocket.emit('ready_datapipe');
     });
 
     this._inSocket = new Socket();
     this._inSocket.setEncoding('utf8');
     this._inSocket.connect(term.conin);
-    // TODO: Wait for ready event?
 
     if (this._useConpty) {
       const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, c => this._$onProcessExit(c));
@@ -146,9 +149,7 @@ export class WindowsPtyAgent {
 
   public kill(): void {
     this._inSocket.readable = false;
-    this._inSocket.writable = false;
     this._outSocket.readable = false;
-    this._outSocket.writable = false;
     // Tell the agent to kill the pty, this releases handles to the process
     if (this._useConpty) {
       this._getConsoleProcessList().then(consoleProcessList => {
@@ -233,9 +234,7 @@ export class WindowsPtyAgent {
 
   private _cleanUpProcess(): void {
     this._inSocket.readable = false;
-    this._inSocket.writable = false;
     this._outSocket.readable = false;
-    this._outSocket.writable = false;
     this._outSocket.destroy();
   }
 }
