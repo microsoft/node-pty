@@ -179,6 +179,7 @@ export class WindowsPtyAgent {
         }
       });
     }
+    this._conoutSocketWorker.dispose();
   }
 
   private _getConsoleProcessList(): Promise<number[]> {
