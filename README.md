@@ -69,7 +69,7 @@ npm run build
 
 ## Dependencies
 
-Node.JS 12+ is required to use `node-pty`, v10 also works but requires the workers flag to be enabled on Windows (`node --experimental-worker`).
+Node.JS 12+ or Electron 8+ is required to use `node-pty`.
 
 ### Linux (apt)
 
