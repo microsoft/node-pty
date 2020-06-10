@@ -35,12 +35,12 @@ declare module 'node-pty' {
     rows?: number;
 
     /**
-     * Working directory to be set for the slave program.
+     * Working directory to be set for the child program.
      */
     cwd?: string;
 
     /**
-     * Environment to be set for the slave program.
+     * Environment to be set for the child program.
      */
     env?: { [key: string]: string };
 
@@ -55,7 +55,7 @@ declare module 'node-pty' {
     /**
      * (EXPERIMENTAL)
      * Whether to enable flow control handling (false by default). If enabled a message of `flowControlPause`
-     * will pause the socket and thus blocking the slave program execution due to buffer back pressure.
+     * will pause the socket and thus blocking the child program execution due to buffer back pressure.
      * A message of `flowControlResume` will resume the socket into flow mode.
      * For performance reasons only a single message as a whole will match (no message part matching).
      * If flow control is enabled the `flowControlPause` and `flowControlResume` messages are not forwarded to
@@ -79,7 +79,7 @@ declare module 'node-pty' {
   export interface IPtyForkOptions extends IBasePtyForkOptions {
     /**
      * Security warning: use this option with great caution, as opened file descriptors
-     * with higher privileges might leak to the slave program.
+     * with higher privileges might leak to the child program.
      */
     uid?: number;
     gid?: number;

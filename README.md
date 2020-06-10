@@ -119,9 +119,9 @@ const RESUME = '\x11';  // XON
 const ptyProcess = pty.spawn(shell, [], {handleFlowControl: true});
 
 // flow control in action
-ptyProcess.write(PAUSE);  // pty will block and pause the slave program
+ptyProcess.write(PAUSE);  // pty will block and pause the child program
 ...
-ptyProcess.write(RESUME); // pty will enter flow mode and resume the slave program
+ptyProcess.write(RESUME); // pty will enter flow mode and resume the child program
 
 // temporarily disable/re-enable flow control
 ptyProcess.handleFlowControl = false;
