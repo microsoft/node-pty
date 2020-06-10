@@ -21,17 +21,6 @@ export interface ITerminal {
   pid: number;
 
   /**
-   * The socket for the master file descriptor. This is not supported on
-   * Windows.
-   */
-  master: net.Socket;
-
-  /**
-   * The socket for the slave file descriptor. This is not supported on Windows.
-   */
-  slave: net.Socket;
-
-  /**
    * Writes data to the socket.
    * @param data The data to write.
    */
