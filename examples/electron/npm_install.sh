@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 # Electron's version.
-export npm_config_target=4.0.1
+export npm_config_target=9.1.0
 # The architecture of Electron, can be ia32 or x64.
 export npm_config_arch=x64
 export npm_config_target_arch=x64
