@@ -33,6 +33,10 @@ This is useful for:
 
 Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
 
+## API
+
+The full API for node-pty is contained within the [TypeScript declaration file](https://github.com/microsoft/node-pty/blob/master/typings/node-pty.d.ts), use the branch/tag picker in GitHub (`w`) to navigate to the correct version of the API.
+
 ## Example Usage
 
 ```js
