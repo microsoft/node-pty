@@ -11,28 +11,6 @@ This is useful for:
 
 `node-pty` supports Linux, macOS and Windows. Windows support is possible by utilizing the [Windows conpty API](https://blogs.msdn.microsoft.com/commandline/2018/08/02/windows-command-line-introducing-the-windows-pseudo-console-conpty/) on Windows 1809+ and the [winpty](https://github.com/rprichard/winpty) library in older version.
 
-## Real-world Uses
-
-`node-pty` powers many different terminal emulators, including:
-
-- [Microsoft Visual Studio Code](https://code.visualstudio.com)
-- [Hyper](https://hyper.is/)
-- [Upterm](https://github.com/railsware/upterm)
-- [Script Runner](https://github.com/ioquatix/script-runner) for Atom.
-- [Theia](https://github.com/theia-ide/theia)
-- [FreeMAN](https://github.com/matthew-matvei/freeman) file manager
-- [terminus](https://atom.io/packages/terminus) - An Atom plugin for providing terminals inside your Atom workspace.
-- [x-terminal](https://atom.io/packages/x-terminal) - Also an Atom plugin that provides terminals inside your Atom workspace.
-- [Termination](https://atom.io/packages/termination) - Also an Atom plugin that provides terminals inside your Atom workspace.
-- [atom-xterm](https://atom.io/packages/atom-xterm) - Also an Atom plugin that provides terminals inside your Atom workspace.
-- [electerm](https://github.com/electerm/electerm) Terminal/SSH/SFTP client(Linux, macOS, Windows).
-- [Extraterm](http://extraterm.org/)
-- [Wetty](https://github.com/krishnasrinivas/wetty) Browser based Terminal over HTTP and HTTPS
-- [nomad](https://github.com/lukebarnard1/nomad-term)
-- [DockerStacks](https://github.com/sfx101/docker-stacks) Local LAMP/LEMP stack using Docker
-
-Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
-
 ## API
 
 The full API for node-pty is contained within the [TypeScript declaration file](https://github.com/microsoft/node-pty/blob/master/typings/node-pty.d.ts), use the branch/tag picker in GitHub (`w`) to navigate to the correct version of the API.
@@ -61,6 +39,28 @@ ptyProcess.write('ls\r');
 ptyProcess.resize(100, 40);
 ptyProcess.write('ls\r');
 ```
+
+## Real-world Uses
+
+`node-pty` powers many different terminal emulators, including:
+
+- [Microsoft Visual Studio Code](https://code.visualstudio.com)
+- [Hyper](https://hyper.is/)
+- [Upterm](https://github.com/railsware/upterm)
+- [Script Runner](https://github.com/ioquatix/script-runner) for Atom.
+- [Theia](https://github.com/theia-ide/theia)
+- [FreeMAN](https://github.com/matthew-matvei/freeman) file manager
+- [terminus](https://atom.io/packages/terminus) - An Atom plugin for providing terminals inside your Atom workspace.
+- [x-terminal](https://atom.io/packages/x-terminal) - Also an Atom plugin that provides terminals inside your Atom workspace.
+- [Termination](https://atom.io/packages/termination) - Also an Atom plugin that provides terminals inside your Atom workspace.
+- [atom-xterm](https://atom.io/packages/atom-xterm) - Also an Atom plugin that provides terminals inside your Atom workspace.
+- [electerm](https://github.com/electerm/electerm) Terminal/SSH/SFTP client(Linux, macOS, Windows).
+- [Extraterm](http://extraterm.org/)
+- [Wetty](https://github.com/krishnasrinivas/wetty) Browser based Terminal over HTTP and HTTPS
+- [nomad](https://github.com/lukebarnard1/nomad-term)
+- [DockerStacks](https://github.com/sfx101/docker-stacks) Local LAMP/LEMP stack using Docker
+
+Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
 
 ## Building
 
