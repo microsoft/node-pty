@@ -2,21 +2,22 @@
  * Copyright (c) 2013-2015, Christopher Jeffrey, Peter Sunde (MIT License)
  * Copyright (c) 2016, Daniel Imms (MIT License).
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
+ *
+ * Ported to N-API by Matthew Denninghoff and David Russo
+ * Reference: https://github.com/nodejs/node-addon-api
+ *
  */
 
-#include <nan.h>
+#include <napi.h>
 #include <Shlwapi.h> // PathCombine
 
 #include "path_util.h"
 
 namespace path_util {
 
-const wchar_t* to_wstring(const Nan::Utf8String& str) {
-  const char *bytes = *str;
-  unsigned int sizeOfStr = MultiByteToWideChar(CP_UTF8, 0, bytes, -1, NULL, 0);
-  wchar_t *output = new wchar_t[sizeOfStr];
-  MultiByteToWideChar(CP_UTF8, 0, bytes, -1, output, sizeOfStr);
-  return output;
+std::wstring to_wstring(const Napi::String& str) {
+  const std::u16string & u16 = str.Utf16Value();
+  return std::wstring(u16.begin(), u16.end());
 }
 
 bool file_exists(std::wstring filename) {

@@ -3,13 +3,17 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  *
+ * Ported to N-API by Matthew Denninghoff and David Russo
+ * Reference: https://github.com/nodejs/node-addon-api
+ *
  * pty.cc:
  *   This file is responsible for starting processes
  *   with pseudo-terminal file descriptors.
  */
 
+#include <assert.h>
 #include <iostream>
-#include <nan.h>
+#include <napi.h>
 #include <Shlwapi.h> // PathCombine, PathIsRelative
 #include <sstream>
 #include <stdlib.h>
@@ -23,7 +27,7 @@
 /**
 * Misc
 */
-extern "C" void init(v8::Local<v8::Object>);
+extern "C" void init(Napi::Object);
 
 #define WINPTY_DBG_VARIABLE TEXT("WINPTYDBG")
 
@@ -61,97 +65,103 @@ static bool remove_pipe_handle(int handle) {
   return false;
 }
 
-void throw_winpty_error(const char *generalMsg, winpty_error_ptr_t error_ptr) {
+void throw_winpty_error(const char *generalMsg, winpty_error_ptr_t error_ptr, Napi::Env env) {
   std::stringstream why;
   std::wstring msg(winpty_error_msg(error_ptr));
   std::string msg_(msg.begin(), msg.end());
   why << generalMsg << ": " << msg_;
-  Nan::ThrowError(why.str().c_str());
+  Napi::Error::New(env, why.str().c_str()).ThrowAsJavaScriptException();
+
   winpty_error_free(error_ptr);
 }
 
-static NAN_METHOD(PtyGetExitCode) {
-  Nan::HandleScope scope;
+static Napi::Value PtyGetExitCode(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
 
   if (info.Length() != 1 ||
-      !info[0]->IsNumber()) {
-    Nan::ThrowError("Usage: pty.getExitCode(pidHandle)");
-    return;
+      !info[0].IsNumber()) {
+    Napi::Error::New(env, "Usage: pty.getExitCode(pidHandle)").ThrowAsJavaScriptException();
+
+    return env.Undefined();
   }
 
   DWORD exitCode = 0;
-  GetExitCodeProcess((HANDLE)info[0]->IntegerValue(Nan::GetCurrentContext()).FromJust(), &exitCode);
+  GetExitCodeProcess((HANDLE)info[0].As<Napi::Number>().Int32Value(), &exitCode);
 
-  info.GetReturnValue().Set(Nan::New<v8::Number>(exitCode));
+  return Napi::Number::New(env, exitCode);
 }
 
-static NAN_METHOD(PtyGetProcessList) {
-  Nan::HandleScope scope;
+static Napi::Value PtyGetProcessList(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
 
   if (info.Length() != 1 ||
-      !info[0]->IsNumber()) {
-    Nan::ThrowError("Usage: pty.getProcessList(pid)");
-    return;
+      !info[0].IsNumber()) {
+    Napi::Error::New(env, "Usage: pty.getProcessList(pid)").ThrowAsJavaScriptException();
+
+    return env.Undefined();
   }
 
-  int pid = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
+  int pid = info[0].As<Napi::Number>().Int32Value();
 
   winpty_t *pc = get_pipe_handle(pid);
   if (pc == nullptr) {
-    info.GetReturnValue().Set(Nan::New<v8::Array>(0));
-    return;
+    return Napi::Array::New(env, 0);
   }
   int processList[64];
   const int processCount = 64;
   int actualCount = winpty_get_console_process_list(pc, processList, processCount, nullptr);
 
-  v8::Local<v8::Array> result = Nan::New<v8::Array>(actualCount);
+  Napi::Array result = Napi::Array::New(env, actualCount);
   for (uint32_t i = 0; i < actualCount; i++) {
-    Nan::Set(result, i, Nan::New<v8::Number>(processList[i]));
+    (result).Set(i, Napi::Number::New(env, processList[i]));
   }
-  info.GetReturnValue().Set(result);
+  return result;
 }
 
-static NAN_METHOD(PtyStartProcess) {
-  Nan::HandleScope scope;
+static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
 
   if (info.Length() != 7 ||
-      !info[0]->IsString() ||
-      !info[1]->IsString() ||
-      !info[2]->IsArray() ||
-      !info[3]->IsString() ||
-      !info[4]->IsNumber() ||
-      !info[5]->IsNumber() ||
-      !info[6]->IsBoolean()) {
-    Nan::ThrowError("Usage: pty.startProcess(file, cmdline, env, cwd, cols, rows, debug)");
-    return;
+      !info[0].IsString() ||
+      !info[1].IsString() ||
+      !info[2].IsArray() ||
+      !info[3].IsString() ||
+      !info[4].IsNumber() ||
+      !info[5].IsNumber() ||
+      !info[6].IsBoolean()) {
+    Napi::Error::New(env, "Usage: pty.startProcess(file, cmdline, env, cwd, cols, rows, debug)").ThrowAsJavaScriptException();
+
+    return env.Undefined();
   }
 
   std::stringstream why;
 
-  const wchar_t *filename = path_util::to_wstring(Nan::Utf8String(info[0]));
-  const wchar_t *cmdline = path_util::to_wstring(Nan::Utf8String(info[1]));
-  const wchar_t *cwd = path_util::to_wstring(Nan::Utf8String(info[3]));
+  std::wstring filename(path_util::to_wstring(info[0].As<Napi::String>()));
+  std::wstring cmdline(path_util::to_wstring(info[1].As<Napi::String>()));
+  std::wstring cwd(path_util::to_wstring(info[3].As<Napi::String>()));
 
   // create environment block
-  std::wstring env;
-  const v8::Local<v8::Array> envValues = v8::Local<v8::Array>::Cast(info[2]);
+  std::wstring envStr;
+  const Napi::Array envValues = info[2].As<Napi::Array>();
   if (!envValues.IsEmpty()) {
 
     std::wstringstream envBlock;
 
-    for(uint32_t i = 0; i < envValues->Length(); i++) {
-      std::wstring envValue(path_util::to_wstring(Nan::Utf8String(Nan::Get(envValues, i).ToLocalChecked())));
+    for(uint32_t i = 0; i < envValues.Length(); i++) {
+      std::wstring envValue(path_util::to_wstring(envValues.Get(i).As<Napi::String>()));
       envBlock << envValue << L'\0';
     }
 
-    env = envBlock.str();
+    envStr = envBlock.str();
   }
 
   // use environment 'Path' variable to determine location of
   // the relative path that we have recieved (e.g cmd.exe)
   std::wstring shellpath;
-  if (::PathIsRelativeW(filename)) {
+  if (::PathIsRelativeW(filename.c_str())) {
     shellpath = path_util::get_shell_path(filename);
   } else {
     shellpath = filename;
@@ -161,13 +171,12 @@ static NAN_METHOD(PtyStartProcess) {
 
   if (shellpath.empty() || !path_util::file_exists(shellpath)) {
     why << "File not found: " << shellpath_;
-    Nan::ThrowError(why.str().c_str());
-    goto cleanup;
+    Napi::Error::New(env, why.str().c_str()).ThrowAsJavaScriptException();
   }
 
-  int cols = info[4]->Int32Value(Nan::GetCurrentContext()).FromJust();
-  int rows = info[5]->Int32Value(Nan::GetCurrentContext()).FromJust();
-  bool debug = Nan::To<bool>(info[6]).FromJust();
+  int cols = info[4].As<Napi::Number>().Int32Value();
+  int rows = info[5].As<Napi::Number>().Int32Value();
+  bool debug = info[6].As<Napi::Boolean>().Value();
 
   // Enable/disable debugging
   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
@@ -176,8 +185,7 @@ static NAN_METHOD(PtyStartProcess) {
   winpty_error_ptr_t error_ptr = nullptr;
   winpty_config_t* winpty_config = winpty_config_new(0, &error_ptr);
   if (winpty_config == nullptr) {
-    throw_winpty_error("Error creating WinPTY config", error_ptr);
-    goto cleanup;
+    throw_winpty_error("Error creating WinPTY config", error_ptr, env);
   }
   winpty_error_free(error_ptr);
 
@@ -188,8 +196,7 @@ static NAN_METHOD(PtyStartProcess) {
   winpty_t *pc = winpty_open(winpty_config, &error_ptr);
   winpty_config_free(winpty_config);
   if (pc == nullptr) {
-    throw_winpty_error("Error launching WinPTY agent", error_ptr);
-    goto cleanup;
+    throw_winpty_error("Error launching WinPTY agent", error_ptr, env);
   }
   winpty_error_free(error_ptr);
 
@@ -197,10 +204,9 @@ static NAN_METHOD(PtyStartProcess) {
   ptyHandles.insert(ptyHandles.end(), pc);
 
   // Create winpty spawn config
-  winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, env.c_str(), &error_ptr);
+  winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline.c_str(), cwd.c_str(), envStr.c_str(), &error_ptr);
   if (config == nullptr) {
-    throw_winpty_error("Error creating WinPTY spawn config", error_ptr);
-    goto cleanup;
+    throw_winpty_error("Error creating WinPTY spawn config", error_ptr, env);
   }
   winpty_error_free(error_ptr);
 
@@ -209,104 +215,104 @@ static NAN_METHOD(PtyStartProcess) {
   BOOL spawnSuccess = winpty_spawn(pc, config, &handle, nullptr, nullptr, &error_ptr);
   winpty_spawn_config_free(config);
   if (!spawnSuccess) {
-    throw_winpty_error("Unable to start terminal process", error_ptr);
-    goto cleanup;
+    throw_winpty_error("Unable to start terminal process", error_ptr, env);
   }
   winpty_error_free(error_ptr);
 
   // Set return values
-  v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
-  Nan::Set(marshal, Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>((int)GetProcessId(handle)));
-  Nan::Set(marshal, Nan::New<v8::String>("innerPidHandle").ToLocalChecked(), Nan::New<v8::Number>((int)handle));
-  Nan::Set(marshal, Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>((int)winpty_agent_process(pc)));
-  Nan::Set(marshal, Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(InterlockedIncrement(&ptyCounter)));
-  Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
+  Napi::Object marshal = Napi::Object::New(env);
+  (marshal).Set(Napi::String::New(env, "innerPid"), Napi::Number::New(env, (int)GetProcessId(handle)));
+  (marshal).Set(Napi::String::New(env, "innerPidHandle"), Napi::Number::New(env, (int)handle));
+  (marshal).Set(Napi::String::New(env, "pid"), Napi::Number::New(env, (int)winpty_agent_process(pc)));
+  (marshal).Set(Napi::String::New(env, "pty"), Napi::Number::New(env, InterlockedIncrement(&ptyCounter)));
+  (marshal).Set(Napi::String::New(env, "fd"), Napi::Number::New(env, -1));
   {
     LPCWSTR coninPipeName = winpty_conin_name(pc);
     std::wstring coninPipeNameWStr(coninPipeName);
     std::string coninPipeNameStr(coninPipeNameWStr.begin(), coninPipeNameWStr.end());
-    Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(coninPipeNameStr).ToLocalChecked());
+    (marshal).Set(Napi::String::New(env, "conin"), Napi::String::New(env, coninPipeNameStr));
     LPCWSTR conoutPipeName = winpty_conout_name(pc);
     std::wstring conoutPipeNameWStr(conoutPipeName);
     std::string conoutPipeNameStr(conoutPipeNameWStr.begin(), conoutPipeNameWStr.end());
-    Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
+    (marshal).Set(Napi::String::New(env, "conout"), Napi::String::New(env, conoutPipeNameStr));
   }
-  info.GetReturnValue().Set(marshal);
-
-  goto cleanup;
-
-cleanup:
-  delete filename;
-  delete cmdline;
-  delete cwd;
+  return marshal;
 }
 
-static NAN_METHOD(PtyResize) {
-  Nan::HandleScope scope;
+static Napi::Value PtyResize(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
 
   if (info.Length() != 3 ||
-      !info[0]->IsNumber() ||
-      !info[1]->IsNumber() ||
-      !info[2]->IsNumber()) {
-    Nan::ThrowError("Usage: pty.resize(pid, cols, rows)");
-    return;
+      !info[0].IsNumber() ||
+      !info[1].IsNumber() ||
+      !info[2].IsNumber()) {
+    Napi::Error::New(env, "Usage: pty.resize(pid, cols, rows)").ThrowAsJavaScriptException();
+
+    return env.Undefined();
   }
 
-  int handle = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
-  int cols = info[1]->Int32Value(Nan::GetCurrentContext()).FromJust();
-  int rows = info[2]->Int32Value(Nan::GetCurrentContext()).FromJust();
+  int handle = info[0].As<Napi::Number>().Int32Value();
+  int cols = info[1].As<Napi::Number>().Int32Value();
+  int rows = info[2].As<Napi::Number>().Int32Value();
 
   winpty_t *pc = get_pipe_handle(handle);
 
   if (pc == nullptr) {
-    Nan::ThrowError("The pty doesn't appear to exist");
-    return;
+    Napi::Error::New(env, "The pty doesn't appear to exist").ThrowAsJavaScriptException();
+
+    return env.Undefined();
   }
   BOOL success = winpty_set_size(pc, cols, rows, nullptr);
   if (!success) {
-    Nan::ThrowError("The pty could not be resized");
-    return;
+    Napi::Error::New(env, "The pty could not be resized").ThrowAsJavaScriptException();
+
+    return env.Undefined();
   }
 
-  return info.GetReturnValue().SetUndefined();
+  return env.Undefined();
 }
 
-static NAN_METHOD(PtyKill) {
-  Nan::HandleScope scope;
+static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
 
   if (info.Length() != 2 ||
-      !info[0]->IsNumber() ||
-      !info[1]->IsNumber()) {
-    Nan::ThrowError("Usage: pty.kill(pid, innerPidHandle)");
-    return;
+      !info[0].IsNumber() ||
+      !info[1].IsNumber()) {
+    Napi::Error::New(env, "Usage: pty.kill(pid, innerPidHandle)").ThrowAsJavaScriptException();
+
+    return env.Undefined();
   }
 
-  int handle = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
-  HANDLE innerPidHandle = (HANDLE)info[1]->Int32Value(Nan::GetCurrentContext()).FromJust();
+  int handle = info[0].As<Napi::Number>().Int32Value();
+  HANDLE innerPidHandle = (HANDLE)info[1].As<Napi::Number>().Int32Value();
 
   winpty_t *pc = get_pipe_handle(handle);
   if (pc == nullptr) {
-    Nan::ThrowError("Pty seems to have been killed already");
-    return;
+    Napi::Error::New(env, "Pty seems to have been killed already").ThrowAsJavaScriptException();
+
+    return env.Undefined();
   }
 
   assert(remove_pipe_handle(handle));
   CloseHandle(innerPidHandle);
 
-  return info.GetReturnValue().SetUndefined();
+  return env.Undefined();
 }
 
 /**
 * Init
 */
 
-extern "C" void init(v8::Local<v8::Object> target) {
-  Nan::HandleScope scope;
-  Nan::SetMethod(target, "startProcess", PtyStartProcess);
-  Nan::SetMethod(target, "resize", PtyResize);
-  Nan::SetMethod(target, "kill", PtyKill);
-  Nan::SetMethod(target, "getExitCode", PtyGetExitCode);
-  Nan::SetMethod(target, "getProcessList", PtyGetProcessList);
+Napi::Object init(Napi::Env env, Napi::Object exports) {
+  Napi::HandleScope scope(env);
+  exports.Set(Napi::String::New(env, "startProcess"), Napi::Function::New(env, PtyStartProcess));
+  exports.Set(Napi::String::New(env, "resize"), Napi::Function::New(env, PtyResize));
+  exports.Set(Napi::String::New(env, "kill"), Napi::Function::New(env, PtyKill));
+  exports.Set(Napi::String::New(env, "getExitCode"), Napi::Function::New(env, PtyGetExitCode));
+  exports.Set(Napi::String::New(env, "getProcessList"), Napi::Function::New(env, PtyGetProcessList));
+  return exports;
 };
 
-NODE_MODULE(pty, init);
+NODE_API_MODULE(NODE_GYP_MODULE_NAME, init);

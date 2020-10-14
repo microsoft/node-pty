@@ -44,7 +44,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "nan": "^2.14.0"
+    "node-addon-api": "^3.0.2"
   },
   "devDependencies": {
     "@types/mocha": "^7.0.2",

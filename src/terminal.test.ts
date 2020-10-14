@@ -85,6 +85,7 @@ describe('Terminal', () => {
       assert.equal(pty.handleFlowControl, true);
       assert.equal((pty as any)._flowControlPause, 'abc');
       assert.equal((pty as any)._flowControlResume, '123');
+      pty.kill();
     });
     // TODO: I don't think this test ever worked due to pollUntil being used incorrectly
     // it('should do flow control automatically', async function(): Promise<void> {

@@ -1,24 +1,32 @@
 /**
  * Copyright (c) 2019, Microsoft Corporation (MIT License).
+ *
+ * Ported to N-API by Matthew Denninghoff and David Russo
+ * Reference: https://github.com/nodejs/node-addon-api
+ *
  */
 
-#include <nan.h>
+#include <napi.h>
 #include <windows.h>
 
-static NAN_METHOD(ApiConsoleProcessList) {
+static Napi::Value ApiConsoleProcessList(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
   if (info.Length() != 1 ||
-      !info[0]->IsNumber()) {
-    Nan::ThrowError("Usage: getConsoleProcessList(shellPid)");
-    return;
+      !info[0].IsNumber()) {
+    Napi::Error::New(env, "Usage: getConsoleProcessList(shellPid)").ThrowAsJavaScriptException();
+
+    return env.Undefined();
   }
 
-  const SHORT pid = info[0]->Uint32Value(Nan::GetCurrentContext()).FromJust();
+  const SHORT pid = info[0].As<Napi::Number>().Uint32Value();
 
   if (!FreeConsole()) {
-    Nan::ThrowError("FreeConsole failed");
+    Napi::Error::New(env, "FreeConsole failed").ThrowAsJavaScriptException();
+
   }
   if (!AttachConsole(pid)) {
-    Nan::ThrowError("AttachConsole failed");
+    Napi::Error::New(env, "AttachConsole failed").ThrowAsJavaScriptException();
+
   }
   auto processList = std::vector<DWORD>(64);
   auto processCount = GetConsoleProcessList(&processList[0], processList.size());
@@ -28,16 +36,17 @@ static NAN_METHOD(ApiConsoleProcessList) {
   }
   FreeConsole();
 
-  v8::Local<v8::Array> result = Nan::New<v8::Array>();
+  Napi::Array result = Napi::Array::New(env);
   for (DWORD i = 0; i < processCount; i++) {
-    Nan::Set(result, i, Nan::New<v8::Number>(processList[i]));
+    (result).Set(i, Napi::Number::New(env, processList[i]));
   }
-  info.GetReturnValue().Set(result);
+  return result;
 }
 
-extern "C" void init(v8::Local<v8::Object> target) {
-  Nan::HandleScope scope;
-  Nan::SetMethod(target, "getConsoleProcessList", ApiConsoleProcessList);
+Napi::Object init(Napi::Env env, Napi::Object exports) {
+  Napi::HandleScope scope(env);
+  exports.Set(Napi::String::New(env, "getConsoleProcessList"), Napi::Function::New(env, ApiConsoleProcessList));
+  return exports;
 };
 
-NODE_MODULE(pty, init);
+NODE_API_MODULE(NODE_GYP_MODULE_NAME, init);

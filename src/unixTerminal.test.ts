@@ -28,6 +28,7 @@ if (process.platform !== 'win32') {
         if (regExp) {
           assert.ok(regExp.test((<any>term)._pty), '"' + (<any>term)._pty + '" should match ' + regExp.toString());
         }
+        term.kill();
       });
     });
 
