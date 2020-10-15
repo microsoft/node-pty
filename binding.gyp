@@ -105,15 +105,8 @@
           ['OS=="mac"', {
             "cflags+": ["-fvisibility=hidden"],
             "xcode_settings": {
-              "OTHER_CPLUSPLUSFLAGS": [
-                "-std=c++11",
-                "-stdlib=libc++"
-              ],
-              "OTHER_LDFLAGS": [
-                "-stdlib=libc++"
-              ],
-              "MACOSX_DEPLOYMENT_TARGET":"10.7",
               "GCC_SYMBOLS_PRIVATE_EXTERN": "YES", # -fvisibility=hidden
+              "MACOSX_DEPLOYMENT_TARGET":"10.7"
             }
           }]
         ]
