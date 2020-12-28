@@ -30,7 +30,7 @@ jobs:
 
 - job: macOS
   pool:
-    vmImage: 'macOS-10.15'
+    vmImage: 'macOS-11.0'
   strategy:
     matrix:
       node_10_x:
