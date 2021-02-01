@@ -4,15 +4,15 @@
       'targets': [
         {
           'target_name': 'conpty',
-      'cflags!': [ '-fno-exceptions' ],
-      'cflags_cc!': [ '-fno-exceptions' ],
-      'xcode_settings': { 'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
-        'CLANG_CXX_LIBRARY': 'libc++',
-        'MACOSX_DEPLOYMENT_TARGET': '10.7',
-      },
-      'msvs_settings': {
-        'VCCLCompilerTool': { 'ExceptionHandling': 1 },
-      },
+          'cflags!': [ '-fno-exceptions' ],
+          'cflags_cc!': [ '-fno-exceptions' ],
+          'xcode_settings': { 'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+            'CLANG_CXX_LIBRARY': 'libc++',
+            'MACOSX_DEPLOYMENT_TARGET': '10.7',
+          },
+          'msvs_settings': {
+            'VCCLCompilerTool': { 'ExceptionHandling': 1 },
+          },
           'include_dirs' : [
             '<!(node -p "require(\'node-addon-api\').include_dir")'
           ],
@@ -26,15 +26,15 @@
         },
         {
           'target_name': 'conpty_console_list',
-      'cflags!': [ '-fno-exceptions' ],
-      'cflags_cc!': [ '-fno-exceptions' ],
-      'xcode_settings': { 'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
-        'CLANG_CXX_LIBRARY': 'libc++',
-        'MACOSX_DEPLOYMENT_TARGET': '10.7',
-      },
-      'msvs_settings': {
-        'VCCLCompilerTool': { 'ExceptionHandling': 1 },
-      },
+          'cflags!': [ '-fno-exceptions' ],
+          'cflags_cc!': [ '-fno-exceptions' ],
+          'xcode_settings': { 'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+            'CLANG_CXX_LIBRARY': 'libc++',
+            'MACOSX_DEPLOYMENT_TARGET': '10.7',
+          },
+          'msvs_settings': {
+            'VCCLCompilerTool': { 'ExceptionHandling': 1 },
+          },
           'include_dirs' : [
             '<!(node -p "require(\'node-addon-api\').include_dir")'
           ],
@@ -44,15 +44,15 @@
         },
         {
           'target_name': 'pty',
-      'cflags!': [ '-fno-exceptions' ],
-      'cflags_cc!': [ '-fno-exceptions' ],
-      'xcode_settings': { 'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
-        'CLANG_CXX_LIBRARY': 'libc++',
-        'MACOSX_DEPLOYMENT_TARGET': '10.7',
-      },
-      'msvs_settings': {
-        'VCCLCompilerTool': { 'ExceptionHandling': 1 },
-      },
+          'cflags!': [ '-fno-exceptions' ],
+          'cflags_cc!': [ '-fno-exceptions' ],
+          'xcode_settings': { 'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+            'CLANG_CXX_LIBRARY': 'libc++',
+            'MACOSX_DEPLOYMENT_TARGET': '10.7',
+          },
+          'msvs_settings': {
+            'VCCLCompilerTool': { 'ExceptionHandling': 1 },
+          },
           'include_dirs' : [
             '<!(node -p "require(\'node-addon-api\').include_dir")',
             'deps/winpty/src/include',
@@ -75,15 +75,15 @@
     }, { # OS!="win"
       'targets': [{
         'target_name': 'pty',
-      'cflags!': [ '-fno-exceptions' ],
-      'cflags_cc!': [ '-fno-exceptions' ],
-      'xcode_settings': { 'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
-        'CLANG_CXX_LIBRARY': 'libc++',
-        'MACOSX_DEPLOYMENT_TARGET': '10.7',
-      },
-      'msvs_settings': {
-        'VCCLCompilerTool': { 'ExceptionHandling': 1 },
-      },
+        'cflags!': [ '-fno-exceptions' ],
+        'cflags_cc!': [ '-fno-exceptions' ],
+        'xcode_settings': { 'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+          'CLANG_CXX_LIBRARY': 'libc++',
+          'MACOSX_DEPLOYMENT_TARGET': '10.7',
+        },
+        'msvs_settings': {
+          'VCCLCompilerTool': { 'ExceptionHandling': 1 },
+        },
         'include_dirs' : [
           '<!(node -p "require(\'node-addon-api\').include_dir")'
         ],
