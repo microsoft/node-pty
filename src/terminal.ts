@@ -187,7 +187,6 @@ export abstract class Terminal implements ITerminal {
   public abstract get slave(): Socket;
 
   protected _close(): void {
-    this._socket.writable = false;
     this._socket.readable = false;
     this.write = () => {};
     this.end = () => {};

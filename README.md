@@ -77,15 +77,13 @@ npm run build
 
 ## Dependencies
 
-### Linux/Ubuntu
+Node.JS 12+ or Electron 8+ is required to use `node-pty`.
 
-```
+### Linux (apt)
+
+```sh
 sudo apt install -y make python build-essential
 ```
-
-The following are also needed:
-
-- Node.JS 10+
 
 ### macOS
 
@@ -102,7 +100,6 @@ npm install --global --production windows-build-tools
 The following are also needed:
 
 - [Windows SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk) - only the "Desktop C++ Apps" components are needed to be installed
-- Node.JS 10+
 
 ## Debugging
 
