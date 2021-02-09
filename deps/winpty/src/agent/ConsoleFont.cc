@@ -317,28 +317,6 @@ private:
     GetConsoleFontSize_t *m_GetConsoleFontSize;
 };
 
-class UndocumentedXPFontAPI : public XPFontAPI {
-public:
-    UndocumentedXPFontAPI() : m_kernel32(L"kernel32.dll") {
-        GET_MODULE_PROC(m_kernel32, SetConsoleFont);
-        GET_MODULE_PROC(m_kernel32, GetNumberOfConsoleFonts);
-    }
-
-    bool valid() const {
-        return this->XPFontAPI::valid() &&
-            m_SetConsoleFont != NULL &&
-            m_GetNumberOfConsoleFonts != NULL;
-    }
-
-    DEFINE_ACCESSOR(SetConsoleFont)
-    DEFINE_ACCESSOR(GetNumberOfConsoleFonts)
-
-private:
-    OsModule m_kernel32;
-    SetConsoleFont_t *m_SetConsoleFont;
-    GetNumberOfConsoleFonts_t *m_GetNumberOfConsoleFonts;
-};
-
 class VistaFontAPI : public XPFontAPI {
 public:
     VistaFontAPI() : m_kernel32(L"kernel32.dll") {
@@ -628,41 +606,6 @@ struct FontSizeComparator {
     }
 };
 
-static void setSmallFontXP(UndocumentedXPFontAPI &api, HANDLE conout) {
-    // Read the console font table and sort it from smallest to largest.
-    const DWORD fontCount = api.GetNumberOfConsoleFonts()();
-    trace("setSmallFontXP: number of console fonts: %u",
-        static_cast<unsigned>(fontCount));
-    std::vector<std::pair<DWORD, COORD> > table =
-        readFontTable(api, conout, fontCount);
-    std::sort(table.begin(), table.end(), FontSizeComparator());
-    for (size_t i = 0; i < table.size(); ++i) {
-        // Skip especially narrow fonts to permit narrower terminals.
-        if (table[i].second.X < 4) {
-            continue;
-        }
-        trace("setSmallFontXP: setting font to %u",
-            static_cast<unsigned>(table[i].first));
-        if (!api.SetConsoleFont()(conout, table[i].first)) {
-            trace("setSmallFontXP: SetConsoleFont call failed");
-            continue;
-        }
-        AGENT_CONSOLE_FONT_INFO info;
-        if (!api.GetCurrentConsoleFont()(conout, FALSE, &info)) {
-            trace("setSmallFontXP: GetCurrentConsoleFont call failed");
-            return;
-        }
-        if (info.nFont != table[i].first) {
-            trace("setSmallFontXP: font was not set");
-            dumpXPFont(api, conout, "setSmallFontXP: post-call font: ");
-            continue;
-        }
-        trace("setSmallFontXP: success");
-        return;
-    }
-    trace("setSmallFontXP: failure");
-}
-
 } // anonymous namespace
 
 // A Windows console window can never be larger than the desktop window.  To
@@ -681,15 +624,6 @@ void setSmallFont(HANDLE conout, int columns, bool isNewW10) {
         dumpFontTable(conout, "previous font table: ");
         setSmallFontVista(vista, conout, columns, isNewW10);
         dumpVistaFont(vista, conout, "new font: ");
-        dumpFontTable(conout, "new font table: ");
-        return;
-    }
-    UndocumentedXPFontAPI xp;
-    if (xp.valid()) {
-        dumpXPFont(xp, conout, "previous font: ");
-        dumpFontTable(conout, "previous font table: ");
-        setSmallFontXP(xp, conout);
-        dumpXPFont(xp, conout, "new font: ");
         dumpFontTable(conout, "new font table: ");
         return;
     }
