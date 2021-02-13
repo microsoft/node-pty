@@ -4,6 +4,7 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
+import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { Socket } from 'net';
@@ -126,9 +127,13 @@ export class WindowsPtyAgent {
       this._outSocket.emit('ready_datapipe');
     });
 
-    this._inSocket = new Socket();
+    const inSocketFD = fs.openSync(term.conin, 'w');
+    this._inSocket = new Socket({
+      fd: inSocketFD,
+      readable: false,
+      writable: true
+    });
     this._inSocket.setEncoding('utf8');
-    this._inSocket.connect(term.conin);
 
     if (this._useConpty) {
       const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, c => this._$onProcessExit(c));
