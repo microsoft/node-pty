@@ -201,5 +201,15 @@ if (process.platform === 'win32') {
         });
       });
     });
+
+    describe('winpty', () => {
+      it('should accept input', (done) => {
+        const term = new WindowsTerminal('cmd.exe', '', { useConpty: false });
+        term.write('exit\r');
+        term.on('exit', () => {
+          done();
+        });
+      });
+    });
   });
 }
