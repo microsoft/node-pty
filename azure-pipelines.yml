@@ -81,7 +81,7 @@ jobs:
   - Linux
   - macOS
   - Windows
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   pool:
     vmImage: 'ubuntu-16.04'
   steps:

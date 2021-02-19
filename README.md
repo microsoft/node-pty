@@ -13,7 +13,7 @@ This is useful for:
 
 ## API
 
-The full API for node-pty is contained within the [TypeScript declaration file](https://github.com/microsoft/node-pty/blob/master/typings/node-pty.d.ts), use the branch/tag picker in GitHub (`w`) to navigate to the correct version of the API.
+The full API for node-pty is contained within the [TypeScript declaration file](https://github.com/microsoft/node-pty/blob/main/typings/node-pty.d.ts), use the branch/tag picker in GitHub (`w`) to navigate to the correct version of the API.
 
 ## Example Usage
 
