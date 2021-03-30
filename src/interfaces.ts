@@ -3,10 +3,8 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-import * as net from 'net';
-
 export interface IProcessEnv {
-  [key: string]: string;
+  [key: string]: string | undefined;
 }
 
 export interface ITerminal {
@@ -101,7 +99,7 @@ interface IBasePtyForkOptions {
   cols?: number;
   rows?: number;
   cwd?: string;
-  env?: { [key: string]: string };
+  env?: IProcessEnv;
   encoding?: string;
   handleFlowControl?: boolean;
   flowControlPause?: string;
