@@ -42,7 +42,7 @@ declare module 'node-pty' {
     /**
      * Environment to be set for the child program.
      */
-    env?: { [key: string]: string };
+    env?: { [key: string]: string | undefined };
 
     /**
      * String encoding of the underlying pty.
