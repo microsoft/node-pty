@@ -10,7 +10,7 @@
   "types": "./typings/node-pty.d.ts",
   "repository": {
     "type": "git",
-    "url": "git://github.com/Tyriar/node-pty.git"
+    "url": "git://github.com/microsoft/node-pty.git"
   },
   "files": [
     "binding.gyp",
@@ -20,9 +20,9 @@
     "deps/",
     "typings/"
   ],
-  "homepage": "https://github.com/Tyriar/node-pty",
+  "homepage": "https://github.com/microsoft/node-pty",
   "bugs": {
-    "url": "https://github.com/Tyriar/node-pty/issues"
+    "url": "https://github.com/microsoft/node-pty/issues"
   },
   "keywords": [
     "pty",
