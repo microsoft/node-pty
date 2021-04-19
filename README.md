@@ -63,6 +63,7 @@ ptyProcess.write('ls\r');
 - [mesos-term](https://github.com/criteo/mesos-term): A web terminal for Apache Mesos. It allows to execute commands within containers.
 - [Commas](https://github.com/CyanSalt/commas): A hackable terminal and command runner.
 - [ENiGMA½ BBS Software](https://github.com/NuSkooler/enigma-bbs): A modern BBS software with a nostalgic flair!
+- [Tinkerun](https://github.com/tinkerun/tinkerun): A new way of running Tinker.
 
 Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
 
