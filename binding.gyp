@@ -57,6 +57,7 @@
         'libraries': [
           '-lutil'
         ],
+        'cflags': ['-Wall'],
         'conditions': [
           # http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html
           #   One some systems (at least including Cygwin, Interix,

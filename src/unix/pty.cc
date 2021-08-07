@@ -29,6 +29,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <spawn.h>
 
 /* forkpty */
 /* http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html */
@@ -187,10 +188,73 @@ int pty_fork_classic(char **argv, char **env, char *cwd, int uid, int gid, const
     perror("execvp(3) failed.");
     _exit(1);
   }
+  return 0;
 }
 
-void pty_fork_posix_spawn() {
+int pty_fork_posix_spawn(char **argv, char **env, const termios *term, winsize *winp, int &pty_master, pid_t &pid) {
+  sigset_t all_signals, oldmask;
 
+  // temporarily block all signals
+  // this is needed due to a race condition in openpty
+  // and to avoid running signal handlers in the child
+  // before exec* happened
+  sigfillset(&all_signals);
+  pthread_sigmask(SIG_SETMASK, &all_signals, &oldmask);
+
+  int pty_slave;
+  if (pty_openpty(&pty_master, &pty_slave, nullptr, term, winp) == -1) {
+    pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
+    Nan::ThrowError("pty_openpty failed.");
+    return 1;
+  }
+
+  pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
+
+  posix_spawn_file_actions_t acts;
+  posix_spawnattr_t attrs;
+  if (posix_spawn_file_actions_init(&acts)) {
+    Nan::ThrowError("posix_spawn_file_actions_init failed.");
+    return 1;
+  }
+  if (posix_spawnattr_init(&attrs)) {
+    Nan::ThrowError("posix_spawnattr_init failed.");
+    return 1;
+  }
+
+  if (
+    posix_spawn_file_actions_adddup2(&acts, pty_slave, STDIN_FILENO) ||
+    posix_spawn_file_actions_adddup2(&acts, pty_slave, STDOUT_FILENO) ||
+    posix_spawn_file_actions_addclose(&acts, pty_slave) ||
+    posix_spawn_file_actions_addclose(&acts, pty_master)
+  ) {
+    posix_spawn_file_actions_destroy(&acts);
+    posix_spawnattr_destroy(&attrs);
+    Nan::ThrowError("posix_spawn_file_actions_init failed.");
+    return 1;
+  }
+
+  if (
+    posix_spawnattr_setsigdefault(&attrs, &all_signals) ||
+    posix_spawnattr_setsigmask(&attrs, &oldmask) ||
+    posix_spawnattr_setflags(&attrs, POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK)
+  ) {
+    posix_spawn_file_actions_destroy(&acts);
+    posix_spawnattr_destroy(&attrs);
+    Nan::ThrowError("posix_spawnattr_setxxx failed.");
+    return 1;
+  }
+
+  auto error = posix_spawnp(&pid, argv[0], &acts, &attrs, argv, env);
+
+  posix_spawn_file_actions_destroy(&acts);
+  posix_spawnattr_destroy(&attrs);
+
+  if (error) {
+    perror("posix_spawn failed");
+    Nan::ThrowError("posix_spawn(3) failed.");
+    return 1;
+  }
+  return 0;
 }
 
 NAN_METHOD(PtyFork) {
@@ -293,7 +357,13 @@ NAN_METHOD(PtyFork) {
 
   int master = -1;
   pid_t pid;
-  auto error = pty_fork_classic(argv, env, cwd, uid, gid, term, &winp, master, pid);
+  int error;
+
+  if (strlen(cwd) || uid != -1 || gid != -1) {
+    error = pty_fork_classic(argv, env, cwd, uid, gid, term, &winp, master, pid);
+  } else {
+    error = pty_fork_posix_spawn(argv, env, term, &winp, master, pid);
+  }
 
   for (i = 0; i < argl; i++) free(argv[i]);
   delete[] argv;
