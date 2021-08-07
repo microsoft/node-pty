@@ -236,7 +236,7 @@ int pty_fork_posix_spawn(char **argv, char **env, const termios *term, winsize *
   if (
     posix_spawnattr_setsigdefault(&attrs, &all_signals) ||
     posix_spawnattr_setsigmask(&attrs, &oldmask) ||
-    posix_spawnattr_setflags(&attrs, POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK)
+    posix_spawnattr_setflags(&attrs, POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSID)
   ) {
     posix_spawn_file_actions_destroy(&acts);
     posix_spawnattr_destroy(&attrs);
