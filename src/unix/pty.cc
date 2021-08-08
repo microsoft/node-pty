@@ -79,11 +79,25 @@ extern char **environ;
 #endif
 
 #pragma weak posix_spawn_file_actions_addchdir_np
-int posix_spawn_file_actions_addchdir_np(posix_spawn_file_actions_t*, const char *)
+int
 #if defined(__clang__)
   __attribute__((availability(macos,introduced=10.15)))
 #endif
-;
+posix_spawn_file_actions_addchdir_np(posix_spawn_file_actions_t*, const char *);
+
+#pragma weak posix_spawnattr_set_uid_np
+int
+#if defined(__clang__)
+  __attribute__((availability(macos,introduced=10.15)))
+#endif
+posix_spawnattr_set_uid_np(posix_spawn_file_actions_t*, uid_t);
+
+#pragma weak posix_spawnattr_set_gid_np
+int
+#if defined(__clang__)
+  __attribute__((availability(macos,introduced=10.15)))
+#endif
+posix_spawnattr_set_gid_np(posix_spawn_file_actions_t*, gid_t);
 
 #ifdef POSIX_SPAWN_SETSID
  #define HAVE_POSIX_SPAWN_SETSID 1
@@ -93,6 +107,10 @@ int posix_spawn_file_actions_addchdir_np(posix_spawn_file_actions_t*, const char
 #else
  #define HAVE_POSIX_SPAWN_SETSID 0
  #define POSIX_SPAWN_SETSID 0
+#endif
+
+#ifndef POSIX_SPAWN_CLOEXEC_DEFAULT
+  #define POSIX_SPAWN_CLOEXEC_DEFAULT 0
 #endif
 
 /**
@@ -208,7 +226,7 @@ int pty_fork_classic(char **argv, char **env, char *cwd, int uid, int gid, const
   return 0;
 }
 
-int pty_fork_posix_spawn(char **argv, char **env, char* cwd, const termios *term, winsize *winp, int &pty_master, pid_t &pid) {
+int pty_fork_posix_spawn(char **argv, char **env, char* cwd, int uid, int gid, const termios *term, winsize *winp, int &pty_master, pid_t &pid) {
   sigset_t all_signals, oldmask;
 
   // temporarily block all signals
@@ -250,6 +268,14 @@ int pty_fork_posix_spawn(char **argv, char **env, char* cwd, const termios *term
   if (strlen(cwd) && posix_spawn_file_actions_addchdir_np) {
     posix_spawn_file_actions_addchdir_np(&acts, cwd);
   }
+
+  if (uid != -1 && posix_spawnattr_set_uid_np) {
+    posix_spawnattr_set_uid_np(&acts, uid);
+  }
+
+  if (gid != -1 && posix_spawnattr_set_gid_np) {
+    posix_spawnattr_set_gid_np(&acts, gid);
+  }
 #pragma clang diagnostic pop
 
   posix_spawnattr_t attrs;
@@ -261,7 +287,7 @@ int pty_fork_posix_spawn(char **argv, char **env, char* cwd, const termios *term
   if (
     posix_spawnattr_setsigdefault(&attrs, &all_signals) ||
     posix_spawnattr_setsigmask(&attrs, &oldmask) ||
-    posix_spawnattr_setflags(&attrs, POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSID)
+    posix_spawnattr_setflags(&attrs, POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSID | POSIX_SPAWN_CLOEXEC_DEFAULT)
   ) {
     posix_spawn_file_actions_destroy(&acts);
     posix_spawnattr_destroy(&attrs);
@@ -390,11 +416,12 @@ NAN_METHOD(PtyFork) {
   if (
     !HAVE_POSIX_SPAWN_SETSID ||
     (!posix_spawn_file_actions_addchdir_np && strlen(cwd)) ||
-    uid != -1 || gid != -1
+    (!posix_spawnattr_set_uid_np && uid != -1) ||
+    (!posix_spawnattr_set_gid_np && gid != -1)
   ) {
     error = pty_fork_classic(argv, env, cwd, uid, gid, term, &winp, master, pid);
   } else {
-    error = pty_fork_posix_spawn(argv, env, cwd, term, &winp, master, pid);
+    error = pty_fork_posix_spawn(argv, env, cwd, uid, gid, term, &winp, master, pid);
   }
 #pragma clang diagnostic pop
 
