@@ -239,5 +239,14 @@ if (process.platform !== 'win32') {
         });
       });
     });
+    describe('posix_spawn', () => {
+      it('should support cwd', (done) => {
+        const term = new UnixTerminal('/bin/bash', [ '-c', 'pwd' ], { cwd: '/tmp' });
+        term.on('data', (data) => {
+          assert.equal(data, '/tmp\r\n');
+          done();
+        });
+      });
+    });
   });
 }

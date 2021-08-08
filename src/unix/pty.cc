@@ -29,6 +29,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <spawn.h>
 
 /* forkpty */
 /* http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html */
@@ -75,6 +76,41 @@ extern char **environ;
 /* NSIG - macro for highest signal + 1, should be defined */
 #ifndef NSIG
 #define NSIG 32
+#endif
+
+#pragma weak posix_spawn_file_actions_addchdir_np
+int
+#if defined(__APPLE__) && defined(__clang__)
+  __attribute__((availability(macos,introduced=10.15)))
+#endif
+posix_spawn_file_actions_addchdir_np(posix_spawn_file_actions_t*, const char *);
+
+#pragma weak posix_spawnattr_set_uid_np
+int
+#if defined(__APPLE__) && defined(__clang__)
+  __attribute__((availability(macos,introduced=10.15)))
+#endif
+posix_spawnattr_set_uid_np(posix_spawn_file_actions_t*, uid_t);
+
+#pragma weak posix_spawnattr_set_gid_np
+int
+#if defined(__APPLE__) && defined(__clang__)
+  __attribute__((availability(macos,introduced=10.15)))
+#endif
+posix_spawnattr_set_gid_np(posix_spawn_file_actions_t*, gid_t);
+
+#ifdef POSIX_SPAWN_SETSID
+ #define HAVE_POSIX_SPAWN_SETSID 1
+#elif defined(POSIX_SPAWN_SETSID_NP)
+ #define HAVE_POSIX_SPAWN_SETSID 1
+ #define POSIX_SPAWN_SETSID POSIX_SPAWN_SETSID_NP
+#else
+ #define HAVE_POSIX_SPAWN_SETSID 0
+ #define POSIX_SPAWN_SETSID 0
+#endif
+
+#ifndef POSIX_SPAWN_CLOEXEC_DEFAULT
+  #define POSIX_SPAWN_CLOEXEC_DEFAULT 0
 #endif
 
 /**
@@ -130,6 +166,147 @@ pty_after_waitpid(uv_async_t *);
 
 static void
 pty_after_close(uv_handle_t *);
+
+int pty_fork_classic(char **argv, char **env, char *cwd, int uid, int gid, const termios *term, winsize *winp, int &pty_master, pid_t &pid) {
+  sigset_t newmask, oldmask;
+  struct sigaction sig_action;
+
+  // temporarily block all signals
+  // this is needed due to a race condition in openpty
+  // and to avoid running signal handlers in the child
+  // before exec* happened
+  sigfillset(&newmask);
+  pthread_sigmask(SIG_SETMASK, &newmask, &oldmask);
+
+  pid = pty_forkpty(&pty_master, nullptr, term, winp);
+
+  if (!pid) {
+    // remove all signal handler from child
+    sig_action.sa_handler = SIG_DFL;
+    sig_action.sa_flags = 0;
+    sigemptyset(&sig_action.sa_mask);
+    for (int i = 0 ; i < NSIG ; i++) {    // NSIG is a macro for all signals + 1
+      sigaction(i, &sig_action, NULL);
+    }
+  }
+  // reenable signals
+  pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
+
+  if (pid) {
+    if (pid == -1) {
+      Nan::ThrowError("forkpty(3) failed.");
+      return 1;
+    }
+
+    return 0;
+  } else {
+    if (strlen(cwd)) {
+      if (chdir(cwd) == -1) {
+        perror("chdir(2) failed.");
+        _exit(1);
+      }
+    }
+
+    if (uid != -1 && gid != -1) {
+      if (setgid(gid) == -1) {
+        perror("setgid(2) failed.");
+        _exit(1);
+      }
+      if (setuid(uid) == -1) {
+        perror("setuid(2) failed.");
+        _exit(1);
+      }
+    }
+
+    pty_execvpe(argv[0], argv, env);
+
+    perror("execvp(3) failed.");
+    _exit(1);
+  }
+  return 0;
+}
+
+int pty_fork_posix_spawn(char **argv, char **env, char* cwd, int uid, int gid, const termios *term, winsize *winp, int &pty_master, pid_t &pid) {
+  sigset_t all_signals, oldmask;
+
+  // temporarily block all signals
+  // this is needed due to a race condition in openpty
+  // and to avoid running signal handlers in the child
+  // before exec* happened
+  sigfillset(&all_signals);
+  pthread_sigmask(SIG_SETMASK, &all_signals, &oldmask);
+
+  int pty_slave;
+  if (pty_openpty(&pty_master, &pty_slave, nullptr, term, winp) == -1) {
+    pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
+    Nan::ThrowError("pty_openpty failed.");
+    return 1;
+  }
+
+  pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
+
+  posix_spawn_file_actions_t acts;
+  if (posix_spawn_file_actions_init(&acts)) {
+    Nan::ThrowError("posix_spawn_file_actions_init failed.");
+    return 1;
+  }
+
+  if (
+    posix_spawn_file_actions_adddup2(&acts, pty_slave, STDIN_FILENO) ||
+    posix_spawn_file_actions_adddup2(&acts, pty_slave, STDOUT_FILENO) ||
+    posix_spawn_file_actions_adddup2(&acts, pty_slave, STDERR_FILENO) ||
+    posix_spawn_file_actions_addclose(&acts, pty_master) ||
+    posix_spawn_file_actions_addclose(&acts, pty_slave)
+  ) {
+    posix_spawn_file_actions_destroy(&acts);
+    Nan::ThrowError("posix_spawn_file_actions_init failed.");
+    return 1;
+  }
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+  if (strlen(cwd) && posix_spawn_file_actions_addchdir_np) {
+    posix_spawn_file_actions_addchdir_np(&acts, cwd);
+  }
+
+  if (uid != -1 && posix_spawnattr_set_uid_np) {
+    posix_spawnattr_set_uid_np(&acts, uid);
+  }
+
+  if (gid != -1 && posix_spawnattr_set_gid_np) {
+    posix_spawnattr_set_gid_np(&acts, gid);
+  }
+#pragma clang diagnostic pop
+
+  posix_spawnattr_t attrs;
+  if (posix_spawnattr_init(&attrs)) {
+    Nan::ThrowError("posix_spawnattr_init failed.");
+    return 1;
+  }
+
+  if (
+    posix_spawnattr_setsigdefault(&attrs, &all_signals) ||
+    posix_spawnattr_setsigmask(&attrs, &oldmask) ||
+    posix_spawnattr_setflags(&attrs, POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSID | POSIX_SPAWN_CLOEXEC_DEFAULT)
+  ) {
+    posix_spawn_file_actions_destroy(&acts);
+    posix_spawnattr_destroy(&attrs);
+    Nan::ThrowError("posix_spawnattr_setxxx failed.");
+    return 1;
+  }
+
+  auto error = posix_spawnp(&pid, argv[0], &acts, &attrs, argv, env);
+
+  posix_spawn_file_actions_destroy(&acts);
+  posix_spawnattr_destroy(&attrs);
+
+  if (error) {
+    perror("posix_spawn failed");
+    Nan::ThrowError("posix_spawn(3) failed.");
+    return 1;
+  }
+  return 0;
+}
 
 NAN_METHOD(PtyFork) {
   Nan::HandleScope scope;
@@ -229,98 +406,63 @@ NAN_METHOD(PtyFork) {
   int uid = info[6]->IntegerValue(Nan::GetCurrentContext()).FromJust();
   int gid = info[7]->IntegerValue(Nan::GetCurrentContext()).FromJust();
 
-  // fork the pty
   int master = -1;
+  pid_t pid;
+  int error;
 
-  sigset_t newmask, oldmask;
-  struct sigaction sig_action;
 
-  // temporarily block all signals
-  // this is needed due to a race condition in openpty
-  // and to avoid running signal handlers in the child
-  // before exec* happened
-  sigfillset(&newmask);
-  pthread_sigmask(SIG_SETMASK, &newmask, &oldmask);
-
-  pid_t pid = pty_forkpty(&master, nullptr, term, &winp);
-
-  if (!pid) {
-    // remove all signal handler from child
-    sig_action.sa_handler = SIG_DFL;
-    sig_action.sa_flags = 0;
-    sigemptyset(&sig_action.sa_mask);
-    for (int i = 0 ; i < NSIG ; i++) {    // NSIG is a macro for all signals + 1
-      sigaction(i, &sig_action, NULL);
-    }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+  if (
+    !HAVE_POSIX_SPAWN_SETSID ||
+    (!posix_spawn_file_actions_addchdir_np && strlen(cwd)) ||
+    (!posix_spawnattr_set_uid_np && uid != -1) ||
+    (!posix_spawnattr_set_gid_np && gid != -1)
+  ) {
+    error = pty_fork_classic(argv, env, cwd, uid, gid, term, &winp, master, pid);
+  } else {
+    error = pty_fork_posix_spawn(argv, env, cwd, uid, gid, term, &winp, master, pid);
   }
-  // reenable signals
-  pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
+#pragma clang diagnostic pop
 
-  if (pid) {
-    for (i = 0; i < argl; i++) free(argv[i]);
-    delete[] argv;
-    for (i = 0; i < envc; i++) free(env[i]);
-    delete[] env;
-    free(cwd);
+  for (i = 0; i < argl; i++) free(argv[i]);
+  delete[] argv;
+  for (i = 0; i < envc; i++) free(env[i]);
+  delete[] env;
+  free(cwd);
+
+  if (error) {
+    // JS exception has already been thrown
+    return;
   }
 
-  switch (pid) {
-    case -1:
-      return Nan::ThrowError("forkpty(3) failed.");
-    case 0:
-      if (strlen(cwd)) {
-        if (chdir(cwd) == -1) {
-          perror("chdir(2) failed.");
-          _exit(1);
-        }
-      }
-
-      if (uid != -1 && gid != -1) {
-        if (setgid(gid) == -1) {
-          perror("setgid(2) failed.");
-          _exit(1);
-        }
-        if (setuid(uid) == -1) {
-          perror("setuid(2) failed.");
-          _exit(1);
-        }
-      }
-
-      pty_execvpe(argv[0], argv, env);
-
-      perror("execvp(3) failed.");
-      _exit(1);
-    default:
-      if (pty_nonblock(master) == -1) {
-        return Nan::ThrowError("Could not set master fd to nonblocking.");
-      }
-
-      v8::Local<v8::Object> obj = Nan::New<v8::Object>();
-      Nan::Set(obj,
-        Nan::New<v8::String>("fd").ToLocalChecked(),
-        Nan::New<v8::Number>(master));
-      Nan::Set(obj,
-        Nan::New<v8::String>("pid").ToLocalChecked(),
-        Nan::New<v8::Number>(pid));
-      Nan::Set(obj,
-        Nan::New<v8::String>("pty").ToLocalChecked(),
-        Nan::New<v8::String>(ptsname(master)).ToLocalChecked());
-
-      pty_baton *baton = new pty_baton();
-      baton->exit_code = 0;
-      baton->signal_code = 0;
-      baton->cb.Reset(v8::Local<v8::Function>::Cast(info[9]));
-      baton->pid = pid;
-      baton->async.data = baton;
-
-      uv_async_init(uv_default_loop(), &baton->async, pty_after_waitpid);
-
-      uv_thread_create(&baton->tid, pty_waitpid, static_cast<void*>(baton));
-
-      return info.GetReturnValue().Set(obj);
+  if (pty_nonblock(master) == -1) {
+    return Nan::ThrowError("Could not set master fd to nonblocking.");
   }
 
-  return info.GetReturnValue().SetUndefined();
+  v8::Local<v8::Object> obj = Nan::New<v8::Object>();
+  Nan::Set(obj,
+    Nan::New<v8::String>("fd").ToLocalChecked(),
+    Nan::New<v8::Number>(master));
+  Nan::Set(obj,
+    Nan::New<v8::String>("pid").ToLocalChecked(),
+    Nan::New<v8::Number>(pid));
+  Nan::Set(obj,
+    Nan::New<v8::String>("pty").ToLocalChecked(),
+    Nan::New<v8::String>(ptsname(master)).ToLocalChecked());
+
+  pty_baton *baton = new pty_baton();
+  baton->exit_code = 0;
+  baton->signal_code = 0;
+  baton->cb.Reset(v8::Local<v8::Function>::Cast(info[9]));
+  baton->pid = pid;
+  baton->async.data = baton;
+
+  uv_async_init(uv_default_loop(), &baton->async, pty_after_waitpid);
+
+  uv_thread_create(&baton->tid, pty_waitpid, static_cast<void*>(baton));
+
+  return info.GetReturnValue().Set(obj);
 }
 
 NAN_METHOD(PtyOpen) {
