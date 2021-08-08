@@ -80,21 +80,21 @@ extern char **environ;
 
 #pragma weak posix_spawn_file_actions_addchdir_np
 int
-#if defined(__clang__)
+#if defined(__APPLE__) && defined(__clang__)
   __attribute__((availability(macos,introduced=10.15)))
 #endif
 posix_spawn_file_actions_addchdir_np(posix_spawn_file_actions_t*, const char *);
 
 #pragma weak posix_spawnattr_set_uid_np
 int
-#if defined(__clang__)
+#if defined(__APPLE__) && defined(__clang__)
   __attribute__((availability(macos,introduced=10.15)))
 #endif
 posix_spawnattr_set_uid_np(posix_spawn_file_actions_t*, uid_t);
 
 #pragma weak posix_spawnattr_set_gid_np
 int
-#if defined(__clang__)
+#if defined(__APPLE__) && defined(__clang__)
   __attribute__((availability(macos,introduced=10.15)))
 #endif
 posix_spawnattr_set_gid_np(posix_spawn_file_actions_t*, gid_t);
