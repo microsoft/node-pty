@@ -78,6 +78,23 @@ extern char **environ;
 #define NSIG 32
 #endif
 
+#pragma weak posix_spawn_file_actions_addchdir_np
+int posix_spawn_file_actions_addchdir_np(posix_spawn_file_actions_t*, const char *)
+#if defined(__clang__)
+  __attribute__((availability(macos,introduced=10.15)))
+#endif
+;
+
+#ifdef POSIX_SPAWN_SETSID
+ #define HAVE_POSIX_SPAWN_SETSID 1
+#elif defined(POSIX_SPAWN_SETSID_NP)
+ #define HAVE_POSIX_SPAWN_SETSID 1
+ #define POSIX_SPAWN_SETSID POSIX_SPAWN_SETSID_NP
+#else
+ #define HAVE_POSIX_SPAWN_SETSID 0
+ #define POSIX_SPAWN_SETSID 0
+#endif
+
 /**
  * Structs
  */
@@ -191,7 +208,7 @@ int pty_fork_classic(char **argv, char **env, char *cwd, int uid, int gid, const
   return 0;
 }
 
-int pty_fork_posix_spawn(char **argv, char **env, const termios *term, winsize *winp, int &pty_master, pid_t &pid) {
+int pty_fork_posix_spawn(char **argv, char **env, char* cwd, const termios *term, winsize *winp, int &pty_master, pid_t &pid) {
   sigset_t all_signals, oldmask;
 
   // temporarily block all signals
@@ -211,25 +228,33 @@ int pty_fork_posix_spawn(char **argv, char **env, const termios *term, winsize *
   pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
 
   posix_spawn_file_actions_t acts;
-  posix_spawnattr_t attrs;
   if (posix_spawn_file_actions_init(&acts)) {
     Nan::ThrowError("posix_spawn_file_actions_init failed.");
-    return 1;
-  }
-  if (posix_spawnattr_init(&attrs)) {
-    Nan::ThrowError("posix_spawnattr_init failed.");
     return 1;
   }
 
   if (
     posix_spawn_file_actions_adddup2(&acts, pty_slave, STDIN_FILENO) ||
     posix_spawn_file_actions_adddup2(&acts, pty_slave, STDOUT_FILENO) ||
-    posix_spawn_file_actions_addclose(&acts, pty_slave) ||
-    posix_spawn_file_actions_addclose(&acts, pty_master)
+    posix_spawn_file_actions_adddup2(&acts, pty_slave, STDERR_FILENO) ||
+    posix_spawn_file_actions_addclose(&acts, pty_master) ||
+    posix_spawn_file_actions_addclose(&acts, pty_slave)
   ) {
     posix_spawn_file_actions_destroy(&acts);
-    posix_spawnattr_destroy(&attrs);
     Nan::ThrowError("posix_spawn_file_actions_init failed.");
+    return 1;
+  }
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+  if (strlen(cwd) && posix_spawn_file_actions_addchdir_np) {
+    posix_spawn_file_actions_addchdir_np(&acts, cwd);
+  }
+#pragma clang diagnostic pop
+
+  posix_spawnattr_t attrs;
+  if (posix_spawnattr_init(&attrs)) {
+    Nan::ThrowError("posix_spawnattr_init failed.");
     return 1;
   }
 
@@ -359,11 +384,19 @@ NAN_METHOD(PtyFork) {
   pid_t pid;
   int error;
 
-  if (strlen(cwd) || uid != -1 || gid != -1) {
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+  if (
+    !HAVE_POSIX_SPAWN_SETSID ||
+    (!posix_spawn_file_actions_addchdir_np && strlen(cwd)) ||
+    uid != -1 || gid != -1
+  ) {
     error = pty_fork_classic(argv, env, cwd, uid, gid, term, &winp, master, pid);
   } else {
-    error = pty_fork_posix_spawn(argv, env, term, &winp, master, pid);
+    error = pty_fork_posix_spawn(argv, env, cwd, term, &winp, master, pid);
   }
+#pragma clang diagnostic pop
 
   for (i = 0; i < argl; i++) free(argv[i]);
   delete[] argv;
