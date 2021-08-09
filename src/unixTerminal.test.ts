@@ -239,5 +239,15 @@ if (process.platform !== 'win32') {
         });
       });
     });
+    describe('spawn', () => {
+      it('should handle exec() errors', (done) => {
+        try {
+          new UnixTerminal('/bin/bogus.exe', []);
+          done(new Error('should have failed'));
+        } catch {
+          done();
+        }
+      });
+    });
   });
 }

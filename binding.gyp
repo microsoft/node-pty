@@ -46,33 +46,49 @@
         }
       ]
     }, { # OS!="win"
-      'targets': [{
-        'target_name': 'pty',
-        'include_dirs' : [
-          '<!(node -e "require(\'nan\')")'
-        ],
-        'sources': [
-          'src/unix/pty.cc'
-        ],
-        'libraries': [
-          '-lutil'
-        ],
-        'conditions': [
-          # http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html
-          #   One some systems (at least including Cygwin, Interix,
-          #   OSF/1 4 and 5, and Mac OS X) linking with -lutil is not required.
-          ['OS=="mac" or OS=="solaris"', {
-            'libraries!': [
-              '-lutil'
-            ]
-          }],
-          ['OS=="mac"', {
-            "xcode_settings": {
-              "MACOSX_DEPLOYMENT_TARGET":"10.7"
-            }
-          }]
-        ]
-      }]
+      'targets': [
+        {
+          'target_name': 'spawn-helper',
+          'type': 'executable',
+          'cflags': ['-Wall'],
+          'sources': [
+            'src/unix/spawn-helper.cc',
+            'src/unix/comms.cc'
+          ],
+          'libraries': [
+            '-lpthread'
+          ],
+        },
+        {
+          'target_name': 'pty',
+          'include_dirs' : [
+            '<!(node -e "require(\'nan\')")'
+          ],
+          'sources': [
+            'src/unix/pty.cc',
+            'src/unix/comms.cc'
+          ],
+          'libraries': [
+            '-lutil'
+          ],
+          'cflags': ['-Wall'],
+          'conditions': [
+            # http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html
+            #   One some systems (at least including Cygwin, Interix,
+            #   OSF/1 4 and 5, and Mac OS X) linking with -lutil is not required.
+            ['OS=="mac" or OS=="solaris"', {
+              'libraries!': [
+                '-lutil'
+              ]
+            }],
+            ['OS=="mac"', {
+              "xcode_settings": {
+                "MACOSX_DEPLOYMENT_TARGET":"10.7"
+              }
+            }]
+          ]
+        }
+      ]
     }]
   ]
 }

@@ -4,23 +4,29 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 import * as net from 'net';
+import * as path from 'path';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 import { assign } from './utils';
 
 let pty: IUnixNative;
+let helperPath: string;
 try {
   pty = require('../build/Release/pty.node');
+  helperPath = '../build/Release/spawn-helper';
 } catch (outerError) {
   try {
     pty = require('../build/Debug/pty.node');
+    helperPath = '../build/Debug/spawn-helper';
   } catch (innerError) {
     console.error('innerError', innerError);
     // Re-throw the exception from the Release require if the Debug require fails as well
     throw outerError;
   }
 }
+
+helperPath = path.resolve(__dirname, helperPath);
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
@@ -103,7 +109,7 @@ export class UnixTerminal extends Terminal {
     };
 
     // fork
-    const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), onexit);
+    const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), onexit, helperPath);
 
     this._socket = new PipeSocket(term.fd);
     if (encoding !== null) {
