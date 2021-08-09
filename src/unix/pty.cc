@@ -234,7 +234,7 @@ NAN_METHOD(PtyFork) {
   pthread_sigmask(SIG_SETMASK, &newmask, &oldmask);
 
   int master, slave;
-  int ret = pty_openpty(&master, &slave, nullptr, NULL, &winp);
+  int ret = pty_openpty(&master, &slave, nullptr, term, &winp);
   if (ret == -1) {
     perror("openpty failed");
     return Nan::ThrowError("openpty failed.");
@@ -256,7 +256,7 @@ NAN_METHOD(PtyFork) {
 
   posix_spawnattr_t attrs;
   posix_spawnattr_init(&attrs);
-  posix_spawnattr_setflags(&attrs, POSIX_SPAWN_CLOEXEC_DEFAULT);
+  posix_spawnattr_setflags(&attrs, POSIX_SPAWN_RESETIDS | POSIX_SPAWN_CLOEXEC_DEFAULT);
 
   pid_t pid;
   auto error = posix_spawn(&pid, helper_path, &acts, &attrs, argv, env);
@@ -292,6 +292,7 @@ NAN_METHOD(PtyFork) {
     comm_send_int(comms_pipe[0], gid);
   }
   comm_send_int(comms_pipe[0], COMM_MSG_GO_FOR_LAUNCH);
+  shutdown(comms_pipe[0], SHUT_WR);
 
   int result;
   auto bytes_read = recv(comms_pipe[0], &result, sizeof(result), 0);
