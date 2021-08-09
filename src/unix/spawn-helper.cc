@@ -1,6 +1,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/resource.h>
 #include <signal.h>
 #include <termios.h>
 #include <unistd.h>
@@ -23,6 +24,14 @@ int main () {
   sigset_t empty_set;
   sigemptyset(&empty_set);
   pthread_sigmask(SIG_SETMASK, &empty_set, nullptr);
+
+  struct rlimit rlim_ofile;
+  getrlimit(RLIMIT_NOFILE, &rlim_ofile);
+  for (rlim_t fd = 0; fd < rlim_ofile.rlim_cur; fd++) {
+    if (fd != COMM_PIPE_FD && fd != COMM_PTY_FD) {
+      close(fd);
+    }
+  }
 
   setsid();
 
