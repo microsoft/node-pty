@@ -262,57 +262,58 @@ NAN_METHOD(PtyFork) {
   posix_spawnattr_init(&attrs);
   posix_spawnattr_setflags(&attrs, POSIX_SPAWN_RESETIDS | POSIX_SPAWN_CLOEXEC_DEFAULT);
 
-  pid_t pid;
-  auto error = posix_spawn(&pid, helper_path, &acts, &attrs, argv, env);
+  { // suppresses "jump bypasses variable initialization" errors
+    pid_t pid;
+    auto error = posix_spawn(&pid, helper_path, &acts, &attrs, argv, env);
 
-  close(comms_pipe[1]);
+    close(comms_pipe[1]);
 
-  // reenable signals
-  pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
+    // reenable signals
+    pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
 
-  if (error) {
-    perror("posix_spawn failed");
-    Nan::ThrowError("posix_spawn(3) failed.");
-    goto done;
+    if (error) {
+      perror("posix_spawn failed");
+      Nan::ThrowError("posix_spawn(3) failed.");
+      goto done;
+    }
+
+    auto bytes_read = read(comms_pipe[0], &error, sizeof(error));
+    close(comms_pipe[0]);
+
+    if (bytes_read && error) {
+      Nan::ThrowError("exec error");
+      goto done;
+    }
+
+    if (pty_nonblock(master) == -1) {
+      Nan::ThrowError("Could not set master fd to nonblocking.");
+      goto done;
+    }
+
+    v8::Local<v8::Object> obj = Nan::New<v8::Object>();
+    Nan::Set(obj,
+      Nan::New<v8::String>("fd").ToLocalChecked(),
+      Nan::New<v8::Number>(master));
+    Nan::Set(obj,
+      Nan::New<v8::String>("pid").ToLocalChecked(),
+      Nan::New<v8::Number>(pid));
+    Nan::Set(obj,
+      Nan::New<v8::String>("pty").ToLocalChecked(),
+      Nan::New<v8::String>(ptsname(master)).ToLocalChecked());
+
+    pty_baton *baton = new pty_baton();
+    baton->exit_code = 0;
+    baton->signal_code = 0;
+    baton->cb.Reset(v8::Local<v8::Function>::Cast(info[9]));
+    baton->pid = pid;
+    baton->async.data = baton;
+
+    uv_async_init(uv_default_loop(), &baton->async, pty_after_waitpid);
+
+    uv_thread_create(&baton->tid, pty_waitpid, static_cast<void*>(baton));
+
+    info.GetReturnValue().Set(obj);
   }
-
-  auto bytes_read = read(comms_pipe[0], &error, sizeof(error));
-  close(comms_pipe[0]);
-
-  if (bytes_read && error) {
-    Nan::ThrowError("exec error");
-    goto done;
-  }
-
-  if (pty_nonblock(master) == -1) {
-    Nan::ThrowError("Could not set master fd to nonblocking.");
-    goto done;
-  }
-
-  v8::Local<v8::Object> obj = Nan::New<v8::Object>();
-  Nan::Set(obj,
-    Nan::New<v8::String>("fd").ToLocalChecked(),
-    Nan::New<v8::Number>(master));
-  Nan::Set(obj,
-    Nan::New<v8::String>("pid").ToLocalChecked(),
-    Nan::New<v8::Number>(pid));
-  Nan::Set(obj,
-    Nan::New<v8::String>("pty").ToLocalChecked(),
-    Nan::New<v8::String>(ptsname(master)).ToLocalChecked());
-
-  pty_baton *baton = new pty_baton();
-  baton->exit_code = 0;
-  baton->signal_code = 0;
-  baton->cb.Reset(v8::Local<v8::Function>::Cast(info[9]));
-  baton->pid = pid;
-  baton->async.data = baton;
-
-  uv_async_init(uv_default_loop(), &baton->async, pty_after_waitpid);
-
-  uv_thread_create(&baton->tid, pty_waitpid, static_cast<void*>(baton));
-
-  info.GetReturnValue().Set(obj);
-
 done:
   posix_spawn_file_actions_destroy(&acts);
   posix_spawnattr_destroy(&attrs);
