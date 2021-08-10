@@ -9,6 +9,12 @@
 
 #include "comms.h"
 
+void bail (int type, int code) {
+  int buf[2] = { type, code };
+  (void)! write(COMM_PIPE_FD, &buf, sizeof(buf));
+  _exit(1);
+}
+
 int main (int argc, char** argv) {
   sigset_t empty_set;
   sigemptyset(&empty_set);
@@ -46,19 +52,16 @@ int main (int argc, char** argv) {
   fcntl(COMM_PIPE_FD, F_SETFD, FD_CLOEXEC);
 
   if (strlen(cwd) && chdir(cwd) == -1) {
-    perror("chdir(2) failed.");
-    _exit(1);
+    bail(COMM_ERR_CHDIR, errno);
   }
   if (uid != -1 && setuid(uid) == -1) {
-    perror("setuid(2) failed.");
-    _exit(1);
+    bail(COMM_ERR_SETUID, errno);
   }
   if (gid != -1 && setgid(gid) == -1) {
-    perror("setgid(2) failed.");
-    _exit(1);
+    bail(COMM_ERR_SETGID, errno);
   }
 
   execvp(file, argv);
-  write(COMM_PIPE_FD, &errno, sizeof(errno));
+  bail(COMM_ERR_EXEC, errno);
   return 1;
 }
