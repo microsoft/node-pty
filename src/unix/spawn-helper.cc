@@ -1,10 +1,8 @@
 #include <fcntl.h>
 #include <signal.h>
-#include <stdio.h>
 #include <string>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
-#include <sys/socket.h>
 #include <termios.h>
 #include <unistd.h>
 
