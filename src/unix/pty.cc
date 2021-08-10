@@ -143,33 +143,39 @@ NAN_METHOD(PtyFork) {
   // file
   Nan::Utf8String file(info[0]);
 
-  // args
-  int i = 0;
-  v8::Local<v8::Array> argv_ = v8::Local<v8::Array>::Cast(info[1]);
-  int argc = argv_->Length();
-  int argl = argc + 1 + 1;
-  char **argv = new char*[argl];
-  argv[0] = strdup(*file);
-  argv[argl-1] = NULL;
-  for (; i < argc; i++) {
-    Nan::Utf8String arg(Nan::Get(argv_, i).ToLocalChecked());
-    argv[i+1] = strdup(*arg);
-  }
-
   // env
-  i = 0;
   v8::Local<v8::Array> env_ = v8::Local<v8::Array>::Cast(info[2]);
   int envc = env_->Length();
   char **env = new char*[envc+1];
   env[envc] = NULL;
-  for (; i < envc; i++) {
+  for (int i = 0; i < envc; i++) {
     Nan::Utf8String pair(Nan::Get(env_, i).ToLocalChecked());
     env[i] = strdup(*pair);
   }
 
   // cwd
   Nan::Utf8String cwd_(info[3]);
-  char *cwd = strdup(*cwd_);
+
+  // uid / gid
+  int uid = info[6]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  int gid = info[7]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+
+  // args
+  v8::Local<v8::Array> argv_ = v8::Local<v8::Array>::Cast(info[1]);
+
+  const int EXTRA_ARGS = 4;
+  int argc = argv_->Length();
+  int argl = argc + EXTRA_ARGS + 1;
+  char **argv = new char*[argl];
+  argv[0] = strdup(*cwd_);
+  argv[1] = strdup(std::to_string(uid).c_str());
+  argv[2] = strdup(std::to_string(gid).c_str());
+  argv[3] = strdup(*file);
+  argv[argl - 1] = NULL;
+  for (int i = 0; i < argc; i++) {
+    Nan::Utf8String arg(Nan::Get(argv_, i).ToLocalChecked());
+    argv[i + EXTRA_ARGS] = strdup(*arg);
+  }
 
   // size
   struct winsize winp;
@@ -216,10 +222,6 @@ NAN_METHOD(PtyFork) {
   cfsetispeed(term, B38400);
   cfsetospeed(term, B38400);
 
-  // uid / gid
-  int uid = info[6]->IntegerValue(Nan::GetCurrentContext()).FromJust();
-  int gid = info[7]->IntegerValue(Nan::GetCurrentContext()).FromJust();
-
   // helperPath
   Nan::Utf8String helper_path_(info[10]);
   char *helper_path = strdup(*helper_path_);
@@ -241,18 +243,18 @@ NAN_METHOD(PtyFork) {
   }
 
   int comms_pipe[2];
-  if (socketpair(AF_UNIX, SOCK_STREAM, 0, comms_pipe)) {
-    perror("socketpair failed");
-    return Nan::ThrowError("socketpair failed.");
+  if (pipe(comms_pipe)) {
+    perror("pipe() failed");
+    return Nan::ThrowError("pipe() failed.");
   }
 
   posix_spawn_file_actions_t acts;
   posix_spawn_file_actions_init(&acts);
-  posix_spawn_file_actions_adddup2(&acts, slave, COMM_PTY_FD);
-  posix_spawn_file_actions_addclose(&acts, master);
-  posix_spawn_file_actions_addclose(&acts, slave);
+  posix_spawn_file_actions_adddup2(&acts, slave, STDIN_FILENO);
+  posix_spawn_file_actions_adddup2(&acts, slave, STDOUT_FILENO);
+  posix_spawn_file_actions_adddup2(&acts, slave, STDERR_FILENO);
   posix_spawn_file_actions_adddup2(&acts, comms_pipe[1], COMM_PIPE_FD);
-  posix_spawn_file_actions_addclose(&acts, comms_pipe[0]);
+  posix_spawn_file_actions_addclose(&acts, comms_pipe[1]);
 
   posix_spawnattr_t attrs;
   posix_spawnattr_init(&attrs);
@@ -273,39 +275,16 @@ NAN_METHOD(PtyFork) {
     return Nan::ThrowError("posix_spawn(3) failed.");
   }
 
-  comm_send_int(comms_pipe[0], COMM_MSG_PATH);
-  comm_send_str(comms_pipe[0], argv[0]);
-  comm_send_int(comms_pipe[0], COMM_MSG_ARGV);
-  comm_send_str_array(comms_pipe[0], argv);
-  comm_send_int(comms_pipe[0], COMM_MSG_ENV);
-  comm_send_str_array(comms_pipe[0], env);
-  if (strlen(cwd)) {
-    comm_send_int(comms_pipe[0], COMM_MSG_CWD);
-    comm_send_str(comms_pipe[0], cwd);
-  }
-  if (uid != -1) {
-    comm_send_int(comms_pipe[0], COMM_MSG_UID);
-    comm_send_int(comms_pipe[0], uid);
-  }
-  if (gid != -1) {
-    comm_send_int(comms_pipe[0], COMM_MSG_GID);
-    comm_send_int(comms_pipe[0], gid);
-  }
-  comm_send_int(comms_pipe[0], COMM_MSG_GO_FOR_LAUNCH);
-  shutdown(comms_pipe[0], SHUT_WR);
-
-  int result;
-  auto bytes_read = recv(comms_pipe[0], &result, sizeof(result), 0);
+  auto bytes_read = read(comms_pipe[0], &error, sizeof(error));
   close(comms_pipe[0]);
 
-  for (i = 0; i < argl; i++) free(argv[i]);
+  for (int i = 0; i < argl; i++) free(argv[i]);
   delete[] argv;
-  for (i = 0; i < envc; i++) free(env[i]);
+  for (int i = 0; i < envc; i++) free(env[i]);
   delete[] env;
-  free(cwd);
   free(helper_path);
 
-  if (bytes_read && result == COMM_MSG_EXEC_ERROR) {
+  if (bytes_read && error) {
     return Nan::ThrowError("exec error");
   }
 
