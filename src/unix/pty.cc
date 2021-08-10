@@ -121,6 +121,12 @@ pty_after_waitpid(uv_async_t *);
 static void
 pty_after_close(uv_handle_t *);
 
+static void throw_for_errno(const char* message, int _errno) {
+  Nan::ThrowError((
+    message + std::string(strerror(_errno))
+  ).c_str());
+}
+
 NAN_METHOD(PtyFork) {
   Nan::HandleScope scope;
 
@@ -277,11 +283,20 @@ NAN_METHOD(PtyFork) {
       goto done;
     }
 
-    auto bytes_read = read(comms_pipe[0], &error, sizeof(error));
+    int helper_error[2];
+    auto bytes_read = read(comms_pipe[0], &helper_error, sizeof(helper_error));
     close(comms_pipe[0]);
 
-    if (bytes_read && error) {
-      Nan::ThrowError("exec error");
+    if (bytes_read == sizeof(helper_error)) {
+      if (helper_error[0] == COMM_ERR_EXEC) {
+        throw_for_errno("exec() failed: ", helper_error[1]);
+      } else if (helper_error[0] == COMM_ERR_CHDIR) {
+        throw_for_errno("chdir() failed: ", helper_error[1]);
+      } else if (helper_error[0] == COMM_ERR_SETUID) {
+        throw_for_errno("setuid() failed: ", helper_error[1]);
+      } else if (helper_error[0] == COMM_ERR_SETGID) {
+        throw_for_errno("setgid() failed: ", helper_error[1]);
+      }
       goto done;
     }
 

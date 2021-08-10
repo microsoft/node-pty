@@ -248,6 +248,24 @@ if (process.platform !== 'win32') {
           done();
         }
       });
+      it('should handle chdir() errors', (done) => {
+        try {
+          new UnixTerminal('/bin/echo', [], { cwd: '/nowhere' });
+          done(new Error('should have failed'));
+        } catch (e) {
+          assert.equal(e.toString(), 'Error: chdir() failed: No such file or directory');
+          done();
+        }
+      });
+      it('should handle setuid() errors', (done) => {
+        try {
+          new UnixTerminal('/bin/echo', [], { uid: 999999 });
+          done(new Error('should have failed'));
+        } catch (e) {
+          assert.equal(e.toString(), 'Error: setuid() failed: Operation not permitted');
+          done();
+        }
+      });
     });
   });
 }
