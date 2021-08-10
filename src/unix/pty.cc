@@ -239,13 +239,15 @@ NAN_METHOD(PtyFork) {
   int ret = pty_openpty(&master, &slave, nullptr, term, &winp);
   if (ret == -1) {
     perror("openpty failed");
-    return Nan::ThrowError("openpty failed.");
+    Nan::ThrowError("openpty failed.");
+    goto done;
   }
 
   int comms_pipe[2];
   if (pipe(comms_pipe)) {
     perror("pipe() failed");
-    return Nan::ThrowError("pipe() failed.");
+    Nan::ThrowError("pipe() failed.");
+    goto done;
   }
 
   posix_spawn_file_actions_t acts;
@@ -263,8 +265,6 @@ NAN_METHOD(PtyFork) {
   pid_t pid;
   auto error = posix_spawn(&pid, helper_path, &acts, &attrs, argv, env);
 
-  posix_spawn_file_actions_destroy(&acts);
-  posix_spawnattr_destroy(&attrs);
   close(comms_pipe[1]);
 
   // reenable signals
@@ -272,24 +272,21 @@ NAN_METHOD(PtyFork) {
 
   if (error) {
     perror("posix_spawn failed");
-    return Nan::ThrowError("posix_spawn(3) failed.");
+    Nan::ThrowError("posix_spawn(3) failed.");
+    goto done;
   }
 
   auto bytes_read = read(comms_pipe[0], &error, sizeof(error));
   close(comms_pipe[0]);
 
-  for (int i = 0; i < argl; i++) free(argv[i]);
-  delete[] argv;
-  for (int i = 0; i < envc; i++) free(env[i]);
-  delete[] env;
-  free(helper_path);
-
   if (bytes_read && error) {
-    return Nan::ThrowError("exec error");
+    Nan::ThrowError("exec error");
+    goto done;
   }
 
   if (pty_nonblock(master) == -1) {
-    return Nan::ThrowError("Could not set master fd to nonblocking.");
+    Nan::ThrowError("Could not set master fd to nonblocking.");
+    goto done;
   }
 
   v8::Local<v8::Object> obj = Nan::New<v8::Object>();
@@ -314,7 +311,21 @@ NAN_METHOD(PtyFork) {
 
   uv_thread_create(&baton->tid, pty_waitpid, static_cast<void*>(baton));
 
-  return info.GetReturnValue().Set(obj);
+  info.GetReturnValue().Set(obj);
+
+done:
+  posix_spawn_file_actions_destroy(&acts);
+  posix_spawnattr_destroy(&attrs);
+
+  if (argv) {
+    for (int i = 0; i < argl; i++) free(argv[i]);
+    delete[] argv;
+  }
+  if (env) {
+    for (int i = 0; i < envc; i++) free(env[i]);
+    delete[] env;
+  }
+  free(helper_path);
 }
 
 NAN_METHOD(PtyOpen) {
