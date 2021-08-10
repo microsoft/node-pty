@@ -20,14 +20,6 @@ int main (int argc, char** argv) {
   sigemptyset(&empty_set);
   pthread_sigmask(SIG_SETMASK, &empty_set, nullptr);
 
-  struct rlimit rlim_ofile;
-  getrlimit(RLIMIT_NOFILE, &rlim_ofile);
-  for (rlim_t fd = STDERR_FILENO + 1; fd < rlim_ofile.rlim_cur; fd++) {
-    if (fd != COMM_PIPE_FD) {
-      close(fd);
-    }
-  }
-
   setsid();
 
 #if defined(TIOCSCTTY)

@@ -75,6 +75,10 @@
   #define POSIX_SPAWN_CLOEXEC_DEFAULT 0
 #endif
 
+#ifndef POSIX_SPAWN_USEVFORK
+  #define POSIX_SPAWN_USEVFORK 0
+#endif
+
 /**
  * Structs
  */
@@ -266,7 +270,7 @@ NAN_METHOD(PtyFork) {
 
   posix_spawnattr_t attrs;
   posix_spawnattr_init(&attrs);
-  posix_spawnattr_setflags(&attrs, POSIX_SPAWN_RESETIDS | POSIX_SPAWN_CLOEXEC_DEFAULT);
+  posix_spawnattr_setflags(&attrs, POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_USEVFORK);
 
   { // suppresses "jump bypasses variable initialization" errors
     pid_t pid;
