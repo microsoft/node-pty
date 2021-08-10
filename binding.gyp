@@ -53,7 +53,6 @@
           'cflags': ['-Wall'],
           'sources': [
             'src/unix/spawn-helper.cc',
-            'src/unix/comms.cc'
           ],
           'libraries': [
             '-lpthread'
@@ -66,7 +65,6 @@
           ],
           'sources': [
             'src/unix/pty.cc',
-            'src/unix/comms.cc'
           ],
           'libraries': [
             '-lutil'
