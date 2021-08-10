@@ -10,15 +10,6 @@
 
 #include "comms.h"
 
-/* environ for execvpe */
-/* node/src/node_child_process.cc */
-#if defined(__APPLE__) && !TARGET_OS_IPHONE
-  #include <crt_externs.h>
-  #define environ (*_NSGetEnviron())
-#else
-  extern char **environ;
-#endif
-
 int main (int argc, char** argv) {
   sigset_t empty_set;
   sigemptyset(&empty_set);
@@ -39,6 +30,12 @@ int main (int argc, char** argv) {
   if (ioctl(STDIN_FILENO, TIOCSCTTY, NULL) == -1) {
     _exit(1);
   }
+#else
+  char *slave_path = ttyname(STDIN_FILENO);
+  // open implicit attaches a process to a terminal device if:
+  // - process has no controlling terminal yet
+  // - O_NOCTTY is not set
+  close(open(slave_path, O_RDWR));
 #endif
 
   char *cwd = argv[0];
