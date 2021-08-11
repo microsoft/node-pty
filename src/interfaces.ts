@@ -109,6 +109,7 @@ interface IBasePtyForkOptions {
 export interface IPtyForkOptions extends IBasePtyForkOptions {
   uid?: number;
   gid?: number;
+  closeFDs?: boolean;
 }
 
 export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {

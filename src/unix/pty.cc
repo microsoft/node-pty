@@ -71,7 +71,10 @@
 #define NSIG 32
 #endif
 
-#ifndef POSIX_SPAWN_CLOEXEC_DEFAULT
+#ifdef POSIX_SPAWN_CLOEXEC_DEFAULT
+  #define HAVE_POSIX_SPAWN_CLOEXEC_DEFAULT 1
+#else
+  #define HAVE_POSIX_SPAWN_CLOEXEC_DEFAULT 0
   #define POSIX_SPAWN_CLOEXEC_DEFAULT 0
 #endif
 
@@ -134,7 +137,7 @@ static void throw_for_errno(const char* message, int _errno) {
 NAN_METHOD(PtyFork) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 11 ||
+  if (info.Length() != 12 ||
       !info[0]->IsString() ||
       !info[1]->IsArray() ||
       !info[2]->IsArray() ||
@@ -144,10 +147,11 @@ NAN_METHOD(PtyFork) {
       !info[6]->IsNumber() ||
       !info[7]->IsNumber() ||
       !info[8]->IsBoolean() ||
-      !info[9]->IsFunction() ||
-      !info[10]->IsString()) {
+      !info[9]->IsBoolean() ||
+      !info[10]->IsFunction() ||
+      !info[11]->IsString()) {
     return Nan::ThrowError(
-        "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, onexit, helperPath)");
+        "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, closeFDs, utf8, onexit, helperPath)");
   }
 
   // file
@@ -170,17 +174,22 @@ NAN_METHOD(PtyFork) {
   int uid = info[6]->IntegerValue(Nan::GetCurrentContext()).FromJust();
   int gid = info[7]->IntegerValue(Nan::GetCurrentContext()).FromJust();
 
+  // closeFDs
+  bool closeFDs = Nan::To<bool>(info[8]).FromJust();
+  bool explicitlyCloseFDs = closeFDs && !HAVE_POSIX_SPAWN_CLOEXEC_DEFAULT;
+
   // args
   v8::Local<v8::Array> argv_ = v8::Local<v8::Array>::Cast(info[1]);
 
-  const int EXTRA_ARGS = 4;
+  const int EXTRA_ARGS = 5;
   int argc = argv_->Length();
   int argl = argc + EXTRA_ARGS + 1;
   char **argv = new char*[argl];
   argv[0] = strdup(*cwd_);
   argv[1] = strdup(std::to_string(uid).c_str());
   argv[2] = strdup(std::to_string(gid).c_str());
-  argv[3] = strdup(*file);
+  argv[3] = strdup(explicitlyCloseFDs ? "1": "0");
+  argv[4] = strdup(*file);
   argv[argl - 1] = NULL;
   for (int i = 0; i < argc; i++) {
     Nan::Utf8String arg(Nan::Get(argv_, i).ToLocalChecked());
@@ -198,7 +207,7 @@ NAN_METHOD(PtyFork) {
   struct termios t = termios();
   struct termios *term = &t;
   term->c_iflag = ICRNL | IXON | IXANY | IMAXBEL | BRKINT;
-  if (Nan::To<bool>(info[8]).FromJust()) {
+  if (Nan::To<bool>(info[9]).FromJust()) {
 #if defined(IUTF8)
     term->c_iflag |= IUTF8;
 #endif
@@ -233,10 +242,11 @@ NAN_METHOD(PtyFork) {
   cfsetospeed(term, B38400);
 
   // helperPath
-  Nan::Utf8String helper_path_(info[10]);
+  Nan::Utf8String helper_path_(info[11]);
   char *helper_path = strdup(*helper_path_);
 
   sigset_t newmask, oldmask;
+  int flags = POSIX_SPAWN_USEVFORK;
 
   // temporarily block all signals
   // this is needed due to a race condition in openpty
@@ -270,7 +280,10 @@ NAN_METHOD(PtyFork) {
 
   posix_spawnattr_t attrs;
   posix_spawnattr_init(&attrs);
-  posix_spawnattr_setflags(&attrs, POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_USEVFORK);
+  if (closeFDs) {
+    flags |= POSIX_SPAWN_CLOEXEC_DEFAULT;
+  }
+  posix_spawnattr_setflags(&attrs, flags);
 
   { // suppresses "jump bypasses variable initialization" errors
     pid_t pid;
@@ -323,7 +336,7 @@ NAN_METHOD(PtyFork) {
     pty_baton *baton = new pty_baton();
     baton->exit_code = 0;
     baton->signal_code = 0;
-    baton->cb.Reset(v8::Local<v8::Function>::Cast(info[9]));
+    baton->cb.Reset(v8::Local<v8::Function>::Cast(info[10]));
     baton->pid = pid;
     baton->async.data = baton;
 
