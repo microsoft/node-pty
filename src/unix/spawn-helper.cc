@@ -38,8 +38,9 @@ int main (int argc, char** argv) {
   char *cwd = argv[0];
   int uid = std::stoi(argv[1]);
   int gid = std::stoi(argv[2]);
-  char *file = argv[3];
-  argv = &argv[3];
+  bool closeFDs = std::stoi(argv[3]);
+  char *file = argv[4];
+  argv = &argv[4];
 
   fcntl(COMM_PIPE_FD, F_SETFD, FD_CLOEXEC);
 
@@ -51,6 +52,15 @@ int main (int argc, char** argv) {
   }
   if (gid != -1 && setgid(gid) == -1) {
     bail(COMM_ERR_SETGID, errno);
+  }
+  if (closeFDs) {
+    struct rlimit rlim_ofile;
+    getrlimit(RLIMIT_NOFILE, &rlim_ofile);
+    for (rlim_t fd = STDERR_FILENO + 1; fd < rlim_ofile.rlim_cur; fd++) {
+      if (fd != COMM_PIPE_FD) {
+        close(fd);
+      }
+    }
   }
 
   execvp(file, argv);

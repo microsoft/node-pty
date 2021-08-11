@@ -67,6 +67,7 @@ export class UnixTerminal extends Terminal {
     this._rows = opt.rows || DEFAULT_ROWS;
     const uid = opt.uid || -1;
     const gid = opt.gid || -1;
+    const closeFDs = opt.closeFDs || false;
     const env: IProcessEnv = assign({}, opt.env);
 
     if (opt.env === process.env) {
@@ -109,7 +110,7 @@ export class UnixTerminal extends Terminal {
     };
 
     // fork
-    const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), onexit, helperPath);
+    const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), closeFDs, onexit, helperPath);
 
     this._socket = new PipeSocket(term.fd);
     if (encoding !== null) {
