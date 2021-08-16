@@ -295,8 +295,7 @@ NAN_METHOD(PtyFork) {
     pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
 
     if (error) {
-      perror("posix_spawn failed");
-      Nan::ThrowError("posix_spawn(3) failed.");
+      throw_for_errno("posix_spawn failed: ", error);
       goto done;
     }
 
