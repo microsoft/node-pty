@@ -27,6 +27,8 @@ try {
 }
 
 helperPath = path.resolve(__dirname, helperPath);
+helperPath = helperPath.replace('app.asar', 'app.asar.unpacked');
+helperPath = helperPath.replace('node_modules.asar', 'node_modules.asar.unpacked');
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
