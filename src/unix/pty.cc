@@ -29,6 +29,9 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <spawn.h>
+
+#include "comms.h"
 
 /* forkpty */
 /* http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html */
@@ -54,15 +57,6 @@
 #define VDISCARD	VDISCRD
 #endif
 
-/* environ for execvpe */
-/* node/src/node_child_process.cc */
-#if defined(__APPLE__) && !TARGET_OS_IPHONE
-#include <crt_externs.h>
-#define environ (*_NSGetEnviron())
-#else
-extern char **environ;
-#endif
-
 /* for pty_getproc */
 #if defined(__linux__)
 #include <stdio.h>
@@ -75,6 +69,17 @@ extern char **environ;
 /* NSIG - macro for highest signal + 1, should be defined */
 #ifndef NSIG
 #define NSIG 32
+#endif
+
+#ifdef POSIX_SPAWN_CLOEXEC_DEFAULT
+  #define HAVE_POSIX_SPAWN_CLOEXEC_DEFAULT 1
+#else
+  #define HAVE_POSIX_SPAWN_CLOEXEC_DEFAULT 0
+  #define POSIX_SPAWN_CLOEXEC_DEFAULT 0
+#endif
+
+#ifndef POSIX_SPAWN_USEVFORK
+  #define POSIX_SPAWN_USEVFORK 0
 #endif
 
 /**
@@ -104,9 +109,6 @@ NAN_METHOD(PtyGetProc);
  */
 
 static int
-pty_execvpe(const char *, char **, char **);
-
-static int
 pty_nonblock(int);
 
 static char *
@@ -114,11 +116,6 @@ pty_getproc(int, char *);
 
 static int
 pty_openpty(int *, int *, char *,
-            const struct termios *,
-            const struct winsize *);
-
-static pid_t
-pty_forkpty(int *, char *,
             const struct termios *,
             const struct winsize *);
 
@@ -131,10 +128,16 @@ pty_after_waitpid(uv_async_t *);
 static void
 pty_after_close(uv_handle_t *);
 
+static void throw_for_errno(const char* message, int _errno) {
+  Nan::ThrowError((
+    message + std::string(strerror(_errno))
+  ).c_str());
+}
+
 NAN_METHOD(PtyFork) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 10 ||
+  if (info.Length() != 12 ||
       !info[0]->IsString() ||
       !info[1]->IsArray() ||
       !info[2]->IsArray() ||
@@ -144,41 +147,54 @@ NAN_METHOD(PtyFork) {
       !info[6]->IsNumber() ||
       !info[7]->IsNumber() ||
       !info[8]->IsBoolean() ||
-      !info[9]->IsFunction()) {
+      !info[9]->IsBoolean() ||
+      !info[10]->IsFunction() ||
+      !info[11]->IsString()) {
     return Nan::ThrowError(
-        "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, onexit)");
+        "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, closeFDs, utf8, onexit, helperPath)");
   }
 
   // file
   Nan::Utf8String file(info[0]);
 
-  // args
-  int i = 0;
-  v8::Local<v8::Array> argv_ = v8::Local<v8::Array>::Cast(info[1]);
-  int argc = argv_->Length();
-  int argl = argc + 1 + 1;
-  char **argv = new char*[argl];
-  argv[0] = strdup(*file);
-  argv[argl-1] = NULL;
-  for (; i < argc; i++) {
-    Nan::Utf8String arg(Nan::Get(argv_, i).ToLocalChecked());
-    argv[i+1] = strdup(*arg);
-  }
-
   // env
-  i = 0;
   v8::Local<v8::Array> env_ = v8::Local<v8::Array>::Cast(info[2]);
   int envc = env_->Length();
   char **env = new char*[envc+1];
   env[envc] = NULL;
-  for (; i < envc; i++) {
+  for (int i = 0; i < envc; i++) {
     Nan::Utf8String pair(Nan::Get(env_, i).ToLocalChecked());
     env[i] = strdup(*pair);
   }
 
   // cwd
   Nan::Utf8String cwd_(info[3]);
-  char *cwd = strdup(*cwd_);
+
+  // uid / gid
+  int uid = info[6]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  int gid = info[7]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+
+  // closeFDs
+  bool closeFDs = Nan::To<bool>(info[8]).FromJust();
+  bool explicitlyCloseFDs = closeFDs && !HAVE_POSIX_SPAWN_CLOEXEC_DEFAULT;
+
+  // args
+  v8::Local<v8::Array> argv_ = v8::Local<v8::Array>::Cast(info[1]);
+
+  const int EXTRA_ARGS = 5;
+  int argc = argv_->Length();
+  int argl = argc + EXTRA_ARGS + 1;
+  char **argv = new char*[argl];
+  argv[0] = strdup(*cwd_);
+  argv[1] = strdup(std::to_string(uid).c_str());
+  argv[2] = strdup(std::to_string(gid).c_str());
+  argv[3] = strdup(explicitlyCloseFDs ? "1": "0");
+  argv[4] = strdup(*file);
+  argv[argl - 1] = NULL;
+  for (int i = 0; i < argc; i++) {
+    Nan::Utf8String arg(Nan::Get(argv_, i).ToLocalChecked());
+    argv[i + EXTRA_ARGS] = strdup(*arg);
+  }
 
   // size
   struct winsize winp;
@@ -191,7 +207,7 @@ NAN_METHOD(PtyFork) {
   struct termios t = termios();
   struct termios *term = &t;
   term->c_iflag = ICRNL | IXON | IXANY | IMAXBEL | BRKINT;
-  if (Nan::To<bool>(info[8]).FromJust()) {
+  if (Nan::To<bool>(info[9]).FromJust()) {
 #if defined(IUTF8)
     term->c_iflag |= IUTF8;
 #endif
@@ -225,15 +241,12 @@ NAN_METHOD(PtyFork) {
   cfsetispeed(term, B38400);
   cfsetospeed(term, B38400);
 
-  // uid / gid
-  int uid = info[6]->IntegerValue(Nan::GetCurrentContext()).FromJust();
-  int gid = info[7]->IntegerValue(Nan::GetCurrentContext()).FromJust();
-
-  // fork the pty
-  int master = -1;
+  // helperPath
+  Nan::Utf8String helper_path_(info[11]);
+  char *helper_path = strdup(*helper_path_);
 
   sigset_t newmask, oldmask;
-  struct sigaction sig_action;
+  int flags = POSIX_SPAWN_USEVFORK;
 
   // temporarily block all signals
   // this is needed due to a race condition in openpty
@@ -242,85 +255,109 @@ NAN_METHOD(PtyFork) {
   sigfillset(&newmask);
   pthread_sigmask(SIG_SETMASK, &newmask, &oldmask);
 
-  pid_t pid = pty_forkpty(&master, nullptr, term, &winp);
+  int master, slave;
+  int ret = pty_openpty(&master, &slave, nullptr, term, &winp);
+  if (ret == -1) {
+    perror("openpty failed");
+    Nan::ThrowError("openpty failed.");
+    goto done;
+  }
 
-  if (!pid) {
-    // remove all signal handler from child
-    sig_action.sa_handler = SIG_DFL;
-    sig_action.sa_flags = 0;
-    sigemptyset(&sig_action.sa_mask);
-    for (int i = 0 ; i < NSIG ; i++) {    // NSIG is a macro for all signals + 1
-      sigaction(i, &sig_action, NULL);
+  int comms_pipe[2];
+  if (pipe(comms_pipe)) {
+    perror("pipe() failed");
+    Nan::ThrowError("pipe() failed.");
+    goto done;
+  }
+
+  posix_spawn_file_actions_t acts;
+  posix_spawn_file_actions_init(&acts);
+  posix_spawn_file_actions_adddup2(&acts, slave, STDIN_FILENO);
+  posix_spawn_file_actions_adddup2(&acts, slave, STDOUT_FILENO);
+  posix_spawn_file_actions_adddup2(&acts, slave, STDERR_FILENO);
+  posix_spawn_file_actions_adddup2(&acts, comms_pipe[1], COMM_PIPE_FD);
+  posix_spawn_file_actions_addclose(&acts, comms_pipe[1]);
+
+  posix_spawnattr_t attrs;
+  posix_spawnattr_init(&attrs);
+  if (closeFDs) {
+    flags |= POSIX_SPAWN_CLOEXEC_DEFAULT;
+  }
+  posix_spawnattr_setflags(&attrs, flags);
+
+  { // suppresses "jump bypasses variable initialization" errors
+    pid_t pid;
+    auto error = posix_spawn(&pid, helper_path, &acts, &attrs, argv, env);
+
+    close(comms_pipe[1]);
+
+    // reenable signals
+    pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
+
+    if (error) {
+      throw_for_errno("posix_spawn failed: ", error);
+      goto done;
     }
-  }
-  // reenable signals
-  pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
 
-  if (pid) {
-    for (i = 0; i < argl; i++) free(argv[i]);
+    int helper_error[2];
+    auto bytes_read = read(comms_pipe[0], &helper_error, sizeof(helper_error));
+    close(comms_pipe[0]);
+
+    if (bytes_read == sizeof(helper_error)) {
+      if (helper_error[0] == COMM_ERR_EXEC) {
+        throw_for_errno("exec() failed: ", helper_error[1]);
+      } else if (helper_error[0] == COMM_ERR_CHDIR) {
+        throw_for_errno("chdir() failed: ", helper_error[1]);
+      } else if (helper_error[0] == COMM_ERR_SETUID) {
+        throw_for_errno("setuid() failed: ", helper_error[1]);
+      } else if (helper_error[0] == COMM_ERR_SETGID) {
+        throw_for_errno("setgid() failed: ", helper_error[1]);
+      }
+      goto done;
+    }
+
+    if (pty_nonblock(master) == -1) {
+      Nan::ThrowError("Could not set master fd to nonblocking.");
+      goto done;
+    }
+
+    v8::Local<v8::Object> obj = Nan::New<v8::Object>();
+    Nan::Set(obj,
+      Nan::New<v8::String>("fd").ToLocalChecked(),
+      Nan::New<v8::Number>(master));
+    Nan::Set(obj,
+      Nan::New<v8::String>("pid").ToLocalChecked(),
+      Nan::New<v8::Number>(pid));
+    Nan::Set(obj,
+      Nan::New<v8::String>("pty").ToLocalChecked(),
+      Nan::New<v8::String>(ptsname(master)).ToLocalChecked());
+
+    pty_baton *baton = new pty_baton();
+    baton->exit_code = 0;
+    baton->signal_code = 0;
+    baton->cb.Reset(v8::Local<v8::Function>::Cast(info[10]));
+    baton->pid = pid;
+    baton->async.data = baton;
+
+    uv_async_init(uv_default_loop(), &baton->async, pty_after_waitpid);
+
+    uv_thread_create(&baton->tid, pty_waitpid, static_cast<void*>(baton));
+
+    info.GetReturnValue().Set(obj);
+  }
+done:
+  posix_spawn_file_actions_destroy(&acts);
+  posix_spawnattr_destroy(&attrs);
+
+  if (argv) {
+    for (int i = 0; i < argl; i++) free(argv[i]);
     delete[] argv;
-    for (i = 0; i < envc; i++) free(env[i]);
+  }
+  if (env) {
+    for (int i = 0; i < envc; i++) free(env[i]);
     delete[] env;
-    free(cwd);
   }
-
-  switch (pid) {
-    case -1:
-      return Nan::ThrowError("forkpty(3) failed.");
-    case 0:
-      if (strlen(cwd)) {
-        if (chdir(cwd) == -1) {
-          perror("chdir(2) failed.");
-          _exit(1);
-        }
-      }
-
-      if (uid != -1 && gid != -1) {
-        if (setgid(gid) == -1) {
-          perror("setgid(2) failed.");
-          _exit(1);
-        }
-        if (setuid(uid) == -1) {
-          perror("setuid(2) failed.");
-          _exit(1);
-        }
-      }
-
-      pty_execvpe(argv[0], argv, env);
-
-      perror("execvp(3) failed.");
-      _exit(1);
-    default:
-      if (pty_nonblock(master) == -1) {
-        return Nan::ThrowError("Could not set master fd to nonblocking.");
-      }
-
-      v8::Local<v8::Object> obj = Nan::New<v8::Object>();
-      Nan::Set(obj,
-        Nan::New<v8::String>("fd").ToLocalChecked(),
-        Nan::New<v8::Number>(master));
-      Nan::Set(obj,
-        Nan::New<v8::String>("pid").ToLocalChecked(),
-        Nan::New<v8::Number>(pid));
-      Nan::Set(obj,
-        Nan::New<v8::String>("pty").ToLocalChecked(),
-        Nan::New<v8::String>(ptsname(master)).ToLocalChecked());
-
-      pty_baton *baton = new pty_baton();
-      baton->exit_code = 0;
-      baton->signal_code = 0;
-      baton->cb.Reset(v8::Local<v8::Function>::Cast(info[9]));
-      baton->pid = pid;
-      baton->async.data = baton;
-
-      uv_async_init(uv_default_loop(), &baton->async, pty_after_waitpid);
-
-      uv_thread_create(&baton->tid, pty_waitpid, static_cast<void*>(baton));
-
-      return info.GetReturnValue().Set(obj);
-  }
-
-  return info.GetReturnValue().SetUndefined();
+  free(helper_path);
 }
 
 NAN_METHOD(PtyOpen) {
@@ -426,21 +463,6 @@ NAN_METHOD(PtyGetProc) {
   v8::Local<v8::String> name_ = Nan::New<v8::String>(name).ToLocalChecked();
   free(name);
   return info.GetReturnValue().Set(name_);
-}
-
-/**
- * execvpe
- */
-
-// execvpe(3) is not portable.
-// http://www.gnu.org/software/gnulib/manual/html_node/execvpe.html
-static int
-pty_execvpe(const char *file, char **argv, char **envp) {
-  char **old = environ;
-  environ = envp;
-  int ret = execvp(file, argv);
-  environ = old;
-  return ret;
 }
 
 /**
@@ -669,55 +691,6 @@ err:
   return openpty(amaster, aslave, name, (termios *)termp, (winsize *)winp);
 #endif
 }
-
-static pid_t
-pty_forkpty(int *amaster,
-            char *name,
-            const struct termios *termp,
-            const struct winsize *winp) {
-#if defined(__sun)
-  int master, slave;
-
-  int ret = pty_openpty(&master, &slave, name, termp, winp);
-  if (ret == -1) return -1;
-  if (amaster) *amaster = master;
-
-  pid_t pid = fork();
-
-  switch (pid) {
-    case -1:  // error in fork, we are still in parent
-      close(master);
-      close(slave);
-      return -1;
-    case 0:  // we are in the child process
-      close(master);
-      setsid();
-
-#if defined(TIOCSCTTY)
-      // glibc does this
-      if (ioctl(slave, TIOCSCTTY, NULL) == -1) {
-        _exit(1);
-      }
-#endif
-
-      dup2(slave, 0);
-      dup2(slave, 1);
-      dup2(slave, 2);
-
-      if (slave > 2) close(slave);
-
-      return 0;
-    default:  // we are in the parent process
-      close(slave);
-      return pid;
-  }
-
-  return -1;
-#else
-  return forkpty(amaster, name, (termios *)termp, (winsize *)winp);
-#endif
-}
-
 
 /**
  * Init
