@@ -17,6 +17,7 @@ The full API for node-pty is contained within the [TypeScript declaration file](
 
 ## Example Usage
 
+### Javascript
 ```js
 var os = require('os');
 var pty = require('node-pty');
@@ -39,6 +40,31 @@ ptyProcess.write('ls\r');
 ptyProcess.resize(100, 40);
 ptyProcess.write('ls\r');
 ```
+
+### Typescript
+```ts
+import * as os from "os";
+import * as pty from "node-pty"; // Event if using "esModuleInterop", you should be import it like this.
+
+const shell = os.platform() === "win32" ? "powershell.exe" : "bash";
+
+const ptyProcess = pty.spawn(shell, [], {
+	name: "xterm-color",
+	cols: 80,
+	rows: 30,
+	cwd: process.env.HOME,
+	env: process.env,
+});
+
+ptyProcess.on("data", function (data) {
+	process.stdout.write(data);
+});
+
+ptyProcess.write("ls\r");
+ptyProcess.resize(100, 40);
+ptyProcess.write("ls\r");
+```
+
 
 ## Real-world Uses
 
