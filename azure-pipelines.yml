@@ -95,3 +95,4 @@ jobs:
   - script: |
       NPM_AUTH_TOKEN="$(NPM_AUTH_TOKEN)" node ./scripts/publish.js
     displayName: 'Publish to npm'
+
