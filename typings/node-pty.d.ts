@@ -42,7 +42,7 @@ declare module 'node-pty' {
     /**
      * Environment to be set for the child program.
      */
-    env?: { [key: string]: string };
+    env?: { [key: string]: string | undefined };
 
     /**
      * String encoding of the underlying pty.
@@ -183,6 +183,16 @@ declare module 'node-pty' {
      * @throws Will throw when signal is used on Windows.
      */
     kill(signal?: string): void;
+
+    /**
+     * Pauses the pty for customizable flow control.
+     */
+    pause(): void;
+
+    /**
+     * Resumes the pty for customizable flow control.
+     */
+    resume(): void;
   }
 
   /**

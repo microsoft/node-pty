@@ -13,7 +13,7 @@ This is useful for:
 
 ## API
 
-The full API for node-pty is contained within the [TypeScript declaration file](https://github.com/microsoft/node-pty/blob/master/typings/node-pty.d.ts), use the branch/tag picker in GitHub (`w`) to navigate to the correct version of the API.
+The full API for node-pty is contained within the [TypeScript declaration file](https://github.com/microsoft/node-pty/blob/main/typings/node-pty.d.ts), use the branch/tag picker in GitHub (`w`) to navigate to the correct version of the API.
 
 ## Example Usage
 
@@ -61,6 +61,11 @@ ptyProcess.write('ls\r');
 - [DockerStacks](https://github.com/sfx101/docker-stacks) Local LAMP/LEMP stack using Docker
 - [TeleType](https://github.com/akshaykmr/TeleType): cli tool that allows you to share your terminal online conveniently. Show off mad cli-fu, help a colleague, teach, or troubleshoot.
 - [mesos-term](https://github.com/criteo/mesos-term): A web terminal for Apache Mesos. It allows to execute commands within containers.
+- [Commas](https://github.com/CyanSalt/commas): A hackable terminal and command runner.
+- [ENiGMA½ BBS Software](https://github.com/NuSkooler/enigma-bbs): A modern BBS software with a nostalgic flair!
+- [Tinkerun](https://github.com/tinkerun/tinkerun): A new way of running Tinker.
+- [Tess](https://github.com/SquitchYT/Tess/): Hackable, simple and rapid terminal for the new era of technology 👍
+- [NxShell](https://nxshell.github.io/): An easy to use new terminal for Windows/Linux/MacOS platform.
 
 Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
 
@@ -75,15 +80,13 @@ npm run build
 
 ## Dependencies
 
-### Linux/Ubuntu
+Node.JS 12+ or Electron 8+ is required to use `node-pty`.
 
-```
+### Linux (apt)
+
+```sh
 sudo apt install -y make python build-essential
 ```
-
-The following are also needed:
-
-- Node.JS 10+
 
 ### macOS
 
@@ -100,7 +103,6 @@ npm install --global --production windows-build-tools
 The following are also needed:
 
 - [Windows SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk) - only the "Desktop C++ Apps" components are needed to be installed
-- Node.JS 10+
 
 ## Debugging
 

@@ -9,10 +9,10 @@ jobs:
     vmImage: 'ubuntu-16.04'
   strategy:
     matrix:
-      node_10_x:
-        node_version: 10.x
       node_12_x:
         node_version: 12.x
+      node_14_x:
+        node_version: 14.x
   steps:
   - task: NodeTool@0
     inputs:
@@ -33,10 +33,10 @@ jobs:
     vmImage: 'macOS-11.0'
   strategy:
     matrix:
-      node_10_x:
-        node_version: 10.x
       node_12_x:
         node_version: 12.x
+      node_14_x:
+        node_version: 14.x
   steps:
   - task: NodeTool@0
     inputs:
@@ -57,10 +57,10 @@ jobs:
     vmImage: 'vs2017-win2016'
   strategy:
     matrix:
-      node_10_x:
-        node_version: 10.x
       node_12_x:
         node_version: 12.x
+      node_14_x:
+        node_version: 14.x
   steps:
   - task: NodeTool@0
     inputs:
@@ -81,13 +81,13 @@ jobs:
   - Linux
   - macOS
   - Windows
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
   - task: NodeTool@0
     inputs:
-      versionSpec: '8.x'
+      versionSpec: '12.x'
     displayName: 'Install Node.js'
   - script: |
       npm i
