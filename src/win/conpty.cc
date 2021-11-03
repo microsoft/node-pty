@@ -424,18 +424,20 @@ static NAN_METHOD(PtyKill) {
 
   const pty_baton* handle = get_pty_baton(id);
 
-  HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
-  bool fLoadedDll = hLibrary != nullptr;
-  if (fLoadedDll)
-  {
-    PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ClosePseudoConsole");
-    if (pfnClosePseudoConsole)
+  if (handle != nullptr) {
+    HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
+    bool fLoadedDll = hLibrary != nullptr;
+    if (fLoadedDll)
     {
-      pfnClosePseudoConsole(handle->hpc);
+      PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ClosePseudoConsole");
+      if (pfnClosePseudoConsole)
+      {
+        pfnClosePseudoConsole(handle->hpc);
+      }
     }
-  }
 
-  CloseHandle(handle->hShell);
+    CloseHandle(handle->hShell);
+  }
 
   return info.GetReturnValue().SetUndefined();
 }
