@@ -289,6 +289,13 @@ static NAN_METHOD(PtyConnect) {
   const v8::Local<v8::Array> envValues = info[3].As<v8::Array>();
   const v8::Local<v8::Function> exitCallback = v8::Local<v8::Function>::Cast(info[4]);
 
+  // Fetch pty handle from ID and start process
+  pty_baton* handle = get_pty_baton(id);
+  if (!handle) {
+    Nan::ThrowError("Invalid pty handle");
+    return;
+  }
+
   // Prepare command line
   std::unique_ptr<wchar_t[]> mutableCommandline = std::make_unique<wchar_t[]>(cmdline.length() + 1);
   HRESULT hr = StringCchCopyW(mutableCommandline.get(), cmdline.length() + 1, cmdline.c_str());
@@ -310,9 +317,6 @@ static NAN_METHOD(PtyConnect) {
   }
   auto envV = vectorFromString(env);
   LPWSTR envArg = envV.empty() ? nullptr : envV.data();
-
-  // Fetch pty handle from ID and start process
-  pty_baton* handle = get_pty_baton(id);
 
   BOOL success = ConnectNamedPipe(handle->hIn, nullptr);
   success = ConnectNamedPipe(handle->hOut, nullptr);
@@ -396,15 +400,17 @@ static NAN_METHOD(PtyResize) {
 
   const pty_baton* handle = get_pty_baton(id);
 
-  HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
-  bool fLoadedDll = hLibrary != nullptr;
-  if (fLoadedDll)
-  {
-    PFNRESIZEPSEUDOCONSOLE const pfnResizePseudoConsole = (PFNRESIZEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ResizePseudoConsole");
-    if (pfnResizePseudoConsole)
+  if (handle != nullptr) {
+    HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
+    bool fLoadedDll = hLibrary != nullptr;
+    if (fLoadedDll)
     {
-      COORD size = {cols, rows};
-      pfnResizePseudoConsole(handle->hpc, size);
+      PFNRESIZEPSEUDOCONSOLE const pfnResizePseudoConsole = (PFNRESIZEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ResizePseudoConsole");
+      if (pfnResizePseudoConsole)
+      {
+        COORD size = {cols, rows};
+        pfnResizePseudoConsole(handle->hpc, size);
+      }
     }
   }
 
@@ -424,18 +430,20 @@ static NAN_METHOD(PtyKill) {
 
   const pty_baton* handle = get_pty_baton(id);
 
-  HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
-  bool fLoadedDll = hLibrary != nullptr;
-  if (fLoadedDll)
-  {
-    PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ClosePseudoConsole");
-    if (pfnClosePseudoConsole)
+  if (handle != nullptr) {
+    HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
+    bool fLoadedDll = hLibrary != nullptr;
+    if (fLoadedDll)
     {
-      pfnClosePseudoConsole(handle->hpc);
+      PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ClosePseudoConsole");
+      if (pfnClosePseudoConsole)
+      {
+        pfnClosePseudoConsole(handle->hpc);
+      }
     }
-  }
 
-  CloseHandle(handle->hShell);
+    CloseHandle(handle->hShell);
+  }
 
   return info.GetReturnValue().SetUndefined();
 }
