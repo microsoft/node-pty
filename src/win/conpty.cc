@@ -318,8 +318,8 @@ static NAN_METHOD(PtyConnect) {
   auto envV = vectorFromString(env);
   LPWSTR envArg = envV.empty() ? nullptr : envV.data();
 
-  BOOL success = ConnectNamedPipe(handle->hIn, nullptr);
-  success = ConnectNamedPipe(handle->hOut, nullptr);
+  ConnectNamedPipe(handle->hIn, nullptr);
+  ConnectNamedPipe(handle->hOut, nullptr);
 
   // Attach the pseudoconsole to the client application we're creating
   STARTUPINFOEXW siEx{0};
@@ -442,6 +442,10 @@ static NAN_METHOD(PtyKill) {
       }
     }
 
+    DisconnectNamedPipe(handle->hIn);
+    DisconnectNamedPipe(handle->hOut);
+    CloseHandle(handle->hIn);
+    CloseHandle(handle->hOut);
     CloseHandle(handle->hShell);
   }
 
