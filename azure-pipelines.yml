@@ -6,7 +6,7 @@
 jobs:
 - job: Linux
   pool:
-    vmImage: 'ubuntu-16.04'
+    vmImage: 'ubuntu-18.04'
   strategy:
     matrix:
       node_12_x:
@@ -83,7 +83,7 @@ jobs:
   - Windows
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   pool:
-    vmImage: 'ubuntu-16.04'
+    vmImage: 'ubuntu-18.04'
   steps:
   - task: NodeTool@0
     inputs:
@@ -95,3 +95,4 @@ jobs:
   - script: |
       NPM_AUTH_TOKEN="$(NPM_AUTH_TOKEN)" node ./scripts/publish.js
     displayName: 'Publish to npm'
+

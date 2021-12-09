@@ -52,7 +52,7 @@ std::wstring get_shell_path(std::wstring filename) {
 
   const wchar_t *filename_ = filename.c_str();
 
-  for (int i = 0; i < paths.size(); ++i) {
+  for (size_t i = 0; i < paths.size(); ++i) {
     std::wstring path = paths[i];
     wchar_t searchPath[MAX_PATH];
     ::PathCombineW(searchPath, const_cast<wchar_t*>(path.c_str()), filename_);
