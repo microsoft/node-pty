@@ -178,6 +178,10 @@ export class UnixTerminal extends Terminal {
     this._socket.write(data);
   }
 
+  /* Accessors */
+  get fd(): number { return this._fd; }
+  get ptsName(): string { return this._pty; }
+
   /**
    * openpty
    */
