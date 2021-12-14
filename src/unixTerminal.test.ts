@@ -7,6 +7,8 @@ import { UnixTerminal } from './unixTerminal';
 import * as assert from 'assert';
 import * as cp from 'child_process';
 import * as path from 'path';
+import * as tty from 'tty';
+import { constants } from 'os';
 import { pollUntil } from './testUtils.test';
 
 const FIXTURES_PATH = path.normalize(path.join(__dirname, '..', 'fixtures', 'utf8-character.txt'));
@@ -26,8 +28,9 @@ if (process.platform !== 'win32') {
           regExp = /^\/dev\/tty[p-sP-S][a-z0-9]+$/;
         }
         if (regExp) {
-          assert.ok(regExp.test((<any>term)._pty), '"' + (<any>term)._pty + '" should match ' + regExp.toString());
+          assert.ok(regExp.test(term.ptsName), '"' + term.ptsName + '" should match ' + regExp.toString());
         }
+        assert.ok(tty.isatty(term.fd));
       });
     });
 
@@ -102,6 +105,17 @@ if (process.platform !== 'win32') {
 
         term.slave.write('slave\n');
         term.master.write('master\n');
+      });
+    });
+    describe('close', () => {
+      const term = new UnixTerminal('node');
+      it('should exit when terminal is destroyed programmatically', (done) => {
+        term.on('exit', (code, signal) => {
+          assert.strictEqual(code, 0);
+          assert.strictEqual(signal, constants.signals.SIGHUP);
+          done();
+        });
+        term.destroy();
       });
     });
     describe('signals in parent and child', () => {
