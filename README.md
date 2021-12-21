@@ -1,6 +1,6 @@
 # node-pty
 
-[![Build Status](https://dev.azure.com/vscode/node-pty/_apis/build/status/Microsoft.node-pty)](https://dev.azure.com/vscode/node-pty/_build/latest?definitionId=11)
+[![Build Status](https://dev.azure.com/vscode/node-pty/_apis/build/status/Microsoft.node-pty?branchName=main)](https://dev.azure.com/vscode/node-pty/_build/latest?definitionId=11&branchName=main)
 
 `forkpty(3)` bindings for node.js. This allows you to fork processes with pseudoterminal file descriptors. It returns a terminal object which allows reads and writes.
 
@@ -64,7 +64,7 @@ ptyProcess.write('ls\r');
 - [Commas](https://github.com/CyanSalt/commas): A hackable terminal and command runner.
 - [ENiGMA½ BBS Software](https://github.com/NuSkooler/enigma-bbs): A modern BBS software with a nostalgic flair!
 - [Tinkerun](https://github.com/tinkerun/tinkerun): A new way of running Tinker.
-- [Tess](https://github.com/SquitchYT/Tess/): Hackable, simple and rapid terminal for the new era of technology 👍
+- [Tess](https://tessapp.dev): Hackable, simple and rapid terminal for the new era of technology 👍
 - [NxShell](https://nxshell.github.io/): An easy to use new terminal for Windows/Linux/MacOS platform.
 
 Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
