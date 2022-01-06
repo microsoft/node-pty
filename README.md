@@ -66,6 +66,7 @@ ptyProcess.write('ls\r');
 - [Tinkerun](https://github.com/tinkerun/tinkerun): A new way of running Tinker.
 - [Tess](https://tessapp.dev): Hackable, simple and rapid terminal for the new era of technology 👍
 - [NxShell](https://nxshell.github.io/): An easy to use new terminal for Windows/Linux/MacOS platform.
+- [OpenSumi](https://github.com/opensumi/core): A framework helps you quickly build Cloud or Desktop IDE products.
 
 Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
 
