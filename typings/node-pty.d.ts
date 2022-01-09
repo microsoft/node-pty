@@ -171,7 +171,7 @@ declare module 'node-pty' {
 
     /**
      * Resizes the dimensions of the pty.
-     * @param columns THe number of columns to use.
+     * @param columns The number of columns to use.
      * @param rows The number of rows to use.
      */
     resize(columns: number, rows: number): void;
