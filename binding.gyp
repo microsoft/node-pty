@@ -1,4 +1,23 @@
 {
+  'target_defaults': {
+    'conditions': [
+      ['OS=="win"', {
+        'msvs_settings': {
+            'VCCLCompilerTool': {
+              'AdditionalOptions': [
+                '/Qspectre',
+                '/guard:cf'
+              ]
+            },
+            'VCLinkerTool': {
+              'AdditionalOptions': [
+                '/guard:cf'
+              ]
+            }
+          },
+      }],
+    ],
+  },
   'conditions': [
     ['OS=="win"', {
       'targets': [
@@ -14,19 +33,6 @@
           'libraries': [
             'shlwapi.lib'
           ],
-          'msvs_settings': {
-            'VCCLCompilerTool': {
-              'AdditionalOptions': [
-                '/Qspectre',
-                '/guard:cf'
-              ]
-            },
-            'VCLinkerTool': {
-              'AdditionalOptions': [
-                '/guard:cf'
-              ]
-            }
-          },
         },
         {
           'target_name': 'conpty_console_list',
@@ -36,19 +42,6 @@
           'sources' : [
             'src/win/conpty_console_list.cc'
           ],
-          'msvs_settings': {
-            'VCCLCompilerTool': {
-              'AdditionalOptions': [
-                '/Qspectre',
-                '/guard:cf'
-              ]
-            },
-            'VCLinkerTool': {
-              'AdditionalOptions': [
-                '/guard:cf'
-              ]
-            }
-          },
         },
         {
           'target_name': 'pty',
@@ -69,19 +62,6 @@
           'libraries': [
             'shlwapi.lib'
           ],
-          'msvs_settings': {
-            'VCCLCompilerTool': {
-              'AdditionalOptions': [
-                '/Qspectre',
-                '/guard:cf'
-              ]
-            },
-            'VCLinkerTool': {
-              'AdditionalOptions': [
-                '/guard:cf'
-              ]
-            }
-          },
         }
       ]
     }, { # OS!="win"
