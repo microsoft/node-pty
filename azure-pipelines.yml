@@ -66,7 +66,7 @@ jobs:
     inputs:
       versionSpec: $(node_version)
     displayName: 'Install Node.js'
-  - powershell: |
+  - script: |
       # update node-gyp to latest for support in detecting VS 2022 toolchain
       npm install -g node-gyp@latest
       # Resolve to node-gyp.js
