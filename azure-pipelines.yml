@@ -54,7 +54,7 @@ jobs:
 
 - job: Windows
   pool:
-    vmImage: 'windows-latest'
+    vmImage: 'windows-2019'
   strategy:
     matrix:
       node_12_x:
