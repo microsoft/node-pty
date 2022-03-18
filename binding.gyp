@@ -1,4 +1,23 @@
 {
+  'target_defaults': {
+    'conditions': [
+      ['OS=="win"', {
+        'msvs_settings': {
+            'VCCLCompilerTool': {
+              'AdditionalOptions': [
+                '/Qspectre',
+                '/guard:cf'
+              ]
+            },
+            'VCLinkerTool': {
+              'AdditionalOptions': [
+                '/guard:cf'
+              ]
+            }
+          },
+      }],
+    ],
+  },
   'conditions': [
     ['OS=="win"', {
       'targets': [
@@ -13,7 +32,7 @@
           ],
           'libraries': [
             'shlwapi.lib'
-          ]
+          ],
         },
         {
           'target_name': 'conpty_console_list',
@@ -22,7 +41,7 @@
           ],
           'sources' : [
             'src/win/conpty_console_list.cc'
-          ]
+          ],
         },
         {
           'target_name': 'pty',
