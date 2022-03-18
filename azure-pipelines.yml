@@ -30,7 +30,7 @@ jobs:
 
 - job: macOS
   pool:
-    vmImage: 'macOS-10.15'
+    vmImage: 'macOS-latest'
   strategy:
     matrix:
       node_12_x:
@@ -54,7 +54,7 @@ jobs:
 
 - job: Windows
   pool:
-    vmImage: 'vs2017-win2016'
+    vmImage: 'windows-2019'
   strategy:
     matrix:
       node_12_x:
