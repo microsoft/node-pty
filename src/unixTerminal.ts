@@ -67,8 +67,8 @@ export class UnixTerminal extends Terminal {
 
     this._cols = opt.cols || DEFAULT_COLS;
     this._rows = opt.rows || DEFAULT_ROWS;
-    const uid = opt.uid || -1;
-    const gid = opt.gid || -1;
+    const uid = opt.uid ?? -1;
+    const gid = opt.gid ?? -1;
     const closeFDs = opt.closeFDs || false;
     const env: IProcessEnv = assign({}, opt.env);
 
