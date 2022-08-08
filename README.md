@@ -31,7 +31,7 @@ var ptyProcess = pty.spawn(shell, [], {
   env: process.env
 });
 
-ptyProcess.on('data', function(data) {
+ptyProcess.onData((data) => {
   process.stdout.write(data);
 });
 
