@@ -76,7 +76,8 @@
           'conditions': [
             ['OS=="mac"', {
               "xcode_settings": {
-                "MACOSX_DEPLOYMENT_TARGET":"10.7"
+                "MACOSX_DEPLOYMENT_TARGET":"10.7",
+                'CLANG_CXX_LANGUAGE_STANDARD': 'c++17'
               }
             }]
           ]
@@ -104,7 +105,8 @@
             }],
             ['OS=="mac"', {
               "xcode_settings": {
-                "MACOSX_DEPLOYMENT_TARGET":"10.7"
+                "MACOSX_DEPLOYMENT_TARGET":"10.7",
+                'CLANG_CXX_LANGUAGE_STANDARD': 'c++17'
               }
             }]
           ]
