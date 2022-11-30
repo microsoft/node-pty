@@ -81,7 +81,7 @@ npm run build
 
 ## Dependencies
 
-Node.JS 12+ or Electron 8+ is required to use `node-pty`.
+Node.JS 16 or Electron 19 is required to use `node-pty`. What version of node is supported is currently mostly bound to [whatever version Visual Studio Code is using](https://github.com/microsoft/node-pty/issues/557#issuecomment-1332193541).
 
 ### Linux (apt)
 
