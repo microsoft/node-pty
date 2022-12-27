@@ -29,10 +29,10 @@ const FLUSH_DATA_INTERVAL = 1000;
 export class WindowsPtyAgent {
   private _inSocket: Socket;
   private _outSocket: Socket;
-  private _pid: number;
-  private _innerPid: number;
-  private _innerPidHandle: number;
-  private _closeTimeout: NodeJS.Timer;
+  private _pid: number = 0;
+  private _innerPid: number = 0;
+  private _innerPidHandle: number = 0;
+  private _closeTimeout: NodeJS.Timer | undefined;
   private _exitCode: number | undefined;
   private _conoutSocketWorker: ConoutConnection;
 
@@ -202,7 +202,7 @@ export class WindowsPtyAgent {
     });
   }
 
-  public get exitCode(): number {
+  public get exitCode(): number | undefined {
     if (this._useConpty) {
       return this._exitCode;
     }

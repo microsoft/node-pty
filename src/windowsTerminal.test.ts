@@ -65,7 +65,7 @@ function pollForProcessTreeSize(pid: number, size: number, intervalMs: number = 
         })[0]);
         const list: IWindowsProcessTreeResult[] = [];
         while (openList.length) {
-          const current = openList.shift();
+          const current = openList.shift()!;
           ps.filter(p => p.ppid === current.pid).map(p => {
             return { name: p.name, pid: p.pid };
           }).forEach(p => openList.push(p));
@@ -81,7 +81,6 @@ function pollForProcessTreeSize(pid: number, size: number, intervalMs: number = 
         if (tries * intervalMs >= timeoutMs) {
           clearInterval(interval);
           assert.fail(`Bad process state, expected: ${size}, actual: ${list.length}`);
-          resolve();
         }
       });
     }, intervalMs);
@@ -105,10 +104,10 @@ if (process.platform === 'win32') {
         term.write('notepad.exe\r');
         term.write('node.exe\r');
         pollForProcessTreeSize(term.pid, 4, 500, 5000).then(list => {
-          assert.equal(list[0].name, 'cmd.exe');
-          assert.equal(list[1].name, 'powershell.exe');
-          assert.equal(list[2].name, 'notepad.exe');
-          assert.equal(list[3].name, 'node.exe');
+          assert.strictEqual(list[0].name.toLowerCase(), 'cmd.exe');
+          assert.strictEqual(list[1].name.toLowerCase(), 'powershell.exe');
+          assert.strictEqual(list[2].name.toLowerCase(), 'notepad.exe');
+          assert.strictEqual(list[3].name.toLowerCase(), 'node.exe');
           term.kill();
           const desiredState: IProcessState = {};
           desiredState[list[0].pid] = false;

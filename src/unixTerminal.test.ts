@@ -18,7 +18,7 @@ if (process.platform !== 'win32') {
     describe('Constructor', () => {
       it('should set a valid pts name', () => {
         const term = new UnixTerminal('/bin/bash', [], {});
-        let regExp: RegExp;
+        let regExp: RegExp | undefined;
         if (process.platform === 'linux') {
           // https://linux.die.net/man/4/pts
           regExp = /^\/dev\/pts\/\d+$/;
@@ -38,8 +38,8 @@ if (process.platform !== 'win32') {
       it('should default to utf8', (done) => {
         const term = new UnixTerminal('/bin/bash', [ '-c', `cat "${FIXTURES_PATH}"` ]);
         term.on('data', (data) => {
-          assert.equal(typeof data, 'string');
-          assert.equal(data, '\u00E6');
+          assert.strictEqual(typeof data, 'string');
+          assert.strictEqual(data, '\u00E6');
           done();
         });
       });
@@ -48,25 +48,25 @@ if (process.platform !== 'win32') {
           encoding: null
         });
         term.on('data', (data) => {
-          assert.equal(typeof data, 'object');
+          assert.strictEqual(typeof data, 'object');
           assert.ok(data instanceof Buffer);
-          assert.equal(0xC3, data[0]);
-          assert.equal(0xA6, data[1]);
+          assert.strictEqual(0xC3, data[0]);
+          assert.strictEqual(0xA6, data[1]);
           done();
         });
       });
       it('should support other encodings', (done) => {
         const text = 'test æ!';
-        const term = new UnixTerminal(null, ['-c', 'echo "' + text + '"'], {
+        const term = new UnixTerminal(undefined, ['-c', 'echo "' + text + '"'], {
           encoding: 'base64'
         });
         let buffer = '';
-        term.on('data', (data) => {
-          assert.equal(typeof data, 'string');
+        term.onData((data) => {
+          assert.strictEqual(typeof data, 'string');
           buffer += data;
         });
-        term.on('exit', () => {
-          assert.equal(Buffer.alloc(8, buffer, 'base64').toString().replace('\r', '').replace('\n', ''), text);
+        term.onExit(() => {
+          assert.strictEqual(Buffer.alloc(8, buffer, 'base64').toString().replace('\r', '').replace('\n', ''), text);
           done();
         });
       });
@@ -77,8 +77,8 @@ if (process.platform !== 'win32') {
 
       afterEach(() => {
         if (term) {
-          term.slave.destroy();
-          term.master.destroy();
+          term.slave!.destroy();
+          term.master!.destroy();
         }
       });
 
@@ -86,12 +86,12 @@ if (process.platform !== 'win32') {
         term = UnixTerminal.open({});
 
         let slavebuf = '';
-        term.slave.on('data', (data) => {
+        term.slave!.on('data', (data) => {
           slavebuf += data;
         });
 
         let masterbuf = '';
-        term.master.on('data', (data) => {
+        term.master!.on('data', (data) => {
           masterbuf += data;
         });
 
@@ -103,8 +103,8 @@ if (process.platform !== 'win32') {
           return false;
         }, 200, 10);
 
-        term.slave.write('slave\n');
-        term.master.write('master\n');
+        term.slave!.write('slave\n');
+        term.master!.write('master\n');
       });
     });
     describe('close', () => {
@@ -154,8 +154,8 @@ if (process.platform !== 'win32') {
         });
         p.on('close', () => {
           // handlers in parent and child should have been triggered
-          assert.equal(buffer.indexOf('SIGINT in child') !== -1, true);
-          assert.equal(buffer.indexOf('SIGINT in parent') !== -1, true);
+          assert.strictEqual(buffer.indexOf('SIGINT in child') !== -1, true);
+          assert.strictEqual(buffer.indexOf('SIGINT in parent') !== -1, true);
           done();
         });
       });
@@ -195,8 +195,8 @@ if (process.platform !== 'win32') {
         });
         p.on('close', () => {
           // handlers in parent and child should have been triggered
-          assert.equal(buffer.indexOf('should not be printed') !== -1, false);
-          assert.equal(buffer.indexOf('SIGINT in parent') !== -1, true);
+          assert.strictEqual(buffer.indexOf('should not be printed') !== -1, false);
+          assert.strictEqual(buffer.indexOf('SIGINT in parent') !== -1, true);
           done();
         });
       });
@@ -215,7 +215,7 @@ if (process.platform !== 'win32') {
         });
         term.on('exit', () => {
           // no timeout in buffer
-          assert.equal(buffer, '');
+          assert.strictEqual(buffer, '');
           done();
         });
       });
@@ -247,8 +247,8 @@ if (process.platform !== 'win32') {
         });
         term.on('exit', () => {
           // should have called both handlers and only once
-          assert.equal(pHandlerCalled, 1);
-          assert.equal(buffer, 'SIGUSR1 in child\r\n');
+          assert.strictEqual(pHandlerCalled, 1);
+          assert.strictEqual(buffer, 'SIGUSR1 in child\r\n');
           done();
         });
       });
@@ -267,7 +267,7 @@ if (process.platform !== 'win32') {
           new UnixTerminal('/bin/echo', [], { cwd: '/nowhere' });
           done(new Error('should have failed'));
         } catch (e) {
-          assert.equal(e.toString(), 'Error: chdir() failed: No such file or directory');
+          assert.strictEqual((e as any).toString(), 'Error: chdir() failed: No such file or directory');
           done();
         }
       });
@@ -276,7 +276,7 @@ if (process.platform !== 'win32') {
           new UnixTerminal('/bin/echo', [], { uid: 999999 });
           done(new Error('should have failed'));
         } catch (e) {
-          assert.equal(e.toString(), 'Error: setuid() failed: Operation not permitted');
+          assert.strictEqual((e as any).toString(), 'Error: setuid() failed: Operation not permitted');
           done();
         }
       });

@@ -6,7 +6,7 @@
 
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
-import { ITerminal, IPtyForkOptions } from './interfaces';
+import { ITerminal, IPtyForkOptions, IProcessEnv } from './interfaces';
 import { EventEmitter2, IEvent } from './eventEmitter2';
 import { IExitEvent } from './types';
 
@@ -22,18 +22,18 @@ const FLOW_CONTROL_PAUSE =  '\x13';   // defaults to XOFF
 const FLOW_CONTROL_RESUME = '\x11';   // defaults to XON
 
 export abstract class Terminal implements ITerminal {
-  protected _socket: Socket;
-  protected _pid: number;
-  protected _fd: number;
+  protected _socket!: Socket; // HACK: This is unsafe
+  protected _pid: number = 0;
+  protected _fd: number = 0;
   protected _pty: any;
 
-  protected _file: string;
-  protected _name: string;
-  protected _cols: number;
-  protected _rows: number;
+  protected _file!: string; // HACK: This is unsafe
+  protected _name!: string; // HACK: This is unsafe
+  protected _cols: number = 0;
+  protected _rows: number = 0;
 
-  protected _readable: boolean;
-  protected _writable: boolean;
+  protected _readable: boolean = false;
+  protected _writable: boolean = false;
 
   protected _internalee: EventEmitter;
   private _flowControlPause: string;
@@ -53,6 +53,11 @@ export abstract class Terminal implements ITerminal {
     // for 'close'
     this._internalee = new EventEmitter();
 
+    // setup flow control handling
+    this.handleFlowControl = !!(opt?.handleFlowControl);
+    this._flowControlPause = opt?.flowControlPause || FLOW_CONTROL_PAUSE;
+    this._flowControlResume = opt?.flowControlResume || FLOW_CONTROL_RESUME;
+
     if (!opt) {
       return;
     }
@@ -67,11 +72,6 @@ export abstract class Terminal implements ITerminal {
     this._checkType('uid', opt.uid ? opt.uid : undefined, 'number');
     this._checkType('gid', opt.gid ? opt.gid : undefined, 'number');
     this._checkType('encoding', opt.encoding ? opt.encoding : undefined, 'string');
-
-    // setup flow control handling
-    this.handleFlowControl = !!(opt.handleFlowControl);
-    this._flowControlPause = opt.flowControlPause || FLOW_CONTROL_PAUSE;
-    this._flowControlResume = opt.flowControlResume || FLOW_CONTROL_RESUME;
   }
 
   protected abstract _write(data: string): void;
@@ -157,9 +157,9 @@ export abstract class Terminal implements ITerminal {
 
   public emit(eventName: string, ...args: any[]): any {
     if (eventName === 'close') {
-      return this._internalee.emit.apply(this._internalee, arguments);
+      return this._internalee.emit.apply(this._internalee, arguments as any);
     }
-    return this._socket.emit.apply(this._socket, arguments);
+    return this._socket.emit.apply(this._socket, arguments as any);
   }
 
   public listeners(eventName: string): Function[] {
@@ -183,8 +183,8 @@ export abstract class Terminal implements ITerminal {
   public abstract kill(signal?: string): void;
 
   public abstract get process(): string;
-  public abstract get master(): Socket;
-  public abstract get slave(): Socket;
+  public abstract get master(): Socket| undefined;
+  public abstract get slave(): Socket | undefined;
 
   protected _close(): void {
     this._socket.readable = false;
@@ -194,7 +194,7 @@ export abstract class Terminal implements ITerminal {
     this._readable = false;
   }
 
-  protected _parseEnv(env: {[key: string]: string}): string[] {
+  protected _parseEnv(env: IProcessEnv): string[] {
     const keys = Object.keys(env || {});
     const pairs = [];
 

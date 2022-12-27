@@ -14,5 +14,9 @@ conoutSocket.connect(conoutPipeName, () => {
     conoutSocket.pipe(workerSocket);
   });
   server.listen(getWorkerPipeName(conoutPipeName));
+
+  if (!parentPort) {
+    throw new Error('worker_threads parentPort is null');
+  }
   parentPort.postMessage(ConoutWorkerMessage.READY);
 });
