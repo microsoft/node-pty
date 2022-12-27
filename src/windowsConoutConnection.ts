@@ -30,7 +30,7 @@ const FLUSH_DATA_INTERVAL = 1000;
  */
 export class ConoutConnection implements IDisposable {
   private _worker: Worker;
-  private _drainTimeout: NodeJS.Timeout;
+  private _drainTimeout: NodeJS.Timeout | undefined;
   private _isDisposed: boolean = false;
 
   private _onReady = new EventEmitter2<void>();

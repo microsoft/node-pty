@@ -44,13 +44,13 @@ export class UnixTerminal extends Terminal {
   protected _readable: boolean;
   protected _writable: boolean;
 
-  private _boundClose: boolean;
-  private _emittedClose: boolean;
-  private _master: net.Socket;
-  private _slave: net.Socket;
+  private _boundClose: boolean = false;
+  private _emittedClose: boolean = false;
+  private _master: net.Socket | undefined;
+  private _slave: net.Socket | undefined;
 
-  public get master(): net.Socket { return this._master; }
-  public get slave(): net.Socket { return this._slave; }
+  public get master(): net.Socket | undefined { return this._master; }
+  public get slave(): net.Socket | undefined { return this._slave; }
 
   constructor(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions) {
     super(opt);
@@ -95,7 +95,7 @@ export class UnixTerminal extends Terminal {
         // From macOS High Sierra 10.13.2 sometimes the socket never gets
         // closed. A timeout is applied here to avoid the terminal never being
         // destroyed when this occurs.
-        let timeout = setTimeout(() => {
+        let timeout: NodeJS.Timeout | null = setTimeout(() => {
           timeout = null;
           // Destroying the socket now will cause the close event to fire
           this._socket.destroy();
@@ -217,7 +217,7 @@ export class UnixTerminal extends Terminal {
     self._slave.resume();
 
     self._socket = self._master;
-    self._pid = null;
+    self._pid = -1;
     self._fd = term.master;
     self._pty = term.pty;
 
