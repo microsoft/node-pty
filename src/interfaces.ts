@@ -100,7 +100,7 @@ interface IBasePtyForkOptions {
   rows?: number;
   cwd?: string;
   env?: IProcessEnv;
-  encoding?: string;
+  encoding?: string | null;
   handleFlowControl?: boolean;
   flowControlPause?: string;
   flowControlResume?: string;
@@ -120,5 +120,5 @@ export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
 export interface IPtyOpenOptions {
   cols?: number;
   rows?: number;
-  encoding?: string;
+  encoding?: string | null;
 }
