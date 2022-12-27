@@ -15,5 +15,5 @@ try {
 
 const shellPid = parseInt(process.argv[2], 10);
 const consoleProcessList = getConsoleProcessList(shellPid);
-process.send({ consoleProcessList });
+process.send!({ consoleProcessList });
 process.exit(0);
