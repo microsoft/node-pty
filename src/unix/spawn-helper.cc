@@ -36,12 +36,12 @@ int main (int argc, char** argv) {
   close(open(slave_path, O_RDWR));
 #endif
 
-  char *cwd = argv[0];
-  int uid = std::stoi(argv[1]);
-  int gid = std::stoi(argv[2]);
-  bool closeFDs = std::stoi(argv[3]);
-  char *file = argv[4];
-  argv = &argv[4];
+  char *cwd = argv[1];
+  int uid = std::stoi(argv[2]);
+  int gid = std::stoi(argv[3]);
+  bool closeFDs = std::stoi(argv[4]);
+  char *file = argv[5];
+  argv = &argv[5];
 
   fcntl(COMM_PIPE_FD, F_SETFD, FD_CLOEXEC);
 
