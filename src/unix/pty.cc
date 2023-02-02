@@ -178,18 +178,23 @@ NAN_METHOD(PtyFork) {
   bool closeFDs = Nan::To<bool>(info[8]).FromJust();
   bool explicitlyCloseFDs = closeFDs && !HAVE_POSIX_SPAWN_CLOEXEC_DEFAULT;
 
+  // helperPath
+  Nan::Utf8String helper_path_(info[11]);
+  char *helper_path = strdup(*helper_path_);
+
   // args
   v8::Local<v8::Array> argv_ = v8::Local<v8::Array>::Cast(info[1]);
 
-  const int EXTRA_ARGS = 5;
+  const int EXTRA_ARGS = 6;
   int argc = argv_->Length();
   int argl = argc + EXTRA_ARGS + 1;
   char **argv = new char*[argl];
-  argv[0] = strdup(*cwd_);
-  argv[1] = strdup(std::to_string(uid).c_str());
-  argv[2] = strdup(std::to_string(gid).c_str());
-  argv[3] = strdup(explicitlyCloseFDs ? "1": "0");
-  argv[4] = strdup(*file);
+  argv[0] = strdup(helper_path);
+  argv[1] = strdup(*cwd_);
+  argv[2] = strdup(std::to_string(uid).c_str());
+  argv[3] = strdup(std::to_string(gid).c_str());
+  argv[4] = strdup(explicitlyCloseFDs ? "1": "0");
+  argv[5] = strdup(*file);
   argv[argl - 1] = NULL;
   for (int i = 0; i < argc; i++) {
     Nan::Utf8String arg(Nan::Get(argv_, i).ToLocalChecked());
@@ -241,10 +246,6 @@ NAN_METHOD(PtyFork) {
   cfsetispeed(term, B38400);
   cfsetospeed(term, B38400);
 
-  // helperPath
-  Nan::Utf8String helper_path_(info[11]);
-  char *helper_path = strdup(*helper_path_);
-
   sigset_t newmask, oldmask;
   int flags = POSIX_SPAWN_USEVFORK;
 
@@ -287,7 +288,7 @@ NAN_METHOD(PtyFork) {
 
   { // suppresses "jump bypasses variable initialization" errors
     pid_t pid;
-    auto error = posix_spawn(&pid, helper_path, &acts, &attrs, argv, env);
+    auto error = posix_spawn(&pid, argv[0], &acts, &attrs, argv, env);
 
     close(comms_pipe[1]);
 
