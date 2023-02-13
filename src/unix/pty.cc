@@ -151,11 +151,14 @@ NAN_METHOD(PtyFork) {
       !info[10]->IsFunction() ||
       !info[11]->IsString()) {
     return Nan::ThrowError(
-        "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, closeFDs, utf8, onexit, helperPath)");
+        "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, closeFDs, onexit, helperPath)");
   }
 
   // file
   Nan::Utf8String file(info[0]);
+
+  // args
+  v8::Local<v8::Array> argv_ = v8::Local<v8::Array>::Cast(info[1]);
 
   // env
   v8::Local<v8::Array> env_ = v8::Local<v8::Array>::Cast(info[2]);
@@ -170,37 +173,6 @@ NAN_METHOD(PtyFork) {
   // cwd
   Nan::Utf8String cwd_(info[3]);
 
-  // uid / gid
-  int uid = info[6]->IntegerValue(Nan::GetCurrentContext()).FromJust();
-  int gid = info[7]->IntegerValue(Nan::GetCurrentContext()).FromJust();
-
-  // closeFDs
-  bool closeFDs = Nan::To<bool>(info[8]).FromJust();
-  bool explicitlyCloseFDs = closeFDs && !HAVE_POSIX_SPAWN_CLOEXEC_DEFAULT;
-
-  // helperPath
-  Nan::Utf8String helper_path_(info[11]);
-  char *helper_path = strdup(*helper_path_);
-
-  // args
-  v8::Local<v8::Array> argv_ = v8::Local<v8::Array>::Cast(info[1]);
-
-  const int EXTRA_ARGS = 6;
-  int argc = argv_->Length();
-  int argl = argc + EXTRA_ARGS + 1;
-  char **argv = new char*[argl];
-  argv[0] = strdup(helper_path);
-  argv[1] = strdup(*cwd_);
-  argv[2] = strdup(std::to_string(uid).c_str());
-  argv[3] = strdup(std::to_string(gid).c_str());
-  argv[4] = strdup(explicitlyCloseFDs ? "1": "0");
-  argv[5] = strdup(*file);
-  argv[argl - 1] = NULL;
-  for (int i = 0; i < argc; i++) {
-    Nan::Utf8String arg(Nan::Get(argv_, i).ToLocalChecked());
-    argv[i + EXTRA_ARGS] = strdup(*arg);
-  }
-
   // size
   struct winsize winp;
   winp.ws_col = info[4]->IntegerValue(Nan::GetCurrentContext()).FromJust();
@@ -208,11 +180,15 @@ NAN_METHOD(PtyFork) {
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
+  // uid / gid
+  int uid = info[6]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  int gid = info[7]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+
   // termios
   struct termios t = termios();
   struct termios *term = &t;
   term->c_iflag = ICRNL | IXON | IXANY | IMAXBEL | BRKINT;
-  if (Nan::To<bool>(info[9]).FromJust()) {
+  if (Nan::To<bool>(info[8]).FromJust()) {
 #if defined(IUTF8)
     term->c_iflag |= IUTF8;
 #endif
@@ -242,6 +218,30 @@ NAN_METHOD(PtyFork) {
   term->c_cc[VDSUSP] = 25;
   term->c_cc[VSTATUS] = 20;
   #endif
+
+  // closeFDs
+  bool closeFDs = Nan::To<bool>(info[9]).FromJust();
+  bool explicitlyCloseFDs = closeFDs && !HAVE_POSIX_SPAWN_CLOEXEC_DEFAULT;
+
+  // helperPath
+  Nan::Utf8String helper_path_(info[11]);
+  char *helper_path = strdup(*helper_path_);
+
+  const int EXTRA_ARGS = 6;
+  int argc = argv_->Length();
+  int argl = argc + EXTRA_ARGS + 1;
+  char **argv = new char*[argl];
+  argv[0] = strdup(helper_path);
+  argv[1] = strdup(*cwd_);
+  argv[2] = strdup(std::to_string(uid).c_str());
+  argv[3] = strdup(std::to_string(gid).c_str());
+  argv[4] = strdup(explicitlyCloseFDs ? "1": "0");
+  argv[5] = strdup(*file);
+  argv[argl - 1] = NULL;
+  for (int i = 0; i < argc; i++) {
+    Nan::Utf8String arg(Nan::Get(argv_, i).ToLocalChecked());
+    argv[i + EXTRA_ARGS] = strdup(*arg);
+  }
 
   cfsetispeed(term, B38400);
   cfsetospeed(term, B38400);

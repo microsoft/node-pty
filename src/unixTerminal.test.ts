@@ -8,6 +8,7 @@ import * as assert from 'assert';
 import * as cp from 'child_process';
 import * as path from 'path';
 import * as tty from 'tty';
+import * as fs from 'fs';
 import { constants } from 'os';
 import { pollUntil } from './testUtils.test';
 
@@ -280,6 +281,83 @@ if (process.platform !== 'win32') {
           done();
         }
       });
+      if (process.platform === 'linux') {
+        it('should not close on exec when closeFDs is not defined', (done) => {
+          const data = `
+          var pty = require('./lib/index');
+          var ptyProcess = pty.spawn('node', ['-e', 'setTimeout(() => console.log("hello from terminal"), 300);']);
+          ptyProcess.on('data', function (data) {
+            console.log(data);
+          });
+          setTimeout(() => null, 500);
+          console.log('ready', ptyProcess.pid);
+          `;
+          const buffer: string[] = [];
+          const readFd = fs.openSync(FIXTURES_PATH, 'r');
+          const p = cp.spawn('node', ['-e', data], {
+            stdio: ['ignore', 'pipe', 'pipe', readFd]
+          });
+          let sub = '';
+          p.stdout!.on('data', (data) => {
+            if (!data.toString().indexOf('ready')) {
+              sub = data.toString().split(' ')[1].slice(0, -1);
+              try {
+                fs.statSync(`/proc/${sub}/fd/${readFd}`);
+              } catch (_) {
+                done('not reachable');
+              }
+              setTimeout(() => {
+                process.kill(parseInt(sub), 'SIGINT');  // SIGINT to child
+                p.kill('SIGINT');                       // SIGINT to parent
+              }, 200);
+            } else {
+              buffer.push(data.toString().replace(/^\s+|\s+$/g, ''));
+            }
+          });
+          p.on('close', () => {
+            done();
+          });
+        });
+        it('should close on exec when closeFDs is true', (done) => {
+          const data = `
+          var pty = require('./lib/index');
+          var ptyProcess = pty.spawn('node', ['-e', 'setTimeout(() => console.log("hello from terminal"), 300);'], {
+            closeFDs: true
+          });
+          ptyProcess.on('data', function (data) {
+            console.log(data);
+          });
+          setTimeout(() => null, 500);
+          console.log('ready', ptyProcess.pid);
+          `;
+          const buffer: string[] = [];
+          const readFd = fs.openSync(FIXTURES_PATH, 'r');
+          const p = cp.spawn('node', ['-e', data], {
+            stdio: ['ignore', 'pipe', 'pipe', readFd]
+          });
+          let sub = '';
+          p.stdout!.on('data', (data) => {
+            if (!data.toString().indexOf('ready')) {
+              sub = data.toString().split(' ')[1].slice(0, -1);
+              try {
+                fs.statSync(`/proc/${sub}/fd/${readFd}`);
+                done('not reachable');
+              } catch (error) {
+                assert.notStrictEqual(error.message.indexOf('ENOENT'), -1);
+              }
+              setTimeout(() => {
+                process.kill(parseInt(sub), 'SIGINT');  // SIGINT to child
+                p.kill('SIGINT');                       // SIGINT to parent
+              }, 200);
+            } else {
+              buffer.push(data.toString().replace(/^\s+|\s+$/g, ''));
+            }
+          });
+          p.on('close', () => {
+            done();
+          });
+        });
+      }
     });
   });
 }
