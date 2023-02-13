@@ -6,13 +6,13 @@
 jobs:
 - job: Linux
   pool:
-    vmImage: 'ubuntu-18.04'
+    vmImage: 'ubuntu-latest'
   strategy:
     matrix:
-      node_14_x:
-        node_version: 14.x
       node_16_x:
         node_version: 16.x
+      node_18_x:
+        node_version: 18.x
   steps:
   - task: NodeTool@0
     inputs:
@@ -33,10 +33,10 @@ jobs:
     vmImage: 'macOS-latest'
   strategy:
     matrix:
-      node_14_x:
-        node_version: 14.x
       node_16_x:
         node_version: 16.x
+      node_18_x:
+        node_version: 18.x
   steps:
   - task: NodeTool@0
     inputs:
@@ -57,10 +57,10 @@ jobs:
     vmImage: 'windows-2019'
   strategy:
     matrix:
-      node_14_x:
-        node_version: 14.x
       node_16_x:
         node_version: 16.x
+      node_18_x:
+        node_version: 18.x
   steps:
   - task: NodeTool@0
     inputs:
@@ -83,7 +83,7 @@ jobs:
   - Windows
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   pool:
-    vmImage: 'ubuntu-18.04'
+    vmImage: 'ubuntu-latest'
   steps:
   - task: NodeTool@0
     inputs:
