@@ -8,7 +8,9 @@
  *   with pseudo-terminal file descriptors.
  */
 
+#include <codecvt>
 #include <iostream>
+#include <locale>
 #include <nan.h>
 #include <Shlwapi.h> // PathCombine, PathIsRelative
 #include <sstream>
@@ -37,10 +39,10 @@ static volatile LONG ptyCounter;
 * Helpers
 */
 
-static winpty_t *get_pipe_handle(int handle) {
+static winpty_t *get_pipe_handle(HANDLE handle) {
   for (size_t i = 0; i < ptyHandles.size(); ++i) {
     winpty_t *ptyHandle = ptyHandles[i];
-    int current = (int)winpty_agent_process(ptyHandle);
+    HANDLE current = winpty_agent_process(ptyHandle);
     if (current == handle) {
       return ptyHandle;
     }
@@ -48,10 +50,10 @@ static winpty_t *get_pipe_handle(int handle) {
   return nullptr;
 }
 
-static bool remove_pipe_handle(int handle) {
+static bool remove_pipe_handle(HANDLE handle) {
   for (size_t i = 0; i < ptyHandles.size(); ++i) {
     winpty_t *ptyHandle = ptyHandles[i];
-    if ((int)winpty_agent_process(ptyHandle) == handle) {
+    if (winpty_agent_process(ptyHandle) == handle) {
       winpty_free(ptyHandle);
       ptyHandles.erase(ptyHandles.begin() + i);
       ptyHandle = nullptr;
@@ -61,11 +63,16 @@ static bool remove_pipe_handle(int handle) {
   return false;
 }
 
+static std::string from_wstring(const std::wstring &wstr) {
+  // https://stackoverflow.com/a/18374698
+  std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+  return converter.to_bytes(wstr);
+}
+
 void throw_winpty_error(const char *generalMsg, winpty_error_ptr_t error_ptr) {
   std::stringstream why;
   std::wstring msg(winpty_error_msg(error_ptr));
-  std::string msg_(msg.begin(), msg.end());
-  why << generalMsg << ": " << msg_;
+  why << generalMsg << ": " << from_wstring(msg);
   Nan::ThrowError(why.str().c_str());
   winpty_error_free(error_ptr);
 }
@@ -94,8 +101,7 @@ static NAN_METHOD(PtyGetProcessList) {
     return;
   }
 
-  int pid = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
-
+  HANDLE pid = reinterpret_cast<HANDLE>(static_cast<int64_t>(info[0]->Int32Value(Nan::GetCurrentContext()).FromJust()));
   winpty_t *pc = get_pipe_handle(pid);
   if (pc == nullptr) {
     info.GetReturnValue().Set(Nan::New<v8::Array>(0));
@@ -106,7 +112,7 @@ static NAN_METHOD(PtyGetProcessList) {
   int actualCount = winpty_get_console_process_list(pc, processList, processCount, nullptr);
 
   v8::Local<v8::Array> result = Nan::New<v8::Array>(actualCount);
-  for (uint32_t i = 0; i < actualCount; i++) {
+  for (int i = 0; i < actualCount; i++) {
     Nan::Set(result, i, Nan::New<v8::Number>(processList[i]));
   }
   info.GetReturnValue().Set(result);
@@ -157,10 +163,8 @@ static NAN_METHOD(PtyStartProcess) {
     shellpath = filename;
   }
 
-  std::string shellpath_(shellpath.begin(), shellpath.end());
-
   if (shellpath.empty() || !path_util::file_exists(shellpath)) {
-    why << "File not found: " << shellpath_;
+    why << "File not found: " << from_wstring(shellpath);
     Nan::ThrowError(why.str().c_str());
     goto cleanup;
   }
@@ -215,23 +219,25 @@ static NAN_METHOD(PtyStartProcess) {
   winpty_error_free(error_ptr);
 
   // Set return values
-  v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
-  Nan::Set(marshal, Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>((int)GetProcessId(handle)));
-  Nan::Set(marshal, Nan::New<v8::String>("innerPidHandle").ToLocalChecked(), Nan::New<v8::Number>((int)handle));
-  Nan::Set(marshal, Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>((int)winpty_agent_process(pc)));
-  Nan::Set(marshal, Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(InterlockedIncrement(&ptyCounter)));
-  Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
-  {
-    LPCWSTR coninPipeName = winpty_conin_name(pc);
-    std::wstring coninPipeNameWStr(coninPipeName);
-    std::string coninPipeNameStr(coninPipeNameWStr.begin(), coninPipeNameWStr.end());
-    Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(coninPipeNameStr).ToLocalChecked());
-    LPCWSTR conoutPipeName = winpty_conout_name(pc);
-    std::wstring conoutPipeNameWStr(conoutPipeName);
-    std::string conoutPipeNameStr(conoutPipeNameWStr.begin(), conoutPipeNameWStr.end());
-    Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
+ {
+    // Use a new block to avoid
+    // "warning C4533: initialization of 'marshal' is skipped by 'goto cleanup'"
+    v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
+    Nan::Set(marshal, Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(GetProcessId(handle))));
+    Nan::Set(marshal, Nan::New<v8::String>("innerPidHandle").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(reinterpret_cast<uint64_t>(handle))));
+    Nan::Set(marshal, Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(reinterpret_cast<uint64_t>(winpty_agent_process(pc)))));
+    Nan::Set(marshal, Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(InterlockedIncrement(&ptyCounter)));
+    Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
+    {
+      LPCWSTR coninPipeName = winpty_conin_name(pc);
+      std::wstring coninPipeNameWStr(coninPipeName);
+      Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(from_wstring(coninPipeNameWStr)).ToLocalChecked());
+      LPCWSTR conoutPipeName = winpty_conout_name(pc);
+      std::wstring conoutPipeNameWStr(conoutPipeName);
+      Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(from_wstring(conoutPipeNameWStr)).ToLocalChecked());
+    }
+    info.GetReturnValue().Set(marshal);
   }
-  info.GetReturnValue().Set(marshal);
 
   goto cleanup;
 
@@ -252,7 +258,7 @@ static NAN_METHOD(PtyResize) {
     return;
   }
 
-  int handle = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
+  HANDLE handle = reinterpret_cast<HANDLE>(static_cast<int64_t>(info[0]->Int32Value(Nan::GetCurrentContext()).FromJust()));
   int cols = info[1]->Int32Value(Nan::GetCurrentContext()).FromJust();
   int rows = info[2]->Int32Value(Nan::GetCurrentContext()).FromJust();
 
@@ -281,8 +287,8 @@ static NAN_METHOD(PtyKill) {
     return;
   }
 
-  int handle = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
-  HANDLE innerPidHandle = (HANDLE)info[1]->Int32Value(Nan::GetCurrentContext()).FromJust();
+  HANDLE handle = reinterpret_cast<HANDLE>(static_cast<int64_t>(info[0]->Int32Value(Nan::GetCurrentContext()).FromJust()));
+  HANDLE innerPidHandle = reinterpret_cast<HANDLE>(static_cast<int64_t>(info[1]->Int32Value(Nan::GetCurrentContext()).FromJust()));
 
   winpty_t *pc = get_pipe_handle(handle);
   if (pc == nullptr) {

@@ -9,6 +9,8 @@
             'VCCLCompilerTool': {
               'AdditionalOptions': [
                 '/guard:cf',
+                '/w34244',
+                '/w34267',
                 '/ZH:SHA_256'
               ]
             },

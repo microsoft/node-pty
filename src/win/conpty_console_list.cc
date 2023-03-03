@@ -12,7 +12,7 @@ static NAN_METHOD(ApiConsoleProcessList) {
     return;
   }
 
-  const SHORT pid = info[0]->Uint32Value(Nan::GetCurrentContext()).FromJust();
+  const DWORD pid = info[0]->Uint32Value(Nan::GetCurrentContext()).FromJust();
 
   if (!FreeConsole()) {
     Nan::ThrowError("FreeConsole failed");
@@ -21,10 +21,10 @@ static NAN_METHOD(ApiConsoleProcessList) {
     Nan::ThrowError("AttachConsole failed");
   }
   auto processList = std::vector<DWORD>(64);
-  auto processCount = GetConsoleProcessList(&processList[0], processList.size());
+  auto processCount = GetConsoleProcessList(&processList[0], static_cast<DWORD>(processList.size()));
   if (processList.size() < processCount) {
       processList.resize(processCount);
-      processCount = GetConsoleProcessList(&processList[0], processList.size());
+      processCount = GetConsoleProcessList(&processList[0], static_cast<DWORD>(processList.size()));
   }
   FreeConsole();
 
