@@ -2,11 +2,14 @@
   'target_defaults': {
     'conditions': [
       ['OS=="win"', {
+        'msvs_configuration_attributes': {
+          'SpectreMitigation': 'Spectre'
+        },
         'msvs_settings': {
             'VCCLCompilerTool': {
               'AdditionalOptions': [
-                '/Qspectre',
-                '/guard:cf'
+                '/guard:cf',
+                '/ZH:SHA_256'
               ]
             },
             'VCLinkerTool': {
