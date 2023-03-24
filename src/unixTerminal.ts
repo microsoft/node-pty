@@ -11,24 +11,17 @@ import { ArgvOrCommandLine } from './types';
 import { assign } from './utils';
 
 let pty: IUnixNative;
-let helperPath: string;
 try {
   pty = require('../build/Release/pty.node');
-  helperPath = '../build/Release/spawn-helper';
 } catch (outerError) {
   try {
     pty = require('../build/Debug/pty.node');
-    helperPath = '../build/Debug/spawn-helper';
   } catch (innerError) {
     console.error('innerError', innerError);
     // Re-throw the exception from the Release require if the Debug require fails as well
     throw outerError;
   }
 }
-
-helperPath = path.resolve(__dirname, helperPath);
-helperPath = helperPath.replace('app.asar', 'app.asar.unpacked');
-helperPath = helperPath.replace('node_modules.asar', 'node_modules.asar.unpacked');
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
@@ -69,7 +62,6 @@ export class UnixTerminal extends Terminal {
     this._rows = opt.rows || DEFAULT_ROWS;
     const uid = opt.uid ?? -1;
     const gid = opt.gid ?? -1;
-    const closeFDs = opt.closeFDs || false;
     const env: IProcessEnv = assign({}, opt.env);
 
     if (opt.env === process.env) {
@@ -112,7 +104,7 @@ export class UnixTerminal extends Terminal {
     };
 
     // fork
-    const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), closeFDs, onexit, helperPath);
+    const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), onexit);
 
     this._socket = new PipeSocket(term.fd);
     if (encoding !== null) {
