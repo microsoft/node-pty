@@ -255,75 +255,42 @@ if (process.platform !== 'win32') {
       });
     });
     describe('spawn', () => {
-      it('should handle exec() errors', (done) => {
-        try {
-          new UnixTerminal('/bin/bogus.exe', []);
-          done(new Error('should have failed'));
-        } catch {
-          done();
-        }
-      });
-      it('should handle chdir() errors', (done) => {
-        try {
-          new UnixTerminal('/bin/echo', [], { cwd: '/nowhere' });
-          done(new Error('should have failed'));
-        } catch (e) {
-          assert.strictEqual((e as any).toString(), 'Error: chdir() failed: No such file or directory');
-          done();
-        }
-      });
-      it('should handle setuid() errors', (done) => {
-        try {
-          new UnixTerminal('/bin/echo', [], { uid: 999999 });
-          done(new Error('should have failed'));
-        } catch (e) {
-          assert.strictEqual((e as any).toString(), 'Error: setuid() failed: Operation not permitted');
-          done();
-        }
-      });
       if (process.platform === 'linux') {
-        it('should not close on exec when closeFDs is not defined', (done) => {
-          const data = `
-          var pty = require('./lib/index');
-          var ptyProcess = pty.spawn('node', ['-e', 'setTimeout(() => console.log("hello from terminal"), 300);']);
-          ptyProcess.on('data', function (data) {
-            console.log(data);
-          });
-          setTimeout(() => null, 500);
-          console.log('ready', ptyProcess.pid);
-          `;
-          const buffer: string[] = [];
-          const readFd = fs.openSync(FIXTURES_PATH, 'r');
-          const p = cp.spawn('node', ['-e', data], {
-            stdio: ['ignore', 'pipe', 'pipe', readFd]
-          });
-          let sub = '';
-          p.stdout!.on('data', (data) => {
-            if (!data.toString().indexOf('ready')) {
-              sub = data.toString().split(' ')[1].slice(0, -1);
-              try {
-                fs.statSync(`/proc/${sub}/fd/${readFd}`);
-              } catch (_) {
-                done('not reachable');
-              }
-              setTimeout(() => {
-                process.kill(parseInt(sub), 'SIGINT');  // SIGINT to child
-                p.kill('SIGINT');                       // SIGINT to parent
-              }, 200);
-            } else {
-              buffer.push(data.toString().replace(/^\s+|\s+$/g, ''));
-            }
-          });
-          p.on('close', () => {
+        it('should handle exec() errors', (done) => {
+          const term = new UnixTerminal('/bin/bogus.exe', []);
+          term.on('exit', (code, signal) => {
+            assert.strictEqual(code, 1);
             done();
           });
         });
-        it('should close on exec when closeFDs is true', (done) => {
+        it('should handle chdir() errors', (done) => {
+          const term = new UnixTerminal('/bin/echo', [], { cwd: '/nowhere' });
+          term.on('exit', (code, signal) => {
+            assert.strictEqual(code, 1);
+            done();
+          });
+        });
+      } else if (process.platform === 'darwin') {
+        it('should handle exec() errors', (done) => {
+          try {
+            new UnixTerminal('/bin/bogus.exe', []);
+            done(new Error('should have failed'));
+          } catch {
+            done();
+          }
+        });
+        it('should handle chdir() errors', (done) => {
+          try {
+            new UnixTerminal('/bin/echo', [], { cwd: '/nowhere' });
+            done(new Error('should have failed'));
+          } catch (e) {
+            done();
+          }
+        });
+        it('should close on exec', (done) => {
           const data = `
           var pty = require('./lib/index');
-          var ptyProcess = pty.spawn('node', ['-e', 'setTimeout(() => console.log("hello from terminal"), 300);'], {
-            closeFDs: true
-          });
+          var ptyProcess = pty.spawn('node', ['-e', 'setTimeout(() => console.log("hello from terminal"), 300);']);
           ptyProcess.on('data', function (data) {
             console.log(data);
           });
