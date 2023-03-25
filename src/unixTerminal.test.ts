@@ -325,6 +325,22 @@ if (process.platform !== 'win32') {
           });
         });
       }
+      it('should not leak child process', (done) => {
+        const count = cp.execSync('ps -ax | grep node | wc -l');
+        const term = new UnixTerminal('node', [ '-e', `
+          console.log('ready');
+          setTimeout(()=>console.log('timeout'), 200);`
+        ]);
+        term.on('data', async (data) => {
+          if (data === 'ready\r\n') {
+            process.kill(term.pid, 'SIGINT');
+            await setTimeout(() => null, 1000);
+            const newCount = cp.execSync('ps -ax | grep node | wc -l');
+            assert.strictEqual(count.toString(), newCount.toString());
+            done();
+          }
+        });
+      });
     });
   });
 }
