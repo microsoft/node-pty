@@ -55,6 +55,7 @@
 #include <os/availability.h>
 #include <paths.h>
 #include <spawn.h>
+#include <sys/event.h>
 #include <sys/sysctl.h>
 #include <termios.h>
 #endif
@@ -84,6 +85,16 @@ extern "C" {
 int pthread_chdir_np(const char* dir) API_AVAILABLE(macosx(10.12));
 int pthread_fchdir_np(int fd) API_AVAILABLE(macosx(10.12));
 }
+
+#define HANDLE_EINTR(x) ({ \
+  int eintr_wrapper_counter = 0; \
+  decltype(x) eintr_wrapper_result; \
+  do { \
+    eintr_wrapper_result = (x); \
+  } while (eintr_wrapper_result == -1 && errno == EINTR && \
+           eintr_wrapper_counter++ < 100); \
+  eintr_wrapper_result; \
+})
 #endif
 
 /**
@@ -486,11 +497,44 @@ static void
 pty_waitpid(void *data) {
   int ret;
   int stat_loc;
-
   pty_baton *baton = static_cast<pty_baton*>(data);
-
   errno = 0;
-
+#if defined(__APPLE__)
+  // Based on
+  // https://source.chromium.org/chromium/chromium/src/+/main:base/process/kill_mac.cc;l=35-69?
+  int kq = HANDLE_EINTR(kqueue());
+  struct kevent change = {0};
+  EV_SET(&change, baton->pid, EVFILT_PROC, EV_ADD, NOTE_EXIT, 0, NULL);
+  ret = HANDLE_EINTR(kevent(kq, &change, 1, NULL, 0, NULL));
+  if (ret == -1) {
+    if (errno == ESRCH) {
+      // At this point, one of the following has occurred:
+      // 1. The process has died but has not yet been reaped.
+      // 2. The process has died and has already been reaped.
+      // 3. The process is in the process of dying. It's no longer
+      //    kqueueable, but it may not be waitable yet either. Mark calls
+      //    this case the "zombie death race".
+      ret = HANDLE_EINTR(waitpid(baton->pid, &stat_loc, WNOHANG));
+      if (ret == 0) {
+        ret = kill(baton->pid, SIGKILL);
+        if (ret != -1) {
+          HANDLE_EINTR(waitpid(baton->pid, &stat_loc, 0));
+        }
+      }
+    }
+  } else {
+    struct kevent event = {0};
+    ret = HANDLE_EINTR(kevent(kq, NULL, 0, &event, 1, NULL));
+    if (ret == 1) {
+      if ((event.fflags & NOTE_EXIT) &&
+          (event.ident == static_cast<uintptr_t>(baton->pid))) {
+        // The process is dead or dying. This won't block for long, if at
+        // all.
+        HANDLE_EINTR(waitpid(baton->pid, &stat_loc, 0));
+      }
+    }
+  }
+#else
   if ((ret = waitpid(baton->pid, &stat_loc, 0)) != baton->pid) {
     if (ret == -1 && errno == EINTR) {
       return pty_waitpid(baton);
@@ -503,6 +547,7 @@ pty_waitpid(void *data) {
       assert(false);
     }
   }
+#endif
 
   if (WIFEXITED(stat_loc)) {
     baton->exit_code = WEXITSTATUS(stat_loc); // errno?
