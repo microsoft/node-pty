@@ -78,17 +78,11 @@ declare module 'node-pty' {
 
   export interface IPtyForkOptions extends IBasePtyForkOptions {
     /**
-     * Security warning: use this option with great caution unless `closeFDs` is also set,
+     * Security warning: use this option with great caution,
      * as opened file descriptors with higher privileges might leak to the child program.
      */
     uid?: number;
     gid?: number;
-
-    /**
-     * Close all open file after spawning the child process (UNIX only).
-     * Carries a performance penalty on Linux.
-     */
-    closeFDs?: boolean;
   }
 
   export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
