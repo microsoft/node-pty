@@ -287,6 +287,12 @@ if (process.platform !== 'win32') {
             done();
           }
         });
+        it('should return the name of the process', (done) => {
+          const term = new UnixTerminal('/bin/echo');
+          assert.strictEqual(term.process, '/bin/echo');
+          term.on('exit', () => done());
+          term.destroy();
+        });
         it('should close on exec', (done) => {
           const data = `
           var pty = require('./lib/index');
