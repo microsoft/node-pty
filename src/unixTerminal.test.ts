@@ -255,38 +255,7 @@ if (process.platform !== 'win32') {
       });
     });
     describe('spawn', () => {
-      if (process.platform === 'linux') {
-        it('should handle exec() errors', (done) => {
-          const term = new UnixTerminal('/bin/bogus.exe', []);
-          term.on('exit', (code, signal) => {
-            assert.strictEqual(code, 1);
-            done();
-          });
-        });
-        it('should handle chdir() errors', (done) => {
-          const term = new UnixTerminal('/bin/echo', [], { cwd: '/nowhere' });
-          term.on('exit', (code, signal) => {
-            assert.strictEqual(code, 1);
-            done();
-          });
-        });
-      } else if (process.platform === 'darwin') {
-        it('should handle exec() errors', (done) => {
-          try {
-            new UnixTerminal('/bin/bogus.exe', []);
-            done(new Error('should have failed'));
-          } catch {
-            done();
-          }
-        });
-        it('should handle chdir() errors', (done) => {
-          try {
-            new UnixTerminal('/bin/echo', [], { cwd: '/nowhere' });
-            done(new Error('should have failed'));
-          } catch (e) {
-            done();
-          }
-        });
+      if (process.platform === 'darwin') {
         it('should return the name of the process', (done) => {
           const term = new UnixTerminal('/bin/echo');
           assert.strictEqual(term.process, '/bin/echo');
@@ -331,6 +300,20 @@ if (process.platform !== 'win32') {
           });
         });
       }
+      it('should handle exec() errors', (done) => {
+        const term = new UnixTerminal('/bin/bogus.exe', []);
+        term.on('exit', (code, signal) => {
+          assert.strictEqual(code, 1);
+          done();
+        });
+      });
+      it('should handle chdir() errors', (done) => {
+        const term = new UnixTerminal('/bin/echo', [], { cwd: '/nowhere' });
+        term.on('exit', (code, signal) => {
+          assert.strictEqual(code, 1);
+          done();
+        });
+      });
       it('should not leak child process', (done) => {
         const count = cp.execSync('ps -ax | grep node | wc -l');
         const term = new UnixTerminal('node', [ '-e', `
