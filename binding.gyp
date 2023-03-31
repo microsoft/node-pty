@@ -98,6 +98,20 @@
           ]
         }
       ]
+    }],
+    ['OS=="mac"', {
+      'targets': [
+        {
+          'target_name': 'spawn-helper',
+          'type': 'executable',
+          'sources': [
+            'src/unix/spawn-helper.cc',
+          ],
+          "xcode_settings": {
+            "MACOSX_DEPLOYMENT_TARGET":"10.7"
+          }
+        },
+      ]
     }]
   ]
 }
