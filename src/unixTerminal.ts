@@ -255,6 +255,10 @@ export class UnixTerminal extends Terminal {
    * Gets the name of the process.
    */
   public get process(): string {
+    if (process.platform === 'darwin') {
+      return pty.process(this._pid) || this._file;
+    }
+
     return pty.process(this._fd, this._pty) || this._file;
   }
 

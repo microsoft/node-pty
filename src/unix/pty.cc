@@ -56,7 +56,6 @@
 #include <paths.h>
 #include <spawn.h>
 #include <sys/event.h>
-#include <sys/sysctl.h>
 #include <termios.h>
 #endif
 
@@ -126,8 +125,13 @@ NAN_METHOD(PtyGetProc);
 static int
 pty_nonblock(int);
 
+#if defined(__APPLE__)
+static char *
+pty_getproc(int);
+#else
 static char *
 pty_getproc(int, char *);
+#endif
 
 static void
 pty_waitpid(void *);
@@ -455,6 +459,15 @@ NAN_METHOD(PtyResize) {
 NAN_METHOD(PtyGetProc) {
   Nan::HandleScope scope;
 
+#if defined(__APPLE__)
+  if (info.Length() != 1 ||
+      !info[0]->IsNumber()) {
+    return Nan::ThrowError("Usage: pty.process(pid)");
+  }
+
+  int pid = info[0]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  char *name = pty_getproc(pid);
+#else
   if (info.Length() != 2 ||
       !info[0]->IsNumber() ||
       !info[1]->IsString()) {
@@ -467,6 +480,7 @@ NAN_METHOD(PtyGetProc) {
   char *tty = strdup(*tty_);
   char *name = pty_getproc(fd, tty);
   free(tty);
+#endif
 
   if (name == NULL) {
     return info.GetReturnValue().SetUndefined();
@@ -663,25 +677,13 @@ pty_getproc(int fd, char *tty) {
 #elif defined(__APPLE__)
 
 static char *
-pty_getproc(int fd, char *tty) {
-  int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, 0 };
-  size_t size;
-  struct kinfo_proc kp;
-
-  if ((mib[3] = tcgetpgrp(fd)) == -1) {
+pty_getproc(int pid) {
+  char pname[MAXCOMLEN + 1];
+  if (!proc_name(pid, pname, sizeof(pname))) {
     return NULL;
   }
 
-  size = sizeof kp;
-  if (sysctl(mib, 4, &kp, &size, NULL, 0) == -1) {
-    return NULL;
-  }
-
-  if (size != (sizeof kp) || *kp.kp_proc.p_comm == '\0') {
-    return NULL;
-  }
-
-  return strdup(kp.kp_proc.p_comm);
+  return strdup(pname);
 }
 
 #else
