@@ -36,6 +36,8 @@
 #include <pty.h>
 #elif defined(__APPLE__)
 #include <util.h>
+#elif defined(__FreeBSD__)
+#include <libutil.h>
 #endif
 
 /* Some platforms name VWERASE and VDISCARD differently */
