@@ -32,7 +32,7 @@
 
 /* forkpty */
 /* http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html */
-#if defined(__GLIBC__)
+#if defined(__linux__)
 #include <pty.h>
 #elif defined(__APPLE__)
 #include <util.h>
