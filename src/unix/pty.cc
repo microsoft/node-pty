@@ -32,16 +32,12 @@
 
 /* forkpty */
 /* http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html */
-#if defined(__GLIBC__) || defined(__CYGWIN__)
+#if defined(__GLIBC__)
 #include <pty.h>
-#elif defined(__APPLE__) || defined(__OpenBSD__) || defined(__NetBSD__)
+#elif defined(__APPLE__)
 #include <util.h>
 #elif defined(__FreeBSD__)
 #include <libutil.h>
-#elif defined(__sun)
-#include <stropts.h> /* for I_PUSH */
-#else
-#include <pty.h>
 #endif
 
 /* Some platforms name VWERASE and VDISCARD differently */
