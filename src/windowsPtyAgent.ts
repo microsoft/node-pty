@@ -152,6 +152,12 @@ export class WindowsPtyAgent {
     this._ptyNative.resize(this._pid, cols, rows);
   }
 
+  public clear(): void {
+    if (this._useConpty) {
+      (this._ptyNative as IConptyNative).clear(this._pty);
+    }
+  }
+
   public kill(): void {
     this._inSocket.readable = false;
     this._outSocket.readable = false;

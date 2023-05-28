@@ -34,6 +34,7 @@ extern "C" void init(v8::Local<v8::Object>);
 typedef VOID* HPCON;
 typedef HRESULT (__stdcall *PFNCREATEPSEUDOCONSOLE)(COORD c, HANDLE hIn, HANDLE hOut, DWORD dwFlags, HPCON* phpcon);
 typedef HRESULT (__stdcall *PFNRESIZEPSEUDOCONSOLE)(HPCON hpc, COORD newSize);
+typedef HRESULT (__stdcall *PFNCLEARPSEUDOCONSOLE)(HPCON hpc);
 typedef void (__stdcall *PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
 
 #endif
@@ -417,6 +418,35 @@ static NAN_METHOD(PtyResize) {
   return info.GetReturnValue().SetUndefined();
 }
 
+static NAN_METHOD(PtyClear) {
+  Nan::HandleScope scope;
+
+  if (info.Length() != 1 ||
+      !info[0]->IsNumber()) {
+    Nan::ThrowError("Usage: pty.clear(id)");
+    return;
+  }
+
+  int id = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
+
+  const pty_baton* handle = get_pty_baton(id);
+
+  if (handle != nullptr) {
+    HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
+    bool fLoadedDll = hLibrary != nullptr;
+    if (fLoadedDll)
+    {
+      PFNCLEARPSEUDOCONSOLE const pfnClearPseudoConsole = (PFNCLEARPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ClearPseudoConsole");
+      if (pfnClearPseudoConsole)
+      {
+        pfnClearPseudoConsole(handle->hpc);
+      }
+    }
+  }
+
+  return info.GetReturnValue().SetUndefined();
+}
+
 static NAN_METHOD(PtyKill) {
   Nan::HandleScope scope;
 
@@ -461,6 +491,7 @@ extern "C" void init(v8::Local<v8::Object> target) {
   Nan::SetMethod(target, "startProcess", PtyStartProcess);
   Nan::SetMethod(target, "connect", PtyConnect);
   Nan::SetMethod(target, "resize", PtyResize);
+  Nan::SetMethod(target, "clear", PtyClear);
   Nan::SetMethod(target, "kill", PtyKill);
 };
 

@@ -154,6 +154,12 @@ export class WindowsTerminal extends Terminal {
     });
   }
 
+  public clear(): void {
+    this._deferNoArgs(() => {
+      this._agent.clear();
+    });
+  }
+
   public destroy(): void {
     this._deferNoArgs(() => {
       this.kill();

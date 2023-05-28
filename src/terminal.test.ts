@@ -29,6 +29,9 @@ class TestTerminal extends Terminal {
   public resize(cols: number, rows: number): void {
     throw new Error('Method not implemented.');
   }
+  public clear(): void {
+    throw new Error('Method not implemented.');
+  }
   public destroy(): void {
     throw new Error('Method not implemented.');
   }
