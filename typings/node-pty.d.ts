@@ -171,6 +171,14 @@ declare module 'node-pty' {
     resize(columns: number, rows: number): void;
 
     /**
+     * Clears the pty's internal representation of its buffer. This is a no-op
+     * unless on Windows/ConPTY. This is useful if the buffer is cleared on the
+     * frontend in order to synchronize state with the backend to avoid ConPTY
+     * possibly reprinting the screen.
+     */
+    clear(): void;
+
+    /**
      * Writes data to the pty.
      * @param data The data to write.
      */

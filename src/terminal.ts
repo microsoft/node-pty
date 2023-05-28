@@ -179,6 +179,7 @@ export abstract class Terminal implements ITerminal {
   }
 
   public abstract resize(cols: number, rows: number): void;
+  public abstract clear(): void;
   public abstract destroy(): void;
   public abstract kill(signal?: string): void;
 

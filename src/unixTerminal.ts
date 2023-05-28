@@ -282,6 +282,10 @@ export class UnixTerminal extends Terminal {
     this._rows = rows;
   }
 
+  public clear(): void {
+
+  }
+
   private _sanitizeEnv(env: IProcessEnv): void {
     // Make sure we didn't start our server from inside tmux.
     delete env['TMUX'];
