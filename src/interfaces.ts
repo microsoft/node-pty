@@ -32,6 +32,12 @@ export interface ITerminal {
   resize(cols: number, rows: number): void;
 
   /**
+   * Clears the pty's internal representation of its buffer. This is a no-op
+   * unless on Windows/ConPTY.
+   */
+  clear(): void;
+
+  /**
    * Close, kill and destroy the socket.
    */
   destroy(): void;
