@@ -147,23 +147,6 @@ declare module 'node-pty' {
     readonly onExit: IEvent<{ exitCode: number, signal?: number }>;
 
     /**
-     * Adds a listener to the data event, fired when data is returned from the pty.
-     * @param event The name of the event.
-     * @param listener The callback function.
-     * @deprecated Use IPty.onData
-     */
-    on(event: 'data', listener: (data: string) => void): void;
-
-    /**
-     * Adds a listener to the exit event, fired when the pty exits.
-     * @param event The name of the event.
-     * @param listener The callback function, exitCode is the exit code of the process and signal is
-     * the signal that triggered the exit. signal is not supported on Windows.
-     * @deprecated Use IPty.onExit
-     */
-    on(event: 'exit', listener: (exitCode: number, signal?: number) => void): void;
-
-    /**
      * Resizes the dimensions of the pty.
      * @param columns The number of columns to use.
      * @param rows The number of rows to use.
