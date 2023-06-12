@@ -101,9 +101,15 @@ static NAN_METHOD(PtyGetProcessList) {
     return;
   }
 
-  HANDLE pid = reinterpret_cast<HANDLE>(static_cast<int64_t>(info[0]->Int32Value(Nan::GetCurrentContext()).FromJust()));
-  winpty_t *pc = get_pipe_handle(pid);
+  int32_t pid = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
+  HANDLE handle = OpenProcess(READ_CONTROL, FALSE, static_cast<DWORD>(pid));
+  if (handle == NULL) {
+    info.GetReturnValue().Set(Nan::New<v8::Array>(0));
+    return;
+  }
+  winpty_t *pc = get_pipe_handle(handle);
   if (pc == nullptr) {
+    CloseHandle(handle);
     info.GetReturnValue().Set(Nan::New<v8::Array>(0));
     return;
   }
@@ -115,6 +121,7 @@ static NAN_METHOD(PtyGetProcessList) {
   for (int i = 0; i < actualCount; i++) {
     Nan::Set(result, i, Nan::New<v8::Number>(processList[i]));
   }
+  CloseHandle(handle);
   info.GetReturnValue().Set(result);
 }
 
