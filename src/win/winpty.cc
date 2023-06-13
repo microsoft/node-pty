@@ -37,21 +37,22 @@ static volatile LONG ptyCounter;
 * Helpers
 */
 
-static winpty_t *get_pipe_handle(HANDLE handle) {
+static winpty_t *get_pipe_handle(DWORD pid) {
   for (size_t i = 0; i < ptyHandles.size(); ++i) {
     winpty_t *ptyHandle = ptyHandles[i];
     HANDLE current = winpty_agent_process(ptyHandle);
-    if (current == handle) {
+    if (GetProcessId(current) == pid) {
       return ptyHandle;
     }
   }
   return nullptr;
 }
 
-static bool remove_pipe_handle(HANDLE handle) {
+static bool remove_pipe_handle(DWORD pid) {
   for (size_t i = 0; i < ptyHandles.size(); ++i) {
     winpty_t *ptyHandle = ptyHandles[i];
-    if (winpty_agent_process(ptyHandle) == handle) {
+    HANDLE current = winpty_agent_process(ptyHandle);
+    if (GetProcessId(current) == pid) {
       winpty_free(ptyHandle);
       ptyHandles.erase(ptyHandles.begin() + i);
       ptyHandle = nullptr;
@@ -74,13 +75,24 @@ static NAN_METHOD(PtyGetExitCode) {
 
   if (info.Length() != 1 ||
       !info[0]->IsNumber()) {
-    Nan::ThrowError("Usage: pty.getExitCode(pidHandle)");
+    Nan::ThrowError("Usage: pty.getExitCode(pid)");
+    return;
+  }
+
+  DWORD pid = info[0]->Uint32Value(Nan::GetCurrentContext()).FromJust();
+  HANDLE handle = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
+  if (handle == NULL) {
+    info.GetReturnValue().Set(Nan::New<v8::Number>(-1));
     return;
   }
 
   DWORD exitCode = 0;
-  GetExitCodeProcess((HANDLE)info[0]->IntegerValue(Nan::GetCurrentContext()).FromJust(), &exitCode);
+  BOOL success = GetExitCodeProcess(handle, &exitCode);
+  if (success == FALSE) {
+    exitCode = -1;
+  }
 
+  CloseHandle(handle);
   info.GetReturnValue().Set(Nan::New<v8::Number>(exitCode));
 }
 
@@ -93,22 +105,24 @@ static NAN_METHOD(PtyGetProcessList) {
     return;
   }
 
-  HANDLE handle = reinterpret_cast<HANDLE>(static_cast<int64_t>(info[0]->Int32Value(Nan::GetCurrentContext()).FromJust()));
-  winpty_t *pc = get_pipe_handle(handle);
+  DWORD pid = info[0]->Uint32Value(Nan::GetCurrentContext()).FromJust();
+  winpty_t *pc = get_pipe_handle(pid);
   if (pc == nullptr) {
-    CloseHandle(handle);
     info.GetReturnValue().Set(Nan::New<v8::Array>(0));
     return;
   }
   int processList[64];
   const int processCount = 64;
   int actualCount = winpty_get_console_process_list(pc, processList, processCount, nullptr);
-
-  v8::Local<v8::Array> result = Nan::New<v8::Array>(actualCount);
-  for (int i = 0; i < actualCount; i++) {
+  if (actualCount <= 0) {
+    info.GetReturnValue().Set(Nan::New<v8::Array>(0));
+    return;
+  }
+  uint32_t actualCountSize = static_cast<uint32_t>(actualCount);
+  v8::Local<v8::Array> result = Nan::New<v8::Array>(actualCountSize);
+  for (uint32_t i = 0; i < actualCountSize; i++) {
     Nan::Set(result, i, Nan::New<v8::Number>(processList[i]));
   }
-  CloseHandle(handle);
   info.GetReturnValue().Set(result);
 }
 
@@ -217,8 +231,7 @@ static NAN_METHOD(PtyStartProcess) {
     // "warning C4533: initialization of 'marshal' is skipped by 'goto cleanup'"
     v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
     Nan::Set(marshal, Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(GetProcessId(handle))));
-    Nan::Set(marshal, Nan::New<v8::String>("innerPidHandle").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(reinterpret_cast<uint64_t>(handle))));
-    Nan::Set(marshal, Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(reinterpret_cast<uint64_t>(winpty_agent_process(pc)))));
+    Nan::Set(marshal, Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(GetProcessId(winpty_agent_process(pc)))));
     Nan::Set(marshal, Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(InterlockedIncrement(&ptyCounter)));
     Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
     {
@@ -238,6 +251,9 @@ cleanup:
   delete filename;
   delete cmdline;
   delete cwd;
+  if (handle) {
+    CloseHandle(handle);
+  }
 }
 
 static NAN_METHOD(PtyResize) {
@@ -251,11 +267,11 @@ static NAN_METHOD(PtyResize) {
     return;
   }
 
-  HANDLE handle = reinterpret_cast<HANDLE>(static_cast<int64_t>(info[0]->Int32Value(Nan::GetCurrentContext()).FromJust()));
+  DWORD pid = info[0]->Uint32Value(Nan::GetCurrentContext()).FromJust();
   int cols = info[1]->Int32Value(Nan::GetCurrentContext()).FromJust();
   int rows = info[2]->Int32Value(Nan::GetCurrentContext()).FromJust();
 
-  winpty_t *pc = get_pipe_handle(handle);
+  winpty_t *pc = get_pipe_handle(pid);
 
   if (pc == nullptr) {
     Nan::ThrowError("The pty doesn't appear to exist");
@@ -276,20 +292,26 @@ static NAN_METHOD(PtyKill) {
   if (info.Length() != 2 ||
       !info[0]->IsNumber() ||
       !info[1]->IsNumber()) {
-    Nan::ThrowError("Usage: pty.kill(pid, innerPidHandle)");
+    Nan::ThrowError("Usage: pty.kill(pid, innerPid)");
     return;
   }
 
-  HANDLE handle = reinterpret_cast<HANDLE>(static_cast<int64_t>(info[0]->Int32Value(Nan::GetCurrentContext()).FromJust()));
-  HANDLE innerPidHandle = reinterpret_cast<HANDLE>(static_cast<int64_t>(info[1]->Int32Value(Nan::GetCurrentContext()).FromJust()));
+  DWORD pid = info[0]->Uint32Value(Nan::GetCurrentContext()).FromJust();
+  DWORD innerPid = info[1]->Uint32Value(Nan::GetCurrentContext()).FromJust();
 
-  winpty_t *pc = get_pipe_handle(handle);
+  winpty_t *pc = get_pipe_handle(pid);
   if (pc == nullptr) {
     Nan::ThrowError("Pty seems to have been killed already");
     return;
   }
 
-  assert(remove_pipe_handle(handle));
+  assert(remove_pipe_handle(pid));
+
+  HANDLE innerPidHandle = OpenProcess(PROCESS_TERMINATE, FALSE, innerPid);
+  if (innerPidHandle == nullptr) {
+    return info.GetReturnValue().SetUndefined();
+  }
+  TerminateProcess(innerPidHandle, 0);
   CloseHandle(innerPidHandle);
 
   return info.GetReturnValue().SetUndefined();

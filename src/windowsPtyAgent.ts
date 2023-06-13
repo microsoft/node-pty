@@ -31,7 +31,6 @@ export class WindowsPtyAgent {
   private _outSocket: Socket;
   private _pid: number = 0;
   private _innerPid: number = 0;
-  private _innerPidHandle: number = 0;
   private _closeTimeout: NodeJS.Timer | undefined;
   private _exitCode: number | undefined;
   private _conoutSocketWorker: ConoutConnection;
@@ -105,7 +104,6 @@ export class WindowsPtyAgent {
       term = (this._ptyNative as IWinptyNative).startProcess(file, commandLine, env, cwd, cols, rows, debug);
       this._pid = (term as IWinptyProcess).pid;
       this._innerPid = (term as IWinptyProcess).innerPid;
-      this._innerPidHandle = (term as IWinptyProcess).innerPidHandle;
     }
 
     // Not available on windows.
@@ -174,7 +172,7 @@ export class WindowsPtyAgent {
         (this._ptyNative as IConptyNative).kill(this._pty);
       });
     } else {
-      (this._ptyNative as IWinptyNative).kill(this._pid, this._innerPidHandle);
+      (this._ptyNative as IWinptyNative).kill(this._pid, this._innerPid);
       // Since pty.kill closes the handle it will kill most processes by itself
       // and process IDs can be reused as soon as all handles to them are
       // dropped, we want to immediately kill the entire console process list.
@@ -212,7 +210,8 @@ export class WindowsPtyAgent {
     if (this._useConpty) {
       return this._exitCode;
     }
-    return (this._ptyNative as IWinptyNative).getExitCode(this._innerPidHandle);
+    const winptyExitCode = (this._ptyNative as IWinptyNative).getExitCode(this._innerPid);
+    return winptyExitCode === -1 ? undefined : winptyExitCode;
   }
 
   private _getWindowsBuildNumber(): number {

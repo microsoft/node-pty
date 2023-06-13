@@ -12,10 +12,10 @@ interface IConptyNative {
 
 interface IWinptyNative {
   startProcess(file: string, commandLine: string, env: string[], cwd: string, cols: number, rows: number, debug: boolean): IWinptyProcess;
-  resize(processHandle: number, cols: number, rows: number): void;
-  kill(pid: number, innerPidHandle: number): void;
+  resize(pid: number, cols: number, rows: number): void;
+  kill(pid: number, innerPid: number): void;
   getProcessList(pid: number): number[];
-  getExitCode(innerPidHandle: number): number;
+  getExitCode(innerPid: number): number;
 }
 
 interface IUnixNative {
@@ -40,7 +40,6 @@ interface IWinptyProcess {
   conout: string;
   pid: number;
   innerPid: number;
-  innerPidHandle: number;
 }
 
 interface IUnixProcess {
