@@ -63,17 +63,11 @@ static bool remove_pipe_handle(HANDLE handle) {
   return false;
 }
 
-static std::string from_wstring(const std::wstring &wstr) {
-  // https://stackoverflow.com/a/18374698
-  std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
-  return converter.to_bytes(wstr);
-}
-
 void throw_winpty_error(const char *generalMsg, winpty_error_ptr_t error_ptr) {
-  std::stringstream why;
+  std::wstringstream why;
   std::wstring msg(winpty_error_msg(error_ptr));
-  why << generalMsg << ": " << from_wstring(msg);
-  Nan::ThrowError(why.str().c_str());
+  why << generalMsg << ": " << msg;
+  Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
   winpty_error_free(error_ptr);
 }
 
@@ -140,8 +134,6 @@ static NAN_METHOD(PtyStartProcess) {
     return;
   }
 
-  std::stringstream why;
-
   const wchar_t *filename = path_util::to_wstring(Nan::Utf8String(info[0]));
   const wchar_t *cmdline = path_util::to_wstring(Nan::Utf8String(info[1]));
   const wchar_t *cwd = path_util::to_wstring(Nan::Utf8String(info[3]));
@@ -171,8 +163,9 @@ static NAN_METHOD(PtyStartProcess) {
   }
 
   if (shellpath.empty() || !path_util::file_exists(shellpath)) {
-    why << "File not found: " << from_wstring(shellpath);
-    Nan::ThrowError(why.str().c_str());
+    std::wstringstream why;
+    why << "File not found: " << shellpath;
+    Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
     goto cleanup;
   }
 
@@ -237,11 +230,11 @@ static NAN_METHOD(PtyStartProcess) {
     Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
     {
       LPCWSTR coninPipeName = winpty_conin_name(pc);
-      std::wstring coninPipeNameWStr(coninPipeName);
-      Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(from_wstring(coninPipeNameWStr)).ToLocalChecked());
+      std::string coninPipeNameStr(path_util::from_wstring(coninPipeName));
+      Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(coninPipeNameStr).ToLocalChecked());
       LPCWSTR conoutPipeName = winpty_conout_name(pc);
-      std::wstring conoutPipeNameWStr(conoutPipeName);
-      Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(from_wstring(conoutPipeNameWStr)).ToLocalChecked());
+      std::string conoutPipeNameStr(path_util::from_wstring(conoutPipeName));
+      Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
     }
     info.GetReturnValue().Set(marshal);
   }

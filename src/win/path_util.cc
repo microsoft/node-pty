@@ -19,6 +19,13 @@ const wchar_t* to_wstring(const Nan::Utf8String& str) {
   return output;
 }
 
+const char* from_wstring(const wchar_t* wstr) {
+  int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
+  char *output = new char[bufferSize];
+  WideCharToMultiByte(CP_UTF8, 0, wstr, -1, output, bufferSize, NULL, NULL);
+  return output;
+}
+
 bool file_exists(std::wstring filename) {
   DWORD attr = ::GetFileAttributesW(filename.c_str());
   if (attr == INVALID_FILE_ATTRIBUTES || (attr & FILE_ATTRIBUTE_DIRECTORY)) {

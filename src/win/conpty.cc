@@ -160,12 +160,6 @@ HRESULT CreateNamedPipesAndPseudoConsole(COORD size,
   return HRESULT_FROM_WIN32(GetLastError());
 }
 
-std::string from_wstring(const std::wstring &wstr) {
-  // https://stackoverflow.com/a/18374698
-  std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
-  return converter.to_bytes(wstr);
-}
-
 static NAN_METHOD(PtyStartProcess) {
   Nan::HandleScope scope;
 
@@ -203,9 +197,9 @@ static NAN_METHOD(PtyStartProcess) {
   }
 
   if (shellpath.empty() || !path_util::file_exists(shellpath)) {
-    std::stringstream why;
-    why << "File not found: " << from_wstring(shellpath);
-    Nan::ThrowError(why.str().c_str());
+    std::wstringstream why;
+    why << "File not found: " << shellpath;
+    Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
     return;
   }
 
@@ -230,8 +224,10 @@ static NAN_METHOD(PtyStartProcess) {
   }
 
   Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
-  Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(from_wstring(inName)).ToLocalChecked());
-  Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(from_wstring(outName)).ToLocalChecked());
+  std::string inNameStr(path_util::from_wstring(inName.c_str()));
+  Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(inNameStr).ToLocalChecked());
+  std::string outNameStr(path_util::from_wstring(outName.c_str()));
+  Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(outNameStr).ToLocalChecked());
   info.GetReturnValue().Set(marshal);
 }
 
