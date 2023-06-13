@@ -14,9 +14,7 @@
   #define _WIN32_WINNT 0x600
 #endif
 
-#include <codecvt>
 #include <iostream>
-#include <locale>
 #include <nan.h>
 #include <Shlwapi.h> // PathCombine, PathIsRelative
 #include <sstream>
