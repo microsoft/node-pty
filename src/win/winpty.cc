@@ -252,7 +252,7 @@ cleanup:
   delete cmdline;
   delete cwd;
   if (handle) {
-    CloseHandle(handle);
+    // CloseHandle(handle);
   }
 }
 
