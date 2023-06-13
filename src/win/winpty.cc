@@ -89,7 +89,7 @@ static NAN_METHOD(PtyGetExitCode) {
   DWORD exitCode = 0;
   BOOL success = GetExitCodeProcess(handle, &exitCode);
   if (success == FALSE) {
-    exitCode = -1;
+    exitCode = ::GetLastError();
   }
 
   CloseHandle(handle);
