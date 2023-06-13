@@ -82,7 +82,7 @@ static NAN_METHOD(PtyGetExitCode) {
   DWORD pid = info[0]->Uint32Value(Nan::GetCurrentContext()).FromJust();
   HANDLE handle = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
   if (handle == NULL) {
-    info.GetReturnValue().Set(Nan::New<v8::Number>(-1));
+    info.GetReturnValue().Set(Nan::New<v8::Number>(::GetLastError()));
     return;
   }
 
