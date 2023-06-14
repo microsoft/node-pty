@@ -149,11 +149,6 @@ static NAN_METHOD(PtyStartProcess) {
   const wchar_t *cmdline = path_util::to_wstring(Nan::Utf8String(info[1]));
   const wchar_t *cwd = path_util::to_wstring(Nan::Utf8String(info[3]));
 
-  // Place variables here to avoid
-  // error C2362: initialization of 'conoutPipeNameStr' is skipped by 'goto cleanup'
-  std::string coninPipeNameStr;
-  std::string conoutPipeNameStr;
-
   // create environment block
   std::wstring env;
   const v8::Local<v8::Array> envValues = v8::Local<v8::Array>::Cast(info[2]);
@@ -182,7 +177,10 @@ static NAN_METHOD(PtyStartProcess) {
     std::wstringstream why;
     why << "File not found: " << shellpath;
     Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
-    goto cleanup;
+    delete filename;
+    delete cmdline;
+    delete cwd;
+    return;
   }
 
   int cols = info[4]->Int32Value(Nan::GetCurrentContext()).FromJust();
@@ -197,7 +195,10 @@ static NAN_METHOD(PtyStartProcess) {
   winpty_config_t* winpty_config = winpty_config_new(0, &error_ptr);
   if (winpty_config == nullptr) {
     throw_winpty_error("Error creating WinPTY config", error_ptr);
-    goto cleanup;
+    delete filename;
+    delete cmdline;
+    delete cwd;
+    return;
   }
   winpty_error_free(error_ptr);
 
@@ -209,18 +210,22 @@ static NAN_METHOD(PtyStartProcess) {
   winpty_config_free(winpty_config);
   if (pc == nullptr) {
     throw_winpty_error("Error launching WinPTY agent", error_ptr);
-    goto cleanup;
+    delete filename;
+    delete cmdline;
+    delete cwd;
+    return;
   }
   winpty_error_free(error_ptr);
-
-  // Save pty struct for later use
-  ptyHandles.insert(ptyHandles.end(), pc);
 
   // Create winpty spawn config
   winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, env.c_str(), &error_ptr);
   if (config == nullptr) {
     throw_winpty_error("Error creating WinPTY spawn config", error_ptr);
-    goto cleanup;
+    winpty_free(pc);
+    delete filename;
+    delete cmdline;
+    delete cwd;
+    return;
   }
   winpty_error_free(error_ptr);
 
@@ -232,59 +237,66 @@ static NAN_METHOD(PtyStartProcess) {
     if (handle) {
       CloseHandle(handle);
     }
+    winpty_free(pc);
+    delete filename;
+    delete cmdline;
+    delete cwd;
     throw_winpty_error("Unable to start terminal process", error_ptr);
-    goto cleanup;
+    return;
   }
   winpty_error_free(error_ptr);
 
   LPCWSTR coninPipeName = winpty_conin_name(pc);
-  coninPipeNameStr = std::string(path_util::from_wstring(coninPipeName));
+  std::string coninPipeNameStr(path_util::from_wstring(coninPipeName));
   if (coninPipeNameStr.empty()) {
-    winpty_free(pc);
     CloseHandle(handle);
+    winpty_free(pc);
+    delete filename;
+    delete cmdline;
+    delete cwd;
     Nan::ThrowError("Failed to initialize winpty conin");
-    goto cleanup;
+    return;
   }
 
   LPCWSTR conoutPipeName = winpty_conout_name(pc);
-  conoutPipeNameStr = std::string(path_util::from_wstring(conoutPipeName));
+  std::string conoutPipeNameStr(path_util::from_wstring(conoutPipeName));
   if (conoutPipeNameStr.empty()) {
-    winpty_free(pc);
     CloseHandle(handle);
+    winpty_free(pc);
+    delete filename;
+    delete cmdline;
+    delete cwd;
     Nan::ThrowError("Failed to initialize winpty conout");
-    goto cleanup;
+    return;
   }
 
   DWORD innerPid = GetProcessId(handle);
   if (createdHandles[innerPid]) {
-    winpty_free(pc);
     CloseHandle(handle);
+    winpty_free(pc);
+    delete filename;
+    delete cmdline;
+    delete cwd;
     std::stringstream ss;
     ss << "There is already a process with innerPid " << innerPid;
     Nan::ThrowError(ss.str().c_str());
-    goto cleanup;
+    return;
   }
   createdHandles[innerPid] = handle;
 
-  // Set return values
-  {
-    // Use a new block to avoid
-    // "warning C4533: initialization of 'marshal' is skipped by 'goto cleanup'"
-    v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
+  // Save pty struct for later use
+  ptyHandles.push_back(pc);
 
-    DWORD pid = GetProcessId(winpty_agent_process(pc));
-    Nan::Set(marshal, Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(innerPid)));
-    Nan::Set(marshal, Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(pid)));
-    Nan::Set(marshal, Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(InterlockedIncrement(&ptyCounter)));
-    Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
-    Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(coninPipeNameStr).ToLocalChecked());
-    Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
-    info.GetReturnValue().Set(marshal);
-  }
+  v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
+  DWORD pid = GetProcessId(winpty_agent_process(pc));
+  Nan::Set(marshal, Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(innerPid)));
+  Nan::Set(marshal, Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(pid)));
+  Nan::Set(marshal, Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(InterlockedIncrement(&ptyCounter)));
+  Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
+  Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(coninPipeNameStr).ToLocalChecked());
+  Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
+  info.GetReturnValue().Set(marshal);
 
-  goto cleanup;
-
-cleanup:
   delete filename;
   delete cmdline;
   delete cwd;
