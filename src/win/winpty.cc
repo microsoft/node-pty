@@ -232,27 +232,46 @@ static NAN_METHOD(PtyStartProcess) {
   }
   winpty_error_free(error_ptr);
 
+  LPCWSTR coninPipeName = winpty_conin_name(pc);
+  std::string coninPipeNameStr(path_util::from_wstring(coninPipeName));
+  if (coninPipeNameStr.empty()) {
+    winpty_free(pc);
+    CloseHandle(handle);
+    Nan::ThrowError("Failed to initialize conin_name");
+    goto cleanup;
+  }
+
+  LPCWSTR conoutPipeName = winpty_conout_name(pc);
+  std::string conoutPipeNameStr(path_util::from_wstring(conoutPipeName));
+  if (conoutPipeNameStr.empty()) {
+    winpty_free(pc);
+    CloseHandle(handle);
+    Nan::ThrowError("Failed to initialize conout_name");
+    goto cleanup;
+  }
+
+  DWORD innerPid = GetProcessId(handle);
+  if (createdHandles[innerPid]) {
+    winpty_free(pc);
+    CloseHandle(handle);
+    Nan::ThrowError("There is already a process with innerPid " + std::to_string(innerPid));
+    goto cleanup;
+  }
+  createdHandles[innerPid] = handle;
+
   // Set return values
  {
     // Use a new block to avoid
     // "warning C4533: initialization of 'marshal' is skipped by 'goto cleanup'"
     v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
 
-    DWORD pid = GetProcessId(handle);
-    createdHandles[pid] = handle;
-
-    Nan::Set(marshal, Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(pid)));
-    Nan::Set(marshal, Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(GetProcessId(winpty_agent_process(pc)))));
+    DWORD pid = GetProcessId(winpty_agent_process(pc));
+    Nan::Set(marshal, Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(innerPid)));
+    Nan::Set(marshal, Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(pid)));
     Nan::Set(marshal, Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(InterlockedIncrement(&ptyCounter)));
     Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
-    {
-      LPCWSTR coninPipeName = winpty_conin_name(pc);
-      std::string coninPipeNameStr(path_util::from_wstring(coninPipeName));
-      Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(coninPipeNameStr).ToLocalChecked());
-      LPCWSTR conoutPipeName = winpty_conout_name(pc);
-      std::string conoutPipeNameStr(path_util::from_wstring(conoutPipeName));
-      Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
-    }
+    Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(coninPipeNameStr).ToLocalChecked());
+    Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
     info.GetReturnValue().Set(marshal);
   }
 
@@ -315,17 +334,9 @@ static NAN_METHOD(PtyKill) {
 
   assert(remove_pipe_handle(pid));
 
-  HANDLE innerPidHandle = OpenProcess(PROCESS_TERMINATE, FALSE, innerPid);
-  if (innerPidHandle == nullptr) {
-    return info.GetReturnValue().SetUndefined();
-  }
-  TerminateProcess(innerPidHandle, 0);
+  HANDLE innerPidHandle = createdHandles[innerPid];
+  createdHandles.erase(innerPid);
   CloseHandle(innerPidHandle);
-
-  // Finally close the handle of the spawned process.
-  HANDLE createdHandle = createdHandles[pid];
-  createdHandles.erase(pid);
-  CloseHandle(createdHandle);
 
   return info.GetReturnValue().SetUndefined();
 }
