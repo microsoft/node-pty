@@ -9,6 +9,7 @@
  */
 
 #include <iostream>
+#include <map>
 #include <nan.h>
 #include <Shlwapi.h> // PathCombine, PathIsRelative
 #include <sstream>
@@ -36,6 +37,9 @@ static volatile LONG ptyCounter;
 /**
 * Helpers
 */
+
+/** Keeps track of the handles created by PtyStartProcess */
+static std::map<DWORD, HANDLE> createdHandles;
 
 static winpty_t *get_pipe_handle(DWORD pid) {
   for (size_t i = 0; i < ptyHandles.size(); ++i) {
@@ -220,6 +224,9 @@ static NAN_METHOD(PtyStartProcess) {
   BOOL spawnSuccess = winpty_spawn(pc, config, &handle, nullptr, nullptr, &error_ptr);
   winpty_spawn_config_free(config);
   if (!spawnSuccess) {
+    if (handle != nullptr) {
+      CloseHandle(handle);
+    }
     throw_winpty_error("Unable to start terminal process", error_ptr);
     goto cleanup;
   }
@@ -230,7 +237,11 @@ static NAN_METHOD(PtyStartProcess) {
     // Use a new block to avoid
     // "warning C4533: initialization of 'marshal' is skipped by 'goto cleanup'"
     v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
-    Nan::Set(marshal, Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(GetProcessId(handle))));
+
+    DWORD pid = GetProcessId(handle);
+    createdHandles[pid] = handle;
+
+    Nan::Set(marshal, Nan::New<v8::String>("innerPid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(pid)));
     Nan::Set(marshal, Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>(static_cast<double>(GetProcessId(winpty_agent_process(pc)))));
     Nan::Set(marshal, Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(InterlockedIncrement(&ptyCounter)));
     Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
@@ -251,9 +262,6 @@ cleanup:
   delete filename;
   delete cmdline;
   delete cwd;
-  if (handle) {
-    CloseHandle(handle);
-  }
 }
 
 static NAN_METHOD(PtyResize) {
@@ -313,6 +321,11 @@ static NAN_METHOD(PtyKill) {
   }
   TerminateProcess(innerPidHandle, 0);
   CloseHandle(innerPidHandle);
+
+  // Finally close the handle of the spawned process.
+  HANDLE createdHandle = createdHandles[pid];
+  createdHandles.erase(pid);
+  CloseHandle(createdHandle);
 
   return info.GetReturnValue().SetUndefined();
 }
