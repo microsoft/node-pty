@@ -174,12 +174,12 @@ static NAN_METHOD(PtyStartProcess) {
   }
 
   if (shellpath.empty() || !path_util::file_exists(shellpath)) {
-    std::wstringstream why;
-    why << "File not found: " << shellpath;
-    Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
     delete filename;
     delete cmdline;
     delete cwd;
+    std::wstringstream why;
+    why << "File not found: " << shellpath;
+    Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
     return;
   }
 
@@ -194,10 +194,10 @@ static NAN_METHOD(PtyStartProcess) {
   winpty_error_ptr_t error_ptr = nullptr;
   winpty_config_t* winpty_config = winpty_config_new(0, &error_ptr);
   if (winpty_config == nullptr) {
-    throw_winpty_error("Error creating WinPTY config", error_ptr);
     delete filename;
     delete cmdline;
     delete cwd;
+    throw_winpty_error("Error creating WinPTY config", error_ptr);
     return;
   }
   winpty_error_free(error_ptr);
@@ -209,10 +209,10 @@ static NAN_METHOD(PtyStartProcess) {
   winpty_t *pc = winpty_open(winpty_config, &error_ptr);
   winpty_config_free(winpty_config);
   if (pc == nullptr) {
-    throw_winpty_error("Error launching WinPTY agent", error_ptr);
     delete filename;
     delete cmdline;
     delete cwd;
+    throw_winpty_error("Error launching WinPTY agent", error_ptr);
     return;
   }
   winpty_error_free(error_ptr);
@@ -220,11 +220,11 @@ static NAN_METHOD(PtyStartProcess) {
   // Create winpty spawn config
   winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, env.c_str(), &error_ptr);
   if (config == nullptr) {
-    throw_winpty_error("Error creating WinPTY spawn config", error_ptr);
     winpty_free(pc);
     delete filename;
     delete cmdline;
     delete cwd;
+    throw_winpty_error("Error creating WinPTY spawn config", error_ptr);
     return;
   }
   winpty_error_free(error_ptr);
