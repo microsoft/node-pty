@@ -149,6 +149,11 @@ static NAN_METHOD(PtyStartProcess) {
   const wchar_t *cmdline = path_util::to_wstring(Nan::Utf8String(info[1]));
   const wchar_t *cwd = path_util::to_wstring(Nan::Utf8String(info[3]));
 
+  // Place variables here to avoid
+  // error C2362: initialization of 'conoutPipeNameStr' is skipped by 'goto cleanup'
+  std::string coninPipeNameStr;
+  std::string conoutPipeNameStr;
+
   // create environment block
   std::wstring env;
   const v8::Local<v8::Array> envValues = v8::Local<v8::Array>::Cast(info[2]);
@@ -233,7 +238,7 @@ static NAN_METHOD(PtyStartProcess) {
   winpty_error_free(error_ptr);
 
   LPCWSTR coninPipeName = winpty_conin_name(pc);
-  std::string coninPipeNameStr(path_util::from_wstring(coninPipeName));
+  coninPipeNameStr = std::string(path_util::from_wstring(coninPipeName));
   if (coninPipeNameStr.empty()) {
     winpty_free(pc);
     CloseHandle(handle);
@@ -242,7 +247,7 @@ static NAN_METHOD(PtyStartProcess) {
   }
 
   LPCWSTR conoutPipeName = winpty_conout_name(pc);
-  std::string conoutPipeNameStr(path_util::from_wstring(conoutPipeName));
+  conoutPipeNameStr = std::string(path_util::from_wstring(conoutPipeName));
   if (conoutPipeNameStr.empty()) {
     winpty_free(pc);
     CloseHandle(handle);
@@ -254,13 +259,15 @@ static NAN_METHOD(PtyStartProcess) {
   if (createdHandles[innerPid]) {
     winpty_free(pc);
     CloseHandle(handle);
-    Nan::ThrowError("There is already a process with innerPid " + std::to_string(innerPid));
+    std::stringstream ss;
+    ss << "There is already a process with innerPid " << innerPid;
+    Nan::ThrowError(ss.str().c_str());
     goto cleanup;
   }
   createdHandles[innerPid] = handle;
 
   // Set return values
- {
+  {
     // Use a new block to avoid
     // "warning C4533: initialization of 'marshal' is skipped by 'goto cleanup'"
     v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
