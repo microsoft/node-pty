@@ -174,8 +174,6 @@ static NAN_METHOD(PtyStartProcess) {
   }
 
   if (shellpath.empty() || !path_util::file_exists(shellpath)) {
-    // Throw error first in case
-    // shellpath relies on filename not being deleted.
     std::wstringstream why;
     why << "File not found: " << shellpath;
     Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
@@ -196,10 +194,10 @@ static NAN_METHOD(PtyStartProcess) {
   winpty_error_ptr_t error_ptr = nullptr;
   winpty_config_t* winpty_config = winpty_config_new(0, &error_ptr);
   if (winpty_config == nullptr) {
+    throw_winpty_error("Error creating WinPTY config", error_ptr);
     delete filename;
     delete cmdline;
     delete cwd;
-    throw_winpty_error("Error creating WinPTY config", error_ptr);
     return;
   }
   winpty_error_free(error_ptr);
@@ -211,10 +209,10 @@ static NAN_METHOD(PtyStartProcess) {
   winpty_t *pc = winpty_open(winpty_config, &error_ptr);
   winpty_config_free(winpty_config);
   if (pc == nullptr) {
+    throw_winpty_error("Error launching WinPTY agent", error_ptr);
     delete filename;
     delete cmdline;
     delete cwd;
-    throw_winpty_error("Error launching WinPTY agent", error_ptr);
     return;
   }
   winpty_error_free(error_ptr);
@@ -222,11 +220,11 @@ static NAN_METHOD(PtyStartProcess) {
   // Create winpty spawn config
   winpty_spawn_config_t* config = winpty_spawn_config_new(WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN, shellpath.c_str(), cmdline, cwd, env.c_str(), &error_ptr);
   if (config == nullptr) {
+    throw_winpty_error("Error creating WinPTY spawn config", error_ptr);
     winpty_free(pc);
     delete filename;
     delete cmdline;
     delete cwd;
-    throw_winpty_error("Error creating WinPTY spawn config", error_ptr);
     return;
   }
   winpty_error_free(error_ptr);
@@ -236,6 +234,7 @@ static NAN_METHOD(PtyStartProcess) {
   BOOL spawnSuccess = winpty_spawn(pc, config, &handle, nullptr, nullptr, &error_ptr);
   winpty_spawn_config_free(config);
   if (!spawnSuccess) {
+    throw_winpty_error("Unable to start terminal process", error_ptr);
     if (handle) {
       CloseHandle(handle);
     }
@@ -243,7 +242,6 @@ static NAN_METHOD(PtyStartProcess) {
     delete filename;
     delete cmdline;
     delete cwd;
-    throw_winpty_error("Unable to start terminal process", error_ptr);
     return;
   }
   winpty_error_free(error_ptr);
@@ -251,37 +249,37 @@ static NAN_METHOD(PtyStartProcess) {
   LPCWSTR coninPipeName = winpty_conin_name(pc);
   std::string coninPipeNameStr(path_util::from_wstring(coninPipeName));
   if (coninPipeNameStr.empty()) {
+    Nan::ThrowError("Failed to initialize winpty conin");
     CloseHandle(handle);
     winpty_free(pc);
     delete filename;
     delete cmdline;
     delete cwd;
-    Nan::ThrowError("Failed to initialize winpty conin");
     return;
   }
 
   LPCWSTR conoutPipeName = winpty_conout_name(pc);
   std::string conoutPipeNameStr(path_util::from_wstring(conoutPipeName));
   if (conoutPipeNameStr.empty()) {
+    Nan::ThrowError("Failed to initialize winpty conout");
     CloseHandle(handle);
     winpty_free(pc);
     delete filename;
     delete cmdline;
     delete cwd;
-    Nan::ThrowError("Failed to initialize winpty conout");
     return;
   }
 
   DWORD innerPid = GetProcessId(handle);
   if (createdHandles[innerPid]) {
+    std::stringstream why;
+    why << "There is already a process with innerPid " << innerPid;
+    Nan::ThrowError(why.str().c_str());
     CloseHandle(handle);
     winpty_free(pc);
     delete filename;
     delete cmdline;
     delete cwd;
-    std::stringstream ss;
-    ss << "There is already a process with innerPid " << innerPid;
-    Nan::ThrowError(ss.str().c_str());
     return;
   }
   createdHandles[innerPid] = handle;
