@@ -174,12 +174,14 @@ static NAN_METHOD(PtyStartProcess) {
   }
 
   if (shellpath.empty() || !path_util::file_exists(shellpath)) {
-    delete filename;
-    delete cmdline;
-    delete cwd;
+    // Throw error first in case
+    // shellpath relies on filename not being deleted.
     std::wstringstream why;
     why << "File not found: " << shellpath;
     Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
+    delete filename;
+    delete cmdline;
+    delete cwd;
     return;
   }
 
