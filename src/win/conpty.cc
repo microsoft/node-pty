@@ -221,10 +221,19 @@ static NAN_METHOD(PtyStartProcess) {
     return;
   }
 
-  Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
   std::string inNameStr(path_util::from_wstring(inName.c_str()));
-  Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(inNameStr).ToLocalChecked());
+  if (inNameStr.empty()) {
+    Nan::ThrowError("Failed to initialize conpty conin");
+    return;
+  }
   std::string outNameStr(path_util::from_wstring(outName.c_str()));
+  if (outNameStr.empty()) {
+    Nan::ThrowError("Failed to initialize conpty conout");
+    return;
+  }
+
+  Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
+  Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(inNameStr).ToLocalChecked());
   Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(outNameStr).ToLocalChecked());
   info.GetReturnValue().Set(marshal);
 }

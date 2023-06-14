@@ -224,7 +224,7 @@ static NAN_METHOD(PtyStartProcess) {
   BOOL spawnSuccess = winpty_spawn(pc, config, &handle, nullptr, nullptr, &error_ptr);
   winpty_spawn_config_free(config);
   if (!spawnSuccess) {
-    if (handle != nullptr) {
+    if (handle) {
       CloseHandle(handle);
     }
     throw_winpty_error("Unable to start terminal process", error_ptr);
@@ -237,7 +237,7 @@ static NAN_METHOD(PtyStartProcess) {
   if (coninPipeNameStr.empty()) {
     winpty_free(pc);
     CloseHandle(handle);
-    Nan::ThrowError("Failed to initialize conin_name");
+    Nan::ThrowError("Failed to initialize winpty conin");
     goto cleanup;
   }
 
@@ -246,7 +246,7 @@ static NAN_METHOD(PtyStartProcess) {
   if (conoutPipeNameStr.empty()) {
     winpty_free(pc);
     CloseHandle(handle);
-    Nan::ThrowError("Failed to initialize conout_name");
+    Nan::ThrowError("Failed to initialize winpty conout");
     goto cleanup;
   }
 
