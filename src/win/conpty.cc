@@ -179,8 +179,8 @@ static NAN_METHOD(PtyStartProcess) {
   }
 
   const std::wstring filename(path_util::to_wstring(Nan::Utf8String(info[0])));
-  const SHORT cols = info[1]->Uint32Value(Nan::GetCurrentContext()).FromJust();
-  const SHORT rows = info[2]->Uint32Value(Nan::GetCurrentContext()).FromJust();
+  const SHORT cols = static_cast<SHORT>(info[1]->Uint32Value(Nan::GetCurrentContext()).FromJust());
+  const SHORT rows = static_cast<SHORT>(info[2]->Uint32Value(Nan::GetCurrentContext()).FromJust());
   const bool debug = Nan::To<bool>(info[3]).FromJust();
   const std::wstring pipeName(path_util::to_wstring(Nan::Utf8String(info[4])));
   const bool inheritCursor = Nan::To<bool>(info[5]).FromJust();
@@ -194,12 +194,10 @@ static NAN_METHOD(PtyStartProcess) {
     shellpath = filename;
   }
 
-  std::string shellpath_(shellpath.begin(), shellpath.end());
-
   if (shellpath.empty() || !path_util::file_exists(shellpath)) {
-    std::stringstream why;
-    why << "File not found: " << shellpath_;
-    Nan::ThrowError(why.str().c_str());
+    std::wstringstream why;
+    why << "File not found: " << shellpath;
+    Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
     return;
   }
 
@@ -223,14 +221,20 @@ static NAN_METHOD(PtyStartProcess) {
     return;
   }
 
-  Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
-  {
-    std::string coninPipeNameStr(inName.begin(), inName.end());
-    Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(coninPipeNameStr).ToLocalChecked());
-
-    std::string conoutPipeNameStr(outName.begin(), outName.end());
-    Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(conoutPipeNameStr).ToLocalChecked());
+  std::string inNameStr(path_util::from_wstring(inName.c_str()));
+  if (inNameStr.empty()) {
+    Nan::ThrowError("Failed to initialize conpty conin");
+    return;
   }
+  std::string outNameStr(path_util::from_wstring(outName.c_str()));
+  if (outNameStr.empty()) {
+    Nan::ThrowError("Failed to initialize conpty conout");
+    return;
+  }
+
+  Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
+  Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(inNameStr).ToLocalChecked());
+  Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(outNameStr).ToLocalChecked());
   info.GetReturnValue().Set(marshal);
 }
 
@@ -396,8 +400,8 @@ static NAN_METHOD(PtyResize) {
   }
 
   int id = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
-  SHORT cols = info[1]->Uint32Value(Nan::GetCurrentContext()).FromJust();
-  SHORT rows = info[2]->Uint32Value(Nan::GetCurrentContext()).FromJust();
+  SHORT cols = static_cast<SHORT>(info[1]->Uint32Value(Nan::GetCurrentContext()).FromJust());
+  SHORT rows = static_cast<SHORT>(info[2]->Uint32Value(Nan::GetCurrentContext()).FromJust());
 
   const pty_baton* handle = get_pty_baton(id);
 
