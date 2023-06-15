@@ -14,6 +14,7 @@
 namespace path_util {
 
 const wchar_t* to_wstring(const Nan::Utf8String& str);
+const char* from_wstring(const wchar_t* wstr);
 bool file_exists(std::wstring filename);
 std::wstring get_shell_path(std::wstring filename);
 

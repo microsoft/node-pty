@@ -13,9 +13,28 @@ namespace path_util {
 
 const wchar_t* to_wstring(const Nan::Utf8String& str) {
   const char *bytes = *str;
-  unsigned int sizeOfStr = MultiByteToWideChar(CP_UTF8, 0, bytes, -1, NULL, 0);
+  int sizeOfStr = MultiByteToWideChar(CP_UTF8, 0, bytes, -1, NULL, 0);
+  if (sizeOfStr <= 0) {
+    return L"";
+  }
   wchar_t *output = new wchar_t[sizeOfStr];
-  MultiByteToWideChar(CP_UTF8, 0, bytes, -1, output, sizeOfStr);
+  int status = MultiByteToWideChar(CP_UTF8, 0, bytes, -1, output, sizeOfStr);
+  if (status == 0) {
+    return L"";
+  }
+  return output;
+}
+
+const char* from_wstring(const wchar_t* wstr) {
+  int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
+  if (bufferSize <= 0) {
+    return "";
+  }
+  char *output = new char[bufferSize];
+  int status = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, output, bufferSize, NULL, NULL);
+  if (status == 0) {
+    return "";
+  }
   return output;
 }
 
