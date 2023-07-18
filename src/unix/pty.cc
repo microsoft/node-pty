@@ -58,6 +58,7 @@
 #include <paths.h>
 #include <spawn.h>
 #include <sys/event.h>
+#include <sys/sysctl.h>
 #include <termios.h>
 #endif
 
@@ -480,8 +481,8 @@ NAN_METHOD(PtyGetProc) {
     return Nan::ThrowError("Usage: pty.process(pid)");
   }
 
-  int pid = info[0]->IntegerValue(Nan::GetCurrentContext()).FromJust();
-  char *name = pty_getproc(pid);
+  int fd = info[0]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  char *name = pty_getproc(fd);
 #else
   if (info.Length() != 2 ||
       !info[0]->IsNumber() ||
@@ -692,13 +693,25 @@ pty_getproc(int fd, char *tty) {
 #elif defined(__APPLE__)
 
 static char *
-pty_getproc(int pid) {
-  char pname[MAXCOMLEN + 1];
-  if (!proc_name(pid, pname, sizeof(pname))) {
+pty_getproc(int fd) {
+  int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, 0 };
+  size_t size;
+  struct kinfo_proc kp;
+
+  if ((mib[3] = tcgetpgrp(fd)) == -1) {
     return NULL;
   }
 
-  return strdup(pname);
+  size = sizeof kp;
+  if (sysctl(mib, 4, &kp, &size, NULL, 0) == -1) {
+    return NULL;
+  }
+
+  if (size != (sizeof kp) || *kp.kp_proc.p_comm == '\0') {
+    return NULL;
+  }
+
+  return strdup(kp.kp_proc.p_comm);
 }
 
 #else
