@@ -11,6 +11,7 @@ import * as tty from 'tty';
 import * as fs from 'fs';
 import { constants } from 'os';
 import { pollUntil } from './testUtils.test';
+import { pid } from 'process';
 
 const FIXTURES_PATH = path.normalize(path.join(__dirname, '..', 'fixtures', 'utf8-character.txt'));
 
@@ -261,6 +262,40 @@ if (process.platform !== 'win32') {
           assert.strictEqual(term.process, '/bin/echo');
           term.on('exit', () => done());
           term.destroy();
+        });
+        it('should return the name of the sub process', (done) => {
+          const data = `
+          var pty = require('./lib/index');
+          var ptyProcess = pty.spawn('zsh', ['-c', 'python3'], {
+            env: process.env
+          });
+          ptyProcess.on('data', function (data) {
+            if (ptyProcess.process === 'Python') {
+              console.log('title', ptyProcess.process);
+            }
+          });
+          setTimeout(() => null, 500);
+          console.log('ready', ptyProcess.pid);
+          `;
+          const p = cp.spawn('node', ['-e', data]);
+          let sub = '';
+          let pid = '';
+          p.stdout.on('data', (data) => {
+            if (!data.toString().indexOf('title')) {
+              sub = data.toString().split(' ')[1].slice(0, -1);
+              setTimeout(() => {
+                process.kill(parseInt(pid), 'SIGINT');
+                p.kill('SIGINT');
+              }, 200);
+            } else if (!data.toString().indexOf('ready')) {
+              pid = data.toString().split(' ')[1].slice(0, -1);
+            }
+          });
+          p.on('exit', () => {
+            assert.notStrictEqual(pid, '');
+            assert.strictEqual(sub, 'Python');
+            done();
+          });
         });
         it('should close on exec', (done) => {
           const data = `
