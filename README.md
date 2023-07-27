@@ -154,7 +154,7 @@ This error can occur due to anti-virus software intercepting winpty from creatin
 
 ## pty.js
 
-This project is forked from [chjj/pty.js](https://github.com/chjj/pty.js) with the primary goals being to provide better support for later Node.JS versions and Windows.
+This project is forked from [chjj/pty.js](https://github.com/chjj/pty.js) with the primary goals being to provide better support for later Node.js versions and Windows.
 
 ## License
 
