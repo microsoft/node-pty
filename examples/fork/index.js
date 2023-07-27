@@ -1,10 +1,10 @@
-var os = require('os');
-var pty = require('../..');
+import * as os from 'node:os';
+import * as pty from '../../lib/index.js';
 
-var isWindows = os.platform() === 'win32';
-var shell = isWindows ? 'powershell.exe' : 'bash';
+const isWindows = os.platform() === 'win32';
+const shell = isWindows ? 'powershell.exe' : 'bash';
 
-var ptyProcess = pty.spawn(shell, [], {
+const ptyProcess = pty.spawn(shell, [], {
   name: 'xterm-256color',
   cols: 80,
   rows: 26,

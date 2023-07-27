@@ -18,12 +18,12 @@ The full API for node-pty is contained within the [TypeScript declaration file](
 ## Example Usage
 
 ```js
-var os = require('os');
-var pty = require('node-pty');
+import * as os from 'node:os';
+import * as pty from 'node-pty';
 
-var shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
+const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
 
-var ptyProcess = pty.spawn(shell, [], {
+const ptyProcess = pty.spawn(shell, [], {
   name: 'xterm-color',
   cols: 80,
   rows: 30,
