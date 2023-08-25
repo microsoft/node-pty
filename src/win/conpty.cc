@@ -258,8 +258,9 @@ static void OnProcessExit(uv_async_t *async) {
   GetExitCodeProcess(baton->hShell, &exitCode);
 
   // Clean up handles
-  DisconnectNamedPipe(baton->hIn);
-  DisconnectNamedPipe(baton->hOut);
+  // Calling DisconnectNamedPipes here or in PtyKill results in a crash,
+  // ref https://github.com/microsoft/node-pty/issues/512,
+  // so we only call CloseHandle for now.
   CloseHandle(baton->hIn);
   CloseHandle(baton->hOut);
 
