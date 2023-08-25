@@ -259,7 +259,20 @@ static void OnProcessExit(uv_async_t *async) {
 
   // Clean up handles
   DisconnectNamedPipe(baton->hIn);
+  DWORD error = GetLastError();
+  if (error) {
+    std::wstringstream why;
+    why << "DisconnectNamedPipe hIn failed: " << error;
+    Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
+    return;
+  }
   DisconnectNamedPipe(baton->hOut);
+  if (error) {
+    std::wstringstream why;
+    why << "DisconnectNamedPipe hOut failed: " << error;
+    Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
+    return;
+  }
   // CloseHandle(baton->hIn);
   // CloseHandle(baton->hOut);
 
