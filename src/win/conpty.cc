@@ -258,10 +258,10 @@ static void OnProcessExit(uv_async_t *async) {
   GetExitCodeProcess(baton->hShell, &exitCode);
 
   // Clean up handles
-  DisconnectNamedPipe(baton->hIn);
-  DisconnectNamedPipe(baton->hOut);
-  CloseHandle(baton->hIn);
-  CloseHandle(baton->hOut);
+  // DisconnectNamedPipe(baton->hIn);
+  // DisconnectNamedPipe(baton->hOut);
+  // CloseHandle(baton->hIn);
+  // CloseHandle(baton->hOut);
 
   // Call function
   v8::Local<v8::Value> args[1] = {
