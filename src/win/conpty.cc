@@ -479,6 +479,8 @@ static NAN_METHOD(PtyKill) {
       }
     }
 
+    CloseHandle(handle->hShell);
+
     // Clean up handles
     DisconnectNamedPipe(handle->hIn);
     DWORD error = GetLastError();
@@ -495,8 +497,6 @@ static NAN_METHOD(PtyKill) {
       Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
       return;
     }
-
-    CloseHandle(handle->hShell);
   }
 
   return info.GetReturnValue().SetUndefined();
