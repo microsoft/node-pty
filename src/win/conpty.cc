@@ -468,19 +468,6 @@ static NAN_METHOD(PtyKill) {
   const pty_baton* handle = get_pty_baton(id);
 
   if (handle != nullptr) {
-    HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
-    bool fLoadedDll = hLibrary != nullptr;
-    if (fLoadedDll)
-    {
-      PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ClosePseudoConsole");
-      if (pfnClosePseudoConsole)
-      {
-        pfnClosePseudoConsole(handle->hpc);
-      }
-    }
-
-    CloseHandle(handle->hShell);
-
     // Clean up handles
     DisconnectNamedPipe(handle->hIn);
     DWORD error = GetLastError();
@@ -497,6 +484,19 @@ static NAN_METHOD(PtyKill) {
       Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
       return;
     }
+
+    HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
+    bool fLoadedDll = hLibrary != nullptr;
+    if (fLoadedDll)
+    {
+      PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ClosePseudoConsole");
+      if (pfnClosePseudoConsole)
+      {
+        pfnClosePseudoConsole(handle->hpc);
+      }
+    }
+
+    CloseHandle(handle->hShell);
   }
 
   return info.GetReturnValue().SetUndefined();
