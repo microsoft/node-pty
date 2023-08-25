@@ -257,22 +257,6 @@ static void OnProcessExit(uv_async_t *async) {
   DWORD exitCode = 0;
   GetExitCodeProcess(baton->hShell, &exitCode);
 
-  // Clean up handles
-  DisconnectNamedPipe(baton->hIn);
-  DWORD error = GetLastError();
-  if (error) {
-    std::wstringstream why;
-    why << "DisconnectNamedPipe hIn failed: " << error;
-    Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
-    return;
-  }
-  DisconnectNamedPipe(baton->hOut);
-  if (error) {
-    std::wstringstream why;
-    why << "DisconnectNamedPipe hOut failed: " << error;
-    Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
-    return;
-  }
   // CloseHandle(baton->hIn);
   // CloseHandle(baton->hOut);
 
@@ -493,6 +477,23 @@ static NAN_METHOD(PtyKill) {
       {
         pfnClosePseudoConsole(handle->hpc);
       }
+    }
+
+    // Clean up handles
+    DisconnectNamedPipe(handle->hIn);
+    DWORD error = GetLastError();
+    if (error) {
+      std::wstringstream why;
+      why << "DisconnectNamedPipe hIn failed: " << error;
+      Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
+      return;
+    }
+    DisconnectNamedPipe(handle->hOut);
+    if (error) {
+      std::wstringstream why;
+      why << "DisconnectNamedPipe hOut failed: " << error;
+      Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
+      return;
     }
 
     CloseHandle(handle->hShell);
