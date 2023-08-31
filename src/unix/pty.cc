@@ -158,7 +158,7 @@ pty_posix_spawn(char** argv, char** env,
 NAN_METHOD(PtyFork) {
   Nan::HandleScope scope;
 
-  if (info.Length() != 11 ||
+  if (info.Length() != 12 ||
       !info[0]->IsString() ||
       !info[1]->IsArray() ||
       !info[2]->IsArray() ||
@@ -169,9 +169,10 @@ NAN_METHOD(PtyFork) {
       !info[7]->IsNumber() ||
       !info[8]->IsBoolean() ||
       !info[9]->IsString() ||
-      !info[10]->IsFunction()) {
+      !info[10]->IsFunction() ||
+      !info[11]->IsString()) {
     return Nan::ThrowError(
-        "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, helperPath, onexit)");
+        "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, helperPath, onexit, argv0)");
   }
 
   // file
@@ -247,19 +248,23 @@ NAN_METHOD(PtyFork) {
   // helperPath
   Nan::Utf8String helper_path(info[9]);
 
+  // argv0
+  Nan::Utf8String argv0(info[11]);
+
   pid_t pid;
   int master;
 #if defined(__APPLE__)
   int argc = argv_->Length();
-  int argl = argc + 4;
+  int argl = argc + 5;
   char **argv = new char*[argl];
   argv[0] = strdup(*helper_path);
   argv[1] = strdup(*cwd_);
   argv[2] = strdup(*file);
+  argv[3] = strdup(*argv0);
   argv[argl - 1] = NULL;
   for (int i = 0; i < argc; i++) {
     Nan::Utf8String arg(Nan::Get(argv_, i).ToLocalChecked());
-    argv[i + 3] = strdup(*arg);
+    argv[i + 4] = strdup(*arg);
   }
 
   int err = -1;
@@ -276,7 +281,7 @@ NAN_METHOD(PtyFork) {
   int argc = argv_->Length();
   int argl = argc + 2;
   char **argv = new char*[argl];
-  argv[0] = strdup(*file);
+  argv[0] = strdup(*argv0);
   argv[argl - 1] = NULL;
   for (int i = 0; i < argc; i++) {
     Nan::Utf8String arg(Nan::Get(argv_, i).ToLocalChecked());
@@ -342,7 +347,8 @@ NAN_METHOD(PtyFork) {
       {
         char **old = environ;
         environ = env;
-        execvp(argv[0], argv);
+        char* file_ = strdup(*file);
+        execvp(file_, argv);
         environ = old;
         perror("execvp(3) failed.");
         _exit(1);
