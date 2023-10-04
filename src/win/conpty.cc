@@ -257,6 +257,13 @@ static void OnProcessExit(uv_async_t *async) {
   DWORD exitCode = 0;
   GetExitCodeProcess(baton->hShell, &exitCode);
 
+  // Clean up handles
+  // Calling DisconnectNamedPipes here or in PtyKill results in a crash,
+  // ref https://github.com/microsoft/node-pty/issues/512,
+  // so we only call CloseHandle for now.
+  CloseHandle(baton->hIn);
+  CloseHandle(baton->hOut);
+
   // Call function
   v8::Local<v8::Value> args[1] = {
     Nan::New<v8::Number>(exitCode)
@@ -476,10 +483,6 @@ static NAN_METHOD(PtyKill) {
       }
     }
 
-    DisconnectNamedPipe(handle->hIn);
-    DisconnectNamedPipe(handle->hOut);
-    CloseHandle(handle->hIn);
-    CloseHandle(handle->hOut);
     CloseHandle(handle->hShell);
   }
 
