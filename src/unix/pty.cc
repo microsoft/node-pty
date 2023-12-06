@@ -244,7 +244,7 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
       !info[8].IsBoolean() ||
       !info[9].IsString() ||
       !info[10].IsFunction()) {
-    Napi::Error::New(napiEnv, "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, onexit)").ThrowAsJavaScriptException();
+    Napi::Error::New(napiEnv, "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, helperPath, onexit)").ThrowAsJavaScriptException();
     return napiEnv.Undefined();
   }
 
