@@ -5,6 +5,7 @@
  */
 import * as net from 'net';
 import * as path from 'path';
+import * as tty from 'tty';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
@@ -113,7 +114,7 @@ export class UnixTerminal extends Terminal {
     // fork
     const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), helperPath, onexit);
 
-    this._socket = new net.Socket({ fd: term.fd });
+    this._socket = new tty.ReadStream(term.fd);
     if (encoding !== null) {
       this._socket.setEncoding(encoding);
     }
@@ -203,13 +204,13 @@ export class UnixTerminal extends Terminal {
     // open
     const term: IUnixOpenProcess = pty.open(cols, rows);
 
-    self._master = new net.Socket({ fd: term.master });
+    self._master = new tty.ReadStream(term.master);
     if (encoding !== null) {
       self._master.setEncoding(encoding);
     }
     self._master.resume();
 
-    self._slave = new net.Socket({ fd: term.slave });
+    self._slave = new tty.ReadStream(term.slave);
     if (encoding !== null) {
       self._slave.setEncoding(encoding);
     }
