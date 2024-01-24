@@ -66,7 +66,7 @@ static bool remove_pipe_handle(DWORD pid) {
   return false;
 }
 
-void error_with_winpty_msg(const char *generalMsg, winpty_error_ptr_t error_ptr, Napi::Env env) {
+Napi::Error error_with_winpty_msg(const char *generalMsg, winpty_error_ptr_t error_ptr, Napi::Env env) {
   std::string why;
   why += generalMsg;
   why += ": ";
