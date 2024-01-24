@@ -229,10 +229,17 @@ pty_posix_spawn(char** argv, char** env,
                 int* err);
 #endif
 
-void free_buf(char **buf) {
-  for (char *p = *buf; p != NULL; p++)
-    free(p);
-}
+struct DelBuf {
+  int len;
+  DelBuf(int len) : len(len) {}
+  void operator()(char **p) {
+    if (p == nullptr)
+      return;
+    for (int i = 0; i < len; i++)
+      free(p[i]);
+    delete[] p;
+  }
+};
 
 Napi::Value PtyFork(const Napi::CallbackInfo& info) {
   Napi::Env napiEnv(info.Env());
@@ -262,7 +269,7 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
   // env
   Napi::Array env_ = info[2].As<Napi::Array>();
   int envc = env_.Length();
-  std::unique_ptr<char *, void (*)(char **)> env_unique_ptr(new char *[envc+1], free_buf);
+  std::unique_ptr<char *, DelBuf> env_unique_ptr(new char *[envc + 1], DelBuf(envc + 1));
   char **env = env_unique_ptr.get();
   env[envc] = NULL;
   for (int i = 0; i < envc; i++) {
@@ -332,7 +339,7 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
 #if defined(__APPLE__)
   int argc = argv_.Length();
   int argl = argc + 4;
-  std::unique_ptr<char *, void (*)(char **)> argv_unique_ptr(new char *[argl], free_buf);
+  std::unique_ptr<char *, DelBuf> argv_unique_ptr(new char *[argl], DelBuf(argl));
   char **argv = argv_unique_ptr.get();
   argv[0] = strdup(helper_path.c_str());
   argv[1] = strdup(cwd_.c_str());
@@ -354,7 +361,7 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
 #else
   int argc = argv_.Length();
   int argl = argc + 2;
-  std::unique_ptr<char *, void (*)(char **)> argv_unique_ptr(new char *[argl], free_buf);
+  std::unique_ptr<char *, DelBuf> argv_unique_ptr(new char *[argl], DelBuf(argl));
   char** argv = argv_unique_ptr.get();
   argv[0] = strdup(file.c_str());
   argv[argl - 1] = NULL;
@@ -363,7 +370,6 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
     argv[i + 1] = strdup(arg.c_str());
   }
 
-  std::unique_ptr<char> cwd(strdup(cwd_.c_str()));
   sigset_t newmask, oldmask;
   struct sigaction sig_action;
   // temporarily block all signals
@@ -392,8 +398,8 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
     case -1:
       throw Napi::Error::New(napiEnv, "forkpty(3) failed.");
     case 0:
-      if (strlen(cwd.get())) {
-        if (chdir(cwd.get()) == -1) {
+      if (strlen(cwd_.c_str())) {
+        if (chdir(cwd_.c_str()) == -1) {
           perror("chdir(2) failed.");
           _exit(1);
         }
