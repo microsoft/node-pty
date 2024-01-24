@@ -1,5 +1,8 @@
 {
   'target_defaults': {
+    'dependencies': [
+      "<!(node -p \"require('node-addon-api').targets\"):node_addon_api_except",
+    ],
     'conditions': [
       ['OS=="win"', {
         'msvs_configuration_attributes': {
@@ -28,9 +31,7 @@
       'targets': [
         {
           'target_name': 'conpty',
-          'cflags!': [ '-fno-exceptions' ],
-          'cflags_cc!': [ '-fno-exceptions' ],
-          'xcode_settings': { 'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+          'xcode_settings': {
             'CLANG_CXX_LIBRARY': 'libc++',
             'MACOSX_DEPLOYMENT_TARGET': '10.7',
           },
@@ -50,9 +51,7 @@
         },
         {
           'target_name': 'conpty_console_list',
-          'cflags!': [ '-fno-exceptions' ],
-          'cflags_cc!': [ '-fno-exceptions' ],
-          'xcode_settings': { 'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+          'xcode_settings': {
             'CLANG_CXX_LIBRARY': 'libc++',
             'MACOSX_DEPLOYMENT_TARGET': '10.7',
           },
@@ -68,9 +67,7 @@
         },
         {
           'target_name': 'pty',
-          'cflags!': [ '-fno-exceptions' ],
-          'cflags_cc!': [ '-fno-exceptions' ],
-          'xcode_settings': { 'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+          'xcode_settings': {
             'CLANG_CXX_LIBRARY': 'libc++',
             'MACOSX_DEPLOYMENT_TARGET': '10.7',
           },
@@ -100,9 +97,7 @@
       'targets': [
         {
           'target_name': 'pty',
-          'cflags!': [ '-fno-exceptions' ],
-          'cflags_cc!': [ '-fno-exceptions' ],
-          'xcode_settings': { 'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+          'xcode_settings': {
             'CLANG_CXX_LIBRARY': 'libc++',
             'MACOSX_DEPLOYMENT_TARGET': '10.7',
           },

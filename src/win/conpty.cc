@@ -36,10 +36,11 @@ typedef void (__stdcall *PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
 
 #endif
 
+struct ExitEvent {
+  int exit_code = 0;
+};
+
 void SetupExitCallback(Napi::Env env, Napi::Function cb, HANDLE process) {
-  struct ExitEvent {
-    int exit_code = 0;
-  };
   std::thread *th = new std::thread;
   // Don't use Napi::AsyncWorker which is limited by UV_THREADPOOL_SIZE.
   auto tsfn = Napi::ThreadSafeFunction::New(
@@ -95,18 +96,11 @@ static pty_baton* get_pty_baton(int id) {
   return nullptr;
 }
 
-template <typename T>
-std::vector<T> vectorFromString(const std::basic_string<T> &str) {
-    return std::vector<T>(str.begin(), str.end());
-}
-
-void throwNapiError(const Napi::CallbackInfo& info, const char* text, const bool getLastError) {
+Napi::Error errorWithCode(const Napi::CallbackInfo& info, const char* text) {
   std::stringstream errorText;
   errorText << text;
-  if (getLastError) {
-    errorText << ", error code: " << GetLastError();
-  }
-  Napi::Error::New(info.Env(), errorText.str()).ThrowAsJavaScriptException();
+  errorText << ", error code: " << GetLastError();
+  return Napi::Error::New(info.Env(), errorText.str());
 }
 
 // Returns a new server named pipe.  It has not yet been connected.
@@ -202,8 +196,7 @@ static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
       !info[3].IsBoolean() ||
       !info[4].IsString() ||
       !info[5].IsBoolean()) {
-    Napi::Error::New(env, "Usage: pty.startProcess(file, cols, rows, debug, pipeName, inheritCursor)").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Usage: pty.startProcess(file, cols, rows, debug, pipeName, inheritCursor)");
   }
 
   const std::wstring filename(path_util::to_wstring(info[0].As<Napi::String>()));
@@ -226,8 +219,7 @@ static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
     std::string why;
     why += "File not found: ";
     why += path_util::wstring_to_string(shellpath);
-    Napi::Error::New(env, why).ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, why);
   }
 
   HANDLE hIn, hOut;
@@ -243,27 +235,24 @@ static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
   if (SUCCEEDED(hr)) {
     // We were able to instantiate a conpty
     const int ptyId = InterlockedIncrement(&ptyCounter);
-    marshal.Set(Napi::String::New(env, "pty"), Napi::Number::New(env, ptyId));
+    marshal.Set("pty", Napi::Number::New(env, ptyId));  
     ptyHandles.insert(ptyHandles.end(), new pty_baton(ptyId, hIn, hOut, hpc));
   } else {
-    Napi::Error::New(env, "Cannot launch conpty").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Cannot launch conpty");
   }
 
-  std::string inNameStr(path_util::from_wstring(inName.c_str()));
+  std::string inNameStr = path_util::wstring_to_string(inName);
   if (inNameStr.empty()) {
-    Napi::Error::New(env, "Failed to initialize conpty conin").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Failed to initialize conpty conin");
   }
-  std::string outNameStr(path_util::from_wstring(outName.c_str()));
+  std::string outNameStr = path_util::wstring_to_string(outName);
   if (outNameStr.empty()) {
-    Napi::Error::New(env, "Failed to initialize conpty conout").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Failed to initialize conpty conout");
   }
 
-  marshal.Set(Napi::String::New(env, "fd"), Napi::Number::New(env, -1));
-  marshal.Set(Napi::String::New(env, "conin"), Napi::String::New(env, inNameStr));
-  marshal.Set(Napi::String::New(env, "conout"), Napi::String::New(env, outNameStr));
+  marshal.Set("fd", Napi::Number::New(env, -1));
+  marshal.Set("conin", Napi::String::New(env, inNameStr));
+  marshal.Set("conout", Napi::String::New(env, outNameStr));
   return marshal;
 }
 
@@ -284,8 +273,7 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
       !info[2].IsString() ||
       !info[3].IsArray() ||
       !info[4].IsFunction()) {
-    Napi::Error::New(env, "Usage: pty.connect(id, cmdline, cwd, env, exitCallback)").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Usage: pty.connect(id, cmdline, cwd, env, exitCallback)");
   }
 
   const int id = info[0].As<Napi::Number>().Int32Value();
@@ -297,8 +285,7 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
   // Fetch pty handle from ID and start process
   pty_baton* handle = get_pty_baton(id);
   if (!handle) {
-    Napi::Error::New(env, "Invalid pty handle").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Invalid pty handle");
   }
 
   // Prepare command line
@@ -320,7 +307,7 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
     envBlock += L'\0';
     envStr = std::move(envBlock);
   }
-  auto envV = vectorFromString(envStr);
+  std::vector<wchar_t> envV(envStr.cbegin(), envStr.cend());
   LPWSTR envArg = envV.empty() ? nullptr : envV.data();
 
   ConnectNamedPipe(handle->hIn, nullptr);
@@ -341,8 +328,7 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
 
   fSuccess = InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
   if (!fSuccess) {
-    throwNapiError(info, "InitializeProcThreadAttributeList failed", true);
-    return env.Undefined();
+    throw errorWithCode(info, "InitializeProcThreadAttributeList failed");
   }
   fSuccess = UpdateProcThreadAttribute(siEx.lpAttributeList,
                                        0,
@@ -352,8 +338,7 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
                                        NULL,
                                        NULL);
   if (!fSuccess) {
-    throwNapiError(info, "UpdateProcThreadAttribute failed", true);
-    return env.Undefined();
+    throw errorWithCode(info, "UpdateProcThreadAttribute failed");
   }
 
   PROCESS_INFORMATION piClient{};
@@ -370,8 +355,7 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
       &piClient                     // lpProcessInformation
   );
   if (!fSuccess) {
-    throwNapiError(info, "Cannot create process", true);
-    return env.Undefined();
+    throw errorWithCode(info, "Cannot create process");
   }
 
   // Update handle
@@ -381,7 +365,7 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
 
   // Return
   auto marshal = Napi::Object::New(env);
-  marshal.Set(Napi::String::New(env, "pid"), Napi::Number::New(env, piClient.dwProcessId));
+  marshal.Set("pid", Napi::Number::New(env, piClient.dwProcessId));
   return marshal;
 }
 
@@ -393,8 +377,7 @@ static Napi::Value PtyResize(const Napi::CallbackInfo& info) {
       !info[0].IsNumber() ||
       !info[1].IsNumber() ||
       !info[2].IsNumber()) {
-    Napi::Error::New(env, "Usage: pty.resize(id, cols, rows)").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Usage: pty.resize(id, cols, rows)");
   }
 
   int id = info[0].As<Napi::Number>().Int32Value();
@@ -426,8 +409,7 @@ static Napi::Value PtyClear(const Napi::CallbackInfo& info) {
 
   if (info.Length() != 1 ||
       !info[0].IsNumber()) {
-    Napi::Error::New(env, "Usage: pty.clear(id)").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Usage: pty.clear(id)");
   }
 
   int id = info[0].As<Napi::Number>().Int32Value();
@@ -456,8 +438,7 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
 
   if (info.Length() != 1 ||
       !info[0].IsNumber()) {
-    Napi::Error::New(env, "Usage: pty.kill(id)").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Usage: pty.kill(id)");
   }
 
   int id = info[0].As<Napi::Number>().Int32Value();
@@ -488,11 +469,11 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
 
 Napi::Object init(Napi::Env env, Napi::Object exports) {
   Napi::HandleScope scope(env);
-  exports.Set(Napi::String::New(env, "startProcess"), Napi::Function::New(env, PtyStartProcess));
-  exports.Set(Napi::String::New(env, "connect"), Napi::Function::New(env, PtyConnect));
-  exports.Set(Napi::String::New(env, "resize"), Napi::Function::New(env, PtyResize));
-  exports.Set(Napi::String::New(env, "clear"), Napi::Function::New(env, PtyClear));
-  exports.Set(Napi::String::New(env, "kill"), Napi::Function::New(env, PtyKill));
+  exports.Set("startProcess", Napi::Function::New(env, PtyStartProcess));
+  exports.Set("connect", Napi::Function::New(env, PtyConnect));
+  exports.Set("resize", Napi::Function::New(env, PtyResize));
+  exports.Set("clear", Napi::Function::New(env, PtyClear));
+  exports.Set("kill", Napi::Function::New(env, PtyKill));
   return exports;
 };
 

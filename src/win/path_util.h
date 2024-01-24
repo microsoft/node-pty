@@ -10,8 +10,6 @@
 #define NODE_ADDON_API_DISABLE_DEPRECATED
 #include <napi.h>
 #include <string>
-#include <stdexcept>
-#include <Windows.h>
 
 #define MAX_ENV 65536
 

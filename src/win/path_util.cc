@@ -4,8 +4,9 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
+#include <stdexcept>
 #include <Shlwapi.h> // PathCombine
-
+#include <Windows.h>
 #include "path_util.h"
 
 namespace path_util {

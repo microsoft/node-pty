@@ -102,10 +102,11 @@ int pthread_fchdir_np(int fd) API_AVAILABLE(macosx(10.12));
 })
 #endif
 
+struct ExitEvent {
+  int exit_code = 0, signal_code = 0;
+};
+
 void SetupExitCallback(Napi::Env env, Napi::Function cb, pid_t pid) {
-  struct ExitEvent {
-    int exit_code = 0, signal_code = 0;
-  };
   std::thread *th = new std::thread;
   // Don't use Napi::AsyncWorker which is limited by UV_THREADPOOL_SIZE.
   auto tsfn = Napi::ThreadSafeFunction::New(
@@ -244,8 +245,7 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
       !info[8].IsBoolean() ||
       !info[9].IsString() ||
       !info[10].IsFunction()) {
-    Napi::Error::New(napiEnv, "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, helperPath, onexit)").ThrowAsJavaScriptException();
-    return napiEnv.Undefined();
+    throw Napi::Error::New(napiEnv, "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, helperPath, onexit)");
   }
 
   // file
@@ -430,21 +430,18 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
 #endif
 
   {
-    Napi::Object obj = Napi::Object::New(napiEnv);
-    (obj).Set(Napi::String::New(napiEnv, "fd"),
-      Napi::Number::New(napiEnv, master));
-    (obj).Set(Napi::String::New(napiEnv, "pid"),
-      Napi::Number::New(napiEnv, pid));
-    (obj).Set(Napi::String::New(napiEnv, "pty"),
-      Napi::String::New(napiEnv, ptsname(master)));
+    Napi::Object obj = Napi::Object::New(napiEnv);  
+    obj.Set("fd", Napi::Number::New(napiEnv, master));  
+    obj.Set("pid", Napi::Number::New(napiEnv, pid));  
+    obj.Set("pty", Napi::String::New(napiEnv, ptsname(master)));  
 
     // Set up process exit callback.
     Napi::Function cb = info[10].As<Napi::Function>();
     SetupExitCallback(napiEnv, cb, pid);
-
     return obj;
   }
 
+// TODO
 done:
 #if defined(__APPLE__)
   for (int i = 0; i < argl; i++) free(argv[i]);
@@ -463,8 +460,7 @@ Napi::Value PtyOpen(const Napi::CallbackInfo& info) {
   if (info.Length() != 2 ||
       !info[0].IsNumber() ||
       !info[1].IsNumber()) {
-    Napi::Error::New(env, "Usage: pty.open(cols, rows)").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Usage: pty.open(cols, rows)");
   }
 
   // size
@@ -479,27 +475,21 @@ Napi::Value PtyOpen(const Napi::CallbackInfo& info) {
   int ret = openpty(&master, &slave, nullptr, NULL, static_cast<winsize*>(&winp));
 
   if (ret == -1) {
-    Napi::Error::New(env, "openpty(3) failed.").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "openpty(3) failed.");
   }
 
   if (pty_nonblock(master) == -1) {
-    Napi::Error::New(env, "Could not set master fd to nonblocking.").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Could not set master fd to nonblocking.");
   }
 
   if (pty_nonblock(slave) == -1) {
-    Napi::Error::New(env, "Could not set slave fd to nonblocking.").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Could not set slave fd to nonblocking.");
   }
 
-  Napi::Object obj = Napi::Object::New(env);
-  (obj).Set(Napi::String::New(env, "master"),
-    Napi::Number::New(env, master));
-  (obj).Set(Napi::String::New(env, "slave"),
-    Napi::Number::New(env, slave));
-  (obj).Set(Napi::String::New(env, "pty"),
-    Napi::String::New(env, ptsname(master)));
+  Napi::Object obj = Napi::Object::New(env);  
+  obj.Set("master", Napi::Number::New(env, master));  
+  obj.Set("slave", Napi::Number::New(env, slave));  
+  obj.Set("pty", Napi::String::New(env, ptsname(master)));  
 
   return obj;
 }
@@ -512,8 +502,7 @@ Napi::Value PtyResize(const Napi::CallbackInfo& info) {
       !info[0].IsNumber() ||
       !info[1].IsNumber() ||
       !info[2].IsNumber()) {
-    Napi::Error::New(env, "Usage: pty.resize(fd, cols, rows)").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Usage: pty.resize(fd, cols, rows)");
   }
 
   int fd = info[0].As<Napi::Number>().Int32Value();
@@ -526,17 +515,16 @@ Napi::Value PtyResize(const Napi::CallbackInfo& info) {
 
   if (ioctl(fd, TIOCSWINSZ, &winp) == -1) {
     switch (errno) {
-      case EBADF:  Napi::Error::New(env, "ioctl(2) failed, EBADF").ThrowAsJavaScriptException();
-                   return env.Undefined();
-      case EFAULT: Napi::Error::New(env, "ioctl(2) failed, EFAULT").ThrowAsJavaScriptException();
-                   return env.Undefined();
-      case EINVAL: Napi::Error::New(env, "ioctl(2) failed, EINVAL").ThrowAsJavaScriptException();
-                   return env.Undefined();
-      case ENOTTY: Napi::Error::New(env, "ioctl(2) failed, ENOTTY").ThrowAsJavaScriptException();
-                   return env.Undefined();
+      case EBADF:
+        throw Napi::Error::New(env, "ioctl(2) failed, EBADF");
+      case EFAULT:
+        throw Napi::Error::New(env, "ioctl(2) failed, EFAULT");
+      case EINVAL:
+        throw Napi::Error::New(env, "ioctl(2) failed, EINVAL");
+      case ENOTTY:
+        throw Napi::Error::New(env, "ioctl(2) failed, ENOTTY");
     }
-    Napi::Error::New(env, "ioctl(2) failed").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "ioctl(2) failed");
   }
 
   return env.Undefined();
@@ -552,8 +540,7 @@ Napi::Value PtyGetProc(const Napi::CallbackInfo& info) {
 #if defined(__APPLE__)
   if (info.Length() != 1 ||
       !info[0].IsNumber()) {
-    Napi::Error::New(env, "Usage: pty.process(pid)").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Usage: pty.process(pid)");
   }
 
   int fd = info[0].As<Napi::Number>().Int32Value();
@@ -562,8 +549,7 @@ Napi::Value PtyGetProc(const Napi::CallbackInfo& info) {
   if (info.Length() != 2 ||
       !info[0].IsNumber() ||
       !info[1].IsString()) {
-    Napi::Error::New(env, "Usage: pty.process(fd, tty)").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Usage: pty.process(fd, tty)");
   }
 
   int fd = info[0].As<Napi::Number>().Int32Value();
@@ -796,13 +782,12 @@ done:
  * Init
  */
 
-
 Napi::Object init(Napi::Env env, Napi::Object exports) {
   Napi::HandleScope scope(env);
-  exports.Set(Napi::String::New(env, "fork"),    Napi::Function::New(env, PtyFork));
-  exports.Set(Napi::String::New(env, "open"),    Napi::Function::New(env, PtyOpen));
-  exports.Set(Napi::String::New(env, "resize"),  Napi::Function::New(env, PtyResize));
-  exports.Set(Napi::String::New(env, "process"), Napi::Function::New(env, PtyGetProc));
+  exports.Set("fork",    Napi::Function::New(env, PtyFork));
+  exports.Set("open",    Napi::Function::New(env, PtyOpen));
+  exports.Set("resize",  Napi::Function::New(env, PtyResize));
+  exports.Set("process", Napi::Function::New(env, PtyGetProc));
   return exports;
 }
 

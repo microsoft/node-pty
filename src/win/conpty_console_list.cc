@@ -10,17 +10,16 @@ static Napi::Value ApiConsoleProcessList(const Napi::CallbackInfo& info) {
   Napi::Env env(info.Env());
   if (info.Length() != 1 ||
       !info[0].IsNumber()) {
-    Napi::Error::New(env, "Usage: getConsoleProcessList(shellPid)").ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Usage: getConsoleProcessList(shellPid)");
   }
 
   const DWORD pid = info[0].As<Napi::Number>().Uint32Value();
 
   if (!FreeConsole()) {
-    Napi::Error::New(env, "FreeConsole failed").ThrowAsJavaScriptException();
+    throw Napi::Error::New(env, "FreeConsole failed");
   }
   if (!AttachConsole(pid)) {
-    Napi::Error::New(env, "AttachConsole failed").ThrowAsJavaScriptException();
+    throw Napi::Error::New(env, "AttachConsole failed");
   }
   auto processList = std::vector<DWORD>(64);
   auto processCount = GetConsoleProcessList(&processList[0], static_cast<DWORD>(processList.size()));
@@ -39,7 +38,7 @@ static Napi::Value ApiConsoleProcessList(const Napi::CallbackInfo& info) {
 
 Napi::Object init(Napi::Env env, Napi::Object exports) {
   Napi::HandleScope scope(env);
-  exports.Set(Napi::String::New(env, "getConsoleProcessList"), Napi::Function::New(env, ApiConsoleProcessList));
+  exports.Set("getConsoleProcessList", Napi::Function::New(env, ApiConsoleProcessList));
   return exports;
 };
 
