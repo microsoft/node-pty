@@ -229,6 +229,11 @@ pty_posix_spawn(char** argv, char** env,
                 int* err);
 #endif
 
+void free_buf(char **buf) {
+  for (char *p = *buf; p != NULL; p++)
+    free(p);
+}
+
 Napi::Value PtyFork(const Napi::CallbackInfo& info) {
   Napi::Env napiEnv(info.Env());
   Napi::HandleScope scope(napiEnv);
@@ -257,7 +262,8 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
   // env
   Napi::Array env_ = info[2].As<Napi::Array>();
   int envc = env_.Length();
-  char **env = new char*[envc+1];
+  std::unique_ptr<char *, void (*)(char **)> env_unique_ptr(new char *[envc+1], free_buf);
+  char **env = env_unique_ptr.get();
   env[envc] = NULL;
   for (int i = 0; i < envc; i++) {
     std::string pair = env_.Get(i).As<Napi::String>();
@@ -326,7 +332,8 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
 #if defined(__APPLE__)
   int argc = argv_.Length();
   int argl = argc + 4;
-  char **argv = new char*[argl];
+  std::unique_ptr<char *, void (*)(char **)> argv_unique_ptr(new char *[argl], free_buf);
+  char **argv = argv_unique_ptr.get();
   argv[0] = strdup(helper_path.c_str());
   argv[1] = strdup(cwd_.c_str());
   argv[2] = strdup(file.c_str());
@@ -339,17 +346,16 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
   int err = -1;
   pty_posix_spawn(argv, env, term, &winp, &master, &pid, &err);
   if (err != 0) {
-    Napi::Error::New(napiEnv, "posix_spawnp failed.").ThrowAsJavaScriptException();
-    goto done;
+    throw Napi::Error::New(napiEnv, "posix_spawnp failed.");
   }
   if (pty_nonblock(master) == -1) {
-    Napi::Error::New(napiEnv, "Could not set master fd to nonblocking.").ThrowAsJavaScriptException();
-    goto done;
+    throw Napi::Error::New(napiEnv, "Could not set master fd to nonblocking.");
   }
 #else
   int argc = argv_.Length();
   int argl = argc + 2;
-  char **argv = new char*[argl];
+  std::unique_ptr<char *, void (*)(char **)> argv_unique_ptr(new char *[argl], free_buf);
+  char** argv = argv_unique_ptr.get();
   argv[0] = strdup(file.c_str());
   argv[argl - 1] = NULL;
   for (int i = 0; i < argc; i++) {
@@ -357,7 +363,7 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
     argv[i + 1] = strdup(arg.c_str());
   }
 
-  char* cwd = strdup(cwd_.c_str());
+  std::unique_ptr<char> cwd(strdup(cwd_.c_str()));
   sigset_t newmask, oldmask;
   struct sigaction sig_action;
   // temporarily block all signals
@@ -377,14 +383,6 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
     for (int i = 0 ; i < NSIG ; i++) {    // NSIG is a macro for all signals + 1
       sigaction(i, &sig_action, NULL);
     }
-  } else {
-    for (int i = 0; i < argl; i++) free(argv[i]);
-    delete[] argv;
-
-    for (int i = 0; i < envc; i++) free(env[i]);
-    delete[] env;
-
-    free(cwd);
   }
 
   // reenable signals
@@ -392,11 +390,10 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
 
   switch (pid) {
     case -1:
-      Napi::Error::New(napiEnv, "forkpty(3) failed.").ThrowAsJavaScriptException();
-      goto done;
+      throw Napi::Error::New(napiEnv, "forkpty(3) failed.");
     case 0:
-      if (strlen(cwd)) {
-        if (chdir(cwd) == -1) {
+      if (strlen(cwd.get())) {
+        if (chdir(cwd.get()) == -1) {
           perror("chdir(2) failed.");
           _exit(1);
         }
@@ -423,34 +420,20 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
       }
     default:
       if (pty_nonblock(master) == -1) {
-        Napi::Error::New(napiEnv, "Could not set master fd to nonblocking.").ThrowAsJavaScriptException();
-        goto done;
+        throw Napi::Error::New(napiEnv, "Could not set master fd to nonblocking.");
       }
   }
 #endif
 
-  {
-    Napi::Object obj = Napi::Object::New(napiEnv);  
-    obj.Set("fd", Napi::Number::New(napiEnv, master));  
-    obj.Set("pid", Napi::Number::New(napiEnv, pid));  
-    obj.Set("pty", Napi::String::New(napiEnv, ptsname(master)));  
+  Napi::Object obj = Napi::Object::New(napiEnv);  
+  obj.Set("fd", Napi::Number::New(napiEnv, master));  
+  obj.Set("pid", Napi::Number::New(napiEnv, pid));  
+  obj.Set("pty", Napi::String::New(napiEnv, ptsname(master)));  
 
-    // Set up process exit callback.
-    Napi::Function cb = info[10].As<Napi::Function>();
-    SetupExitCallback(napiEnv, cb, pid);
-    return obj;
-  }
-
-// TODO
-done:
-#if defined(__APPLE__)
-  for (int i = 0; i < argl; i++) free(argv[i]);
-  delete[] argv;
-
-  for (int i = 0; i < envc; i++) free(env[i]);
-  delete[] env;
-#endif
-  return napiEnv.Undefined();
+  // Set up process exit callback.
+  Napi::Function cb = info[10].As<Napi::Function>();
+  SetupExitCallback(napiEnv, cb, pid);
+  return obj;
 }
 
 Napi::Value PtyOpen(const Napi::CallbackInfo& info) {
