@@ -40,7 +40,7 @@ struct ExitEvent {
   int exit_code = 0;
 };
 
-void SetupExitCallback(Napi::Env env, Napi::Function cb, HANDLE process) {
+void SetupExitCallback(Napi::Env env, Napi::Function cb, pty_baton* baton) {
   std::thread *th = new std::thread;
   // Don't use Napi::AsyncWorker which is limited by UV_THREADPOOL_SIZE.
   auto tsfn = Napi::ThreadSafeFunction::New(
@@ -53,7 +53,7 @@ void SetupExitCallback(Napi::Env env, Napi::Function cb, HANDLE process) {
         th->join();
         delete th;
       });
-  *th = std::thread([tsfn = std::move(tsfn), process] {
+  *th = std::thread([tsfn = std::move(tsfn), baton] {
     auto callback = [](Napi::Env env, Napi::Function cb, ExitEvent *exit_event) {
       cb.Call({Napi::Number::New(env, exit_event->exit_code)});
       delete exit_event;
@@ -61,9 +61,15 @@ void SetupExitCallback(Napi::Env env, Napi::Function cb, HANDLE process) {
 
     ExitEvent *exit_event = new ExitEvent;
     // Wait for process to complete.
-    WaitForSingleObject(process, INFINITE);
+    WaitForSingleObject(baton->hShell, INFINITE);
     // Get process exit code.
-    GetExitCodeProcess(process, (LPDWORD)(&exit_event->exit_code));
+    GetExitCodeProcess(baton->hShell, (LPDWORD)(&exit_event->exit_code));
+    // Clean up handles
+    // Calling DisconnectNamedPipes here or in PtyKill results in a crash,
+    // ref https://github.com/microsoft/node-pty/issues/512,
+    // so we only call CloseHandle for now.
+    CloseHandle(baton->hIn);
+    CloseHandle(baton->hOut);
 
     auto status = tsfn.BlockingCall(exit_event, callback); // In main thread
     assert(status == napi_ok);
@@ -361,7 +367,7 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
   // Update handle
   handle->hShell = piClient.hProcess;
 
-  SetupExitCallback(env, exitCallback, handle->hShell);
+  SetupExitCallback(env, exitCallback, handle);
 
   // Return
   auto marshal = Napi::Object::New(env);
