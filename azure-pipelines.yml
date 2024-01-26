@@ -43,6 +43,9 @@ jobs:
       versionSpec: $(node_version)
     displayName: 'Install Node.js'
   - script: |
+      python3 -m pip install setuptools
+    displayName: Install setuptools (macOS)
+  - script: |
       npm i
     displayName: 'Install dependencies and build'
   - script: |
@@ -54,7 +57,7 @@ jobs:
 
 - job: Windows
   pool:
-    vmImage: 'windows-2019'
+    vmImage: 'windows-latest'
   strategy:
     matrix:
       node_16_x:
@@ -87,7 +90,7 @@ jobs:
   steps:
   - task: NodeTool@0
     inputs:
-      versionSpec: '16.x'
+      versionSpec: '18.x'
     displayName: 'Install Node.js'
   - script: |
       npm i
