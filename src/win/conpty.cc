@@ -12,7 +12,6 @@
 
 #define NODE_ADDON_API_DISABLE_DEPRECATED
 #include <napi.h>
-#include <iostream>
 #include <assert.h>
 #include <Shlwapi.h> // PathCombine, PathIsRelative
 #include <sstream>
@@ -35,6 +34,42 @@ typedef HRESULT (__stdcall *PFNCLEARPSEUDOCONSOLE)(HPCON hpc);
 typedef void (__stdcall *PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
 
 #endif
+
+struct pty_baton {
+  int id;
+  HANDLE hIn;
+  HANDLE hOut;
+  HPCON hpc;
+
+  HANDLE hShell;
+
+  pty_baton(int _id, HANDLE _hIn, HANDLE _hOut, HPCON _hpc) : id(_id), hIn(_hIn), hOut(_hOut), hpc(_hpc) {};
+};
+
+static std::vector<pty_baton*> ptyHandles;
+static volatile LONG ptyCounter;
+
+static pty_baton* get_pty_baton(int id) {
+  for (size_t i = 0; i < ptyHandles.size(); ++i) {
+    pty_baton* ptyHandle = ptyHandles[i];
+    if (ptyHandle->id == id) {
+      return ptyHandle;
+    }
+  }
+  return nullptr;
+}
+
+static bool remove_pty_baton(int id) {
+  for (size_t i = 0; i < ptyHandles.size(); ++i) {
+    pty_baton* ptyHandle = ptyHandles[i];
+    if (ptyHandle->id == id) {
+      ptyHandles.erase(ptyHandles.begin() + i);
+      ptyHandle = nullptr;
+      return true;
+    }
+  }
+  return false;
+}
 
 struct ExitEvent {
   int exit_code = 0;
@@ -76,42 +111,6 @@ void SetupExitCallback(Napi::Env env, Napi::Function cb, pty_baton* baton) {
 
     tsfn.Release();
   });
-}
-
-struct pty_baton {
-  int id;
-  HANDLE hIn;
-  HANDLE hOut;
-  HPCON hpc;
-
-  HANDLE hShell;
-
-  pty_baton(int _id, HANDLE _hIn, HANDLE _hOut, HPCON _hpc) : id(_id), hIn(_hIn), hOut(_hOut), hpc(_hpc) {};
-};
-
-static std::vector<pty_baton*> ptyHandles;
-static volatile LONG ptyCounter;
-
-static pty_baton* get_pty_baton(int id) {
-  for (size_t i = 0; i < ptyHandles.size(); ++i) {
-    pty_baton* ptyHandle = ptyHandles[i];
-    if (ptyHandle->id == id) {
-      return ptyHandle;
-    }
-  }
-  return nullptr;
-}
-
-static bool remove_pty_baton(int id) {
-  for (size_t i = 0; i < ptyHandles.size(); ++i) {
-    pty_baton* ptyHandle = ptyHandles[i];
-    if (ptyHandle->id == id) {
-      ptyHandles.erase(ptyHandles.begin() + i);
-      ptyHandle = nullptr;
-      return true;
-    }
-  }
-  return false;
 }
 
 Napi::Error errorWithCode(const Napi::CallbackInfo& info, const char* text) {
