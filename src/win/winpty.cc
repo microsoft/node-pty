@@ -322,7 +322,6 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
 */
 
 Napi::Object init(Napi::Env env, Napi::Object exports) {
-  Napi::HandleScope scope(env);
   exports.Set("startProcess", Napi::Function::New(env, PtyStartProcess));
   exports.Set("resize", Napi::Function::New(env, PtyResize));
   exports.Set("kill", Napi::Function::New(env, PtyKill));

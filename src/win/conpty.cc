@@ -102,6 +102,18 @@ static pty_baton* get_pty_baton(int id) {
   return nullptr;
 }
 
+static bool remove_pty_baton(int id) {
+  for (size_t i = 0; i < ptyHandles.size(); ++i) {
+    pty_baton* ptyHandle = ptyHandles[i];
+    if (ptyHandle->id == id) {
+      ptyHandles.erase(ptyHandles.begin() + i);
+      ptyHandle = nullptr;
+      return true;
+    }
+  }
+  return false;
+}
+
 Napi::Error errorWithCode(const Napi::CallbackInfo& info, const char* text) {
   std::stringstream errorText;
   errorText << text;
@@ -464,6 +476,7 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
     }
 
     CloseHandle(handle->hShell);
+    assert(remove_pty_baton(id));
   }
 
   return env.Undefined();
@@ -474,7 +487,6 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
 */
 
 Napi::Object init(Napi::Env env, Napi::Object exports) {
-  Napi::HandleScope scope(env);
   exports.Set("startProcess", Napi::Function::New(env, PtyStartProcess));
   exports.Set("connect", Napi::Function::New(env, PtyConnect));
   exports.Set("resize", Napi::Function::New(env, PtyResize));

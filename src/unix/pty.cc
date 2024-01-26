@@ -772,7 +772,6 @@ done:
  */
 
 Napi::Object init(Napi::Env env, Napi::Object exports) {
-  Napi::HandleScope scope(env);
   exports.Set("fork",    Napi::Function::New(env, PtyFork));
   exports.Set("open",    Napi::Function::New(env, PtyOpen));
   exports.Set("resize",  Napi::Function::New(env, PtyResize));

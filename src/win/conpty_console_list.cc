@@ -37,7 +37,6 @@ static Napi::Value ApiConsoleProcessList(const Napi::CallbackInfo& info) {
 }
 
 Napi::Object init(Napi::Env env, Napi::Object exports) {
-  Napi::HandleScope scope(env);
   exports.Set("getConsoleProcessList", Napi::Function::New(env, ApiConsoleProcessList));
   return exports;
 };

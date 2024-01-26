@@ -31,16 +31,6 @@
       'targets': [
         {
           'target_name': 'conpty',
-          'xcode_settings': {
-            'CLANG_CXX_LIBRARY': 'libc++',
-            'MACOSX_DEPLOYMENT_TARGET': '10.7',
-          },
-          'msvs_settings': {
-            'VCCLCompilerTool': { 'ExceptionHandling': 1 },
-          },
-          'include_dirs' : [
-            '<!(node -p "require(\'node-addon-api\').include_dir")'
-          ],
           'sources' : [
             'src/win/conpty.cc',
             'src/win/path_util.cc'
@@ -51,29 +41,12 @@
         },
         {
           'target_name': 'conpty_console_list',
-          'xcode_settings': {
-            'CLANG_CXX_LIBRARY': 'libc++',
-            'MACOSX_DEPLOYMENT_TARGET': '10.7',
-          },
-          'msvs_settings': {
-            'VCCLCompilerTool': { 'ExceptionHandling': 1 },
-          },
-          'include_dirs' : [
-            '<!(node -p "require(\'node-addon-api\').include_dir")'
-          ],
           'sources' : [
             'src/win/conpty_console_list.cc'
           ],
         },
         {
           'target_name': 'pty',
-          'xcode_settings': {
-            'CLANG_CXX_LIBRARY': 'libc++',
-            'MACOSX_DEPLOYMENT_TARGET': '10.7',
-          },
-          'msvs_settings': {
-            'VCCLCompilerTool': { 'ExceptionHandling': 1 },
-          },
           'include_dirs' : [
             '<!(node -p "require(\'node-addon-api\').include_dir")',
             'deps/winpty/src/include',
@@ -97,16 +70,6 @@
       'targets': [
         {
           'target_name': 'pty',
-          'xcode_settings': {
-            'CLANG_CXX_LIBRARY': 'libc++',
-            'MACOSX_DEPLOYMENT_TARGET': '10.7',
-          },
-          'msvs_settings': {
-            'VCCLCompilerTool': { 'ExceptionHandling': 1 },
-          },
-          'include_dirs' : [
-            '<!(node -p "require(\'node-addon-api\').include_dir")'
-          ],
           'sources': [
             'src/unix/pty.cc',
           ],
@@ -122,13 +85,6 @@
               'libraries!': [
                 '-lutil'
               ]
-            }],
-            ['OS=="mac"', {
-              "cflags+": ["-fvisibility=hidden"],
-              "xcode_settings": {
-                "GCC_SYMBOLS_PRIVATE_EXTERN": "YES", # -fvisibility=hidden
-                "MACOSX_DEPLOYMENT_TARGET":"10.7"
-              }
             }]
           ]
         }
@@ -142,9 +98,7 @@
           'sources': [
             'src/unix/spawn-helper.cc',
           ],
-          "cflags+": ["-fvisibility=hidden"],
           "xcode_settings": {
-            "GCC_SYMBOLS_PRIVATE_EXTERN": "YES",
             "MACOSX_DEPLOYMENT_TARGET":"10.7"
           }
         },
