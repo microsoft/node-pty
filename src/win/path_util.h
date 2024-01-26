@@ -7,13 +7,16 @@
 #ifndef NODE_PTY_PATH_UTIL_H_
 #define NODE_PTY_PATH_UTIL_H_
 
-#include <nan.h>
+#define NODE_ADDON_API_DISABLE_DEPRECATED
+#include <napi.h>
+#include <string>
 
 #define MAX_ENV 65536
 
 namespace path_util {
 
-const wchar_t* to_wstring(const Nan::Utf8String& str);
+std::wstring to_wstring(const Napi::String& str);
+std::string wstring_to_string(const std::wstring &wide_string);
 const char* from_wstring(const wchar_t* wstr);
 bool file_exists(std::wstring filename);
 std::wstring get_shell_path(std::wstring filename);

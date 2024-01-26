@@ -4,25 +4,29 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-#include <nan.h>
+#include <stdexcept>
 #include <Shlwapi.h> // PathCombine
-
+#include <Windows.h>
 #include "path_util.h"
 
 namespace path_util {
 
-const wchar_t* to_wstring(const Nan::Utf8String& str) {
-  const char *bytes = *str;
-  int sizeOfStr = MultiByteToWideChar(CP_UTF8, 0, bytes, -1, NULL, 0);
-  if (sizeOfStr <= 0) {
-    return L"";
+std::wstring to_wstring(const Napi::String& str) {
+  const std::u16string & u16 = str.Utf16Value();
+  return std::wstring(u16.begin(), u16.end());
+}
+
+std::string wstring_to_string(const std::wstring &wide_string) {
+  if (wide_string.empty()) {
+    return "";
   }
-  wchar_t *output = new wchar_t[sizeOfStr];
-  int status = MultiByteToWideChar(CP_UTF8, 0, bytes, -1, output, sizeOfStr);
-  if (status == 0) {
-    return L"";
+  const auto size_needed = WideCharToMultiByte(CP_UTF8, 0, &wide_string.at(0), (int)wide_string.size(), nullptr, 0, nullptr, nullptr);
+  if (size_needed <= 0) {
+    return "";
   }
-  return output;
+  std::string result(size_needed, 0);
+  WideCharToMultiByte(CP_UTF8, 0, &wide_string.at(0), (int)wide_string.size(), &result.at(0), size_needed, nullptr, nullptr);
+  return result;
 }
 
 const char* from_wstring(const wchar_t* wstr) {
