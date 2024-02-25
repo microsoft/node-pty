@@ -79,7 +79,7 @@ jobs:
       npm run lint
     displayName: 'Lint'
 
-- job: Windows
+- job: APIScan
   dependsOn: []
   pool:
     vmImage: 'windows-latest'
