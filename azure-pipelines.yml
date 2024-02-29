@@ -129,7 +129,7 @@ jobs:
   - task: APIScan@2
     inputs:
       softwareFolder: $(Build.SourcesDirectory)\build\Release
-      softwareName: "node-pty"
+      softwareName: 'vscode-node-pty'
       softwareVersionNum: '1'
       isLargeApp: false
       toolVersion: 'Latest'
