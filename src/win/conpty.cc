@@ -252,7 +252,7 @@ static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
   if (SUCCEEDED(hr)) {
     // We were able to instantiate a conpty
     const int ptyId = InterlockedIncrement(&ptyCounter);
-    marshal.Set("pty", Napi::Number::New(env, ptyId));  
+    marshal.Set("pty", Napi::Number::New(env, ptyId));
     ptyHandles.insert(ptyHandles.end(), new pty_baton(ptyId, hIn, hOut, hpc));
   } else {
     throw Napi::Error::New(env, "Cannot launch conpty");
@@ -429,22 +429,22 @@ static Napi::Value PtyClear(const Napi::CallbackInfo& info) {
     throw Napi::Error::New(env, "Usage: pty.clear(id)");
   }
 
-  int id = info[0].As<Napi::Number>().Int32Value();
+  // int id = info[0].As<Napi::Number>().Int32Value();
 
-  const pty_baton* handle = get_pty_baton(id);
+  // const pty_baton* handle = get_pty_baton(id);
 
-  if (handle != nullptr) {
-    HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
-    bool fLoadedDll = hLibrary != nullptr;
-    if (fLoadedDll)
-    {
-      PFNCLEARPSEUDOCONSOLE const pfnClearPseudoConsole = (PFNCLEARPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ClearPseudoConsole");
-      if (pfnClearPseudoConsole)
-      {
-        pfnClearPseudoConsole(handle->hpc);
-      }
-    }
-  }
+  // if (handle != nullptr) {
+  //   HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
+  //   bool fLoadedDll = hLibrary != nullptr;
+  //   if (fLoadedDll)
+  //   {
+  //     PFNCLEARPSEUDOCONSOLE const pfnClearPseudoConsole = (PFNCLEARPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ClearPseudoConsole");
+  //     if (pfnClearPseudoConsole)
+  //     {
+  //       pfnClearPseudoConsole(handle->hpc);
+  //     }
+  //   }
+  // }
 
   return env.Undefined();
 }
