@@ -107,9 +107,22 @@ void SetupExitCallback(Napi::Env env, Napi::Function cb, pty_baton* baton) {
     CloseHandle(baton->hOut);
 
     auto status = tsfn.BlockingCall(exit_event, callback); // In main thread
-    assert(status == napi_ok);
+    switch (status) {
+      case napi_closing:
+        break;
 
-    tsfn.Release();
+      case napi_queue_full:
+        Napi::Error::Fatal("SetupExitCallback", "Queue was full");
+
+      case napi_ok:
+        if (tsfn.Release() != napi_ok) {
+          Napi::Error::Fatal("SetupExitCallback", "ThreadSafeFunction.Release() failed");
+        }
+        break;
+
+      default:
+        Napi::Error::Fatal("SetupExitCallback", "ThreadSafeFunction.BlockingCall() failed");
+    }
   });
 }
 
