@@ -22,7 +22,7 @@ extends:
         jobs:
         - job: Linux
           pool:
-            name: 1es-ubuntu-22.04-x64
+            name: 1es-oss-ubuntu-22.04-x64
             os: Linux
           strategy:
             matrix:
@@ -76,7 +76,7 @@ extends:
 
         - job: Windows
           pool:
-            name: 1es-windows-2022-x64
+            name: 1es-oss-windows-2022-x64
             os: Windows
           strategy:
             matrix:
@@ -102,7 +102,7 @@ extends:
         - job: APIScan
           dependsOn: []
           pool:
-            name: 1es-windows-2022-x64
+            name: 1es-oss-windows-2022-x64
             os: Windows
           strategy:
             matrix:
@@ -178,7 +178,7 @@ extends:
                 targetPath: $(Build.SourcesDirectory)
                 artifactName: drop
             pool:
-              name: 1es-ubuntu-22.04-x64
+              name: 1es-oss-ubuntu-22.04-x64
               os: Linux
             steps:
             - task: NodeTool@0
