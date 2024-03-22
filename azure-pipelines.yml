@@ -3,170 +3,191 @@
 # Add steps that analyze code, save build artifacts, deploy, and more:
 # https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
 
-jobs:
-- job: Linux
-  pool:
-    vmImage: 'ubuntu-latest'
-  strategy:
-    matrix:
-      node_16_x:
-        node_version: 16.x
-      node_18_x:
-        node_version: 18.x
-  steps:
-  - task: NodeTool@0
-    inputs:
-      versionSpec: $(node_version)
-    displayName: 'Install Node.js'
-  - script: |
-      npm i
-    displayName: 'Install dependencies and build'
-  - script: |
-      npm test
-    displayName: 'Test'
-  - script: |
-      npm run lint
-    displayName: 'Lint'
+resources:
+  repositories:
+    - repository: 1esPipelines
+      type: git
+      name: 1ESPipelineTemplates/1ESPipelineTemplates
+      ref: refs/tags/release
 
-- job: macOS
-  pool:
-    vmImage: 'macOS-latest'
-  strategy:
-    matrix:
-      node_16_x:
-        node_version: 16.x
-      node_18_x:
-        node_version: 18.x
-  steps:
-  - task: NodeTool@0
-    inputs:
-      versionSpec: $(node_version)
-    displayName: 'Install Node.js'
-  - script: |
-      python3 -m pip install setuptools
-    displayName: Install setuptools (macOS)
-  - script: |
-      npm i
-    displayName: 'Install dependencies and build'
-  - script: |
-      npm test
-    displayName: 'Test'
-  - script: |
-      npm run lint
-    displayName: 'Lint'
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
+  parameters:
+    sdl:
+        sourceAnalysisPool: 1es-windows-2022-x64
+        tsa:
+          enabled: true
+      stages:
+        - stage: Build
+          jobs:
+          - job: Linux
+            pool:
+              name: 1es-ubuntu-22.04-x64
+              os: Linux
+            strategy:
+              matrix:
+                node_16_x:
+                  node_version: 16.x
+                node_18_x:
+                  node_version: 18.x
+            steps:
+            - task: NodeTool@0
+              inputs:
+                versionSpec: $(node_version)
+              displayName: 'Install Node.js'
+            - script: |
+                npm i
+              displayName: 'Install dependencies and build'
+            - script: |
+                npm test
+              displayName: 'Test'
+            - script: |
+                npm run lint
+              displayName: 'Lint'
 
-- job: Windows
-  pool:
-    vmImage: 'windows-latest'
-  strategy:
-    matrix:
-      node_16_x:
-        node_version: 16.x
-      node_18_x:
-        node_version: 18.x
-  steps:
-  - task: NodeTool@0
-    inputs:
-      versionSpec: $(node_version)
-    displayName: 'Install Node.js'
-  - script: |
-      npm i
-    displayName: 'Install dependencies and build'
-  - script: |
-      npm test
-    displayName: 'Test'
-  - script: |
-      npm run lint
-    displayName: 'Lint'
+          - job: macOS
+            pool:
+              name: Azure Pipelines
+              vmImage: 'macOS-latest'
+              os: macOS
+            strategy:
+              matrix:
+                node_16_x:
+                  node_version: 16.x
+                node_18_x:
+                  node_version: 18.x
+            steps:
+            - task: NodeTool@0
+              inputs:
+                versionSpec: $(node_version)
+              displayName: 'Install Node.js'
+            - script: |
+                python3 -m pip install setuptools
+              displayName: Install setuptools (macOS)
+            - script: |
+                npm i
+              displayName: 'Install dependencies and build'
+            - script: |
+                npm test
+              displayName: 'Test'
+            - script: |
+                npm run lint
+              displayName: 'Lint'
 
-- job: APIScan
-  dependsOn: []
-  pool:
-    vmImage: 'windows-latest'
-  strategy:
-    matrix:
-      node_18_x:
-        node_version: 18.x
-  steps:
-  - task: NodeTool@0
-    inputs:
-      versionSpec: $(node_version)
-    displayName: 'Install Node.js'
-  - pwsh: |
-      $includes = @'
-        {
-          'target_defaults': {
-            'conditions': [
-              ['OS=="win"', {
-                'msvs_settings': {
-                  'VCCLCompilerTool': {
-                    'AdditionalOptions': [
-                      '/Zi',
-                      '/FS'
-                    ],
-                  },
-                  'VCLinkerTool': {
-                    'AdditionalOptions': [
-                      '/profile'
-                    ]
+          - job: Windows
+            pool:
+              name: 1es-windows-2022-x64
+              os: Windows
+            strategy:
+              matrix:
+                node_16_x:
+                  node_version: 16.x
+                node_18_x:
+                  node_version: 18.x
+            steps:
+            - task: NodeTool@0
+              inputs:
+                versionSpec: $(node_version)
+              displayName: 'Install Node.js'
+            - script: |
+                npm i
+              displayName: 'Install dependencies and build'
+            - script: |
+                npm test
+              displayName: 'Test'
+            - script: |
+                npm run lint
+              displayName: 'Lint'
+
+          - job: APIScan
+            dependsOn: []
+            pool:
+              name: 1es-windows-2022-x64
+              os: Windows
+            strategy:
+              matrix:
+                node_18_x:
+                  node_version: 18.x
+            steps:
+            - task: NodeTool@0
+              inputs:
+                versionSpec: $(node_version)
+              displayName: 'Install Node.js'
+            - pwsh: |
+                $includes = @'
+                  {
+                    'target_defaults': {
+                      'conditions': [
+                        ['OS=="win"', {
+                          'msvs_settings': {
+                            'VCCLCompilerTool': {
+                              'AdditionalOptions': [
+                                '/Zi',
+                                '/FS'
+                              ],
+                            },
+                            'VCLinkerTool': {
+                              'AdditionalOptions': [
+                                '/profile'
+                              ]
+                            }
+                          }
+                        }]
+                      ]
+                    }
                   }
+                '@
+
+                if (!(Test-Path "~/.gyp")) {
+                  mkdir "~/.gyp"
+                  echo $includes > "~/.gyp/include.gypi"
                 }
-              }]
-            ]
-          }
-        }
-      '@
+              displayName: Create include.gypi
+            - script: |
+                npm i
+              displayName: 'Install dependencies and build'
 
-      if (!(Test-Path "~/.gyp")) {
-        mkdir "~/.gyp"
-        echo $includes > "~/.gyp/include.gypi"
-      }
-    displayName: Create include.gypi
-  - script: |
-      npm i
-    displayName: 'Install dependencies and build'
+            - task: APIScan@2
+              inputs:
+                softwareFolder: $(Build.SourcesDirectory)\build\Release
+                softwareName: 'vscode-node-pty'
+                softwareVersionNum: '1'
+                isLargeApp: false
+                toolVersion: 'Latest'
+              displayName: Run ApiScan
+              condition: succeeded()
+              env:
+                AzureServicesAuthConnectionString: $(apiscan-connectionstring)
 
-  - task: APIScan@2
-    inputs:
-      softwareFolder: $(Build.SourcesDirectory)\build\Release
-      softwareName: 'vscode-node-pty'
-      softwareVersionNum: '1'
-      isLargeApp: false
-      toolVersion: 'Latest'
-    displayName: Run ApiScan
-    condition: succeeded()
-    env:
-      AzureServicesAuthConnectionString: $(apiscan-connectionstring)
+            - task: PublishSecurityAnalysisLogs@3
+              inputs:
+                ArtifactName: CodeAnalysisLogs
+                ArtifactType: Container
+                PublishProcessedResults: false
+                AllTools: true
 
-  - task: PublishSecurityAnalysisLogs@3
-    inputs:
-      ArtifactName: CodeAnalysisLogs
-      ArtifactType: Container
-      PublishProcessedResults: false
-      AllTools: true
-
-  - task: TSAUpload@2
-    inputs:
-      GdnPublishTsaOnboard: true
-      GdnPublishTsaConfigFile: '$(Build.SourcesDirectory)\tsaoptions.json'
-
-- job: Release
-  dependsOn:
-  - Linux
-  - macOS
-  - Windows
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-  pool:
-    vmImage: 'ubuntu-latest'
-  steps:
-  - task: NodeTool@0
-    inputs:
-      versionSpec: '18.x'
-    displayName: 'Install Node.js'
-  - script: |
-      npm i
-    displayName: 'Install dependencies and build'
-  - script: |
-      NPM_AUTH_TOKEN="$(NPM_AUTH_TOKEN)" node ./scripts/publish.js
-    displayName: 'Publish to npm'
-
+        - stage: Release
+          dependsOn: Build
+          jobs:
+            - job: Release
+              condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+              # Output artifact to produce SBOM and to run SDL checks
+              templateContext:
+                outputs:
+                - output: pipelineArtifact
+                  targetPath: $(Build.SourcesDirectory)
+                  artifactName: drop
+              pool:
+                name: 1es-ubuntu-22.04-x64
+                os: Linux
+              steps:
+              - task: NodeTool@0
+                inputs:
+                  versionSpec: '18.x'
+                displayName: 'Install Node.js'
+              - script: |
+                  npm i
+                displayName: 'Install dependencies and build'
+              - script: |
+                  NPM_AUTH_TOKEN="$(NPM_AUTH_TOKEN)" node ./scripts/publish.js
+                displayName: 'Publish to npm'
