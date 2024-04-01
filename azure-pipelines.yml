@@ -14,7 +14,7 @@ extends:
   template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
   parameters:
     sdl:
-      sourceAnalysisPool: 1es-windows-2022-x64
+      sourceAnalysisPool: 1es-oss-windows-2022-x64
       tsa:
         enabled: true
     stages:
