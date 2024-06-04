@@ -65,6 +65,11 @@
 #include <termios.h>
 #endif
 
+/* for setgroups */
+#if defined(__linux__)
+#include <grp.h>
+#endif
+
 /* NSIG - macro for highest signal + 1, should be defined */
 #ifndef NSIG
 #define NSIG 32
@@ -258,7 +263,7 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
   Napi::Env napiEnv(info.Env());
   Napi::HandleScope scope(napiEnv);
 
-  if (info.Length() != 11 ||
+  if (info.Length() != 12 ||
       !info[0].IsString() ||
       !info[1].IsArray() ||
       !info[2].IsArray() ||
@@ -269,8 +274,9 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
       !info[7].IsNumber() ||
       !info[8].IsBoolean() ||
       !info[9].IsString() ||
-      !info[10].IsFunction()) {
-    throw Napi::Error::New(napiEnv, "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, helperPath, onexit)");
+      !info[10].IsFunction() ||
+      !info[11].IsArray()) {
+    throw Napi::Error::New(napiEnv, "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, helperPath, onexit, suppGids)");
   }
 
   // file
@@ -419,6 +425,22 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
       }
 
       if (uid != -1 && gid != -1) {
+        // supplementary group IDs
+        Napi::Array suppGids_ = info[11].As<Napi::Array>();
+        if (suppGids_.Length() > 0) {
+          int gidsLength = suppGids_.Length() + 1;
+          std::unique_ptr<gid_t[]> gidsPtr(new gid_t[gidsLength]);
+          for (int i = 0; i < gidsLength - 1; ++i) {
+            gidsPtr[i] = suppGids_.Get(i).As<Napi::Number>().Uint32Value();
+          }
+          gidsPtr[gidsLength - 1] = gid;
+
+          if(setgroups(gidsLength, gidsPtr.get()) == -1) {
+            perror("setgroups(2) failed.");
+            _exit(1);
+          }
+        }
+
         if (setgid(gid) == -1) {
           perror("setgid(2) failed.");
           _exit(1);

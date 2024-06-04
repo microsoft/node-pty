@@ -31,7 +31,7 @@ const ptyProcess = pty.spawn(shell, [], {
   env: process.env
 });
 
-ptyProcess.onData((data) => {
+ptyProcess.on('data', (data) => {
   process.stdout.write(data);
 });
 
