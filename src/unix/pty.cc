@@ -41,6 +41,7 @@
 #include <util.h>
 #elif defined(__FreeBSD__)
 #include <libutil.h>
+#include <termios.h>
 #endif
 
 /* Some platforms name VWERASE and VDISCARD differently */
