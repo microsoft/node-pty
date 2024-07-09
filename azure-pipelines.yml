@@ -22,7 +22,7 @@ extends:
         jobs:
         - job: Linux
           pool:
-            name: 1es-oss-ubuntu-22.04-x64
+            name: 1es-oss-ubuntu-24.04-x64
             os: Linux
           strategy:
             matrix:
@@ -30,6 +30,10 @@ extends:
                 node_version: 16.x
               node_18_x:
                 node_version: 18.x
+              node_20_x:
+                node_version: 20.x
+              node_22_x:
+                node_version: 22.x
           steps:
           - task: NodeTool@0
             inputs:
@@ -56,6 +60,10 @@ extends:
                 node_version: 16.x
               node_18_x:
                 node_version: 18.x
+              node_20_x:
+                node_version: 20.x
+              node_22_x:
+                node_version: 22.x
           steps:
           - task: NodeTool@0
             inputs:
@@ -84,6 +92,10 @@ extends:
                 node_version: 16.x
               node_18_x:
                 node_version: 18.x
+              node_20_x:
+                node_version: 20.x
+              node_22_x:
+                node_version: 22.x
           steps:
           - task: NodeTool@0
             inputs:
@@ -108,6 +120,10 @@ extends:
             matrix:
               node_18_x:
                 node_version: 18.x
+              node_20_x:
+                node_version: 20.x
+              node_22_x:
+                node_version: 22.x
           steps:
           - task: NodeTool@0
             inputs:
@@ -178,12 +194,12 @@ extends:
                 targetPath: $(Build.SourcesDirectory)
                 artifactName: drop
             pool:
-              name: 1es-oss-ubuntu-22.04-x64
+              name: 1es-oss-ubuntu-24.04-x64
               os: Linux
             steps:
             - task: NodeTool@0
               inputs:
-                versionSpec: '18.x'
+                versionSpec: '22.x'
               displayName: 'Install Node.js'
             - script: |
                 npm i
