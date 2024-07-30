@@ -15,12 +15,14 @@
 #include <assert.h>
 #include <Shlwapi.h> // PathCombine, PathIsRelative
 #include <sstream>
+#include <iostream>
 #include <string>
 #include <thread>
 #include <vector>
 #include <Windows.h>
 #include <strsafe.h>
 #include "path_util.h"
+#include "conpty.h"
 
 // Taken from the RS5 Windows SDK, but redefined here in case we're targeting <= 17134
 #ifndef PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE
@@ -162,20 +164,47 @@ bool createDataServerPipe(bool write,
   return *hServer != INVALID_HANDLE_VALUE;
 }
 
-HRESULT CreateNamedPipesAndPseudoConsole(COORD size,
+HANDLE LoadConptyDll(const Napi::CallbackInfo& info,
+                     const bool useConptyDll)
+{
+  if (!useConptyDll) {
+    return LoadLibraryExW(L"kernel32.dll", 0, 0);
+  }
+  wchar_t currentDir[MAX_PATH];
+  DWORD result = GetCurrentDirectoryW(MAX_PATH, currentDir);
+  if (result == 0) {
+    throw errorWithCode(info, "Failed to get current directory");
+  }
+  std::wstring currentDirStr(currentDir);
+
+  // TODO: Support arm64
+  std::wstring conptyDllPath = currentDirStr + L"\\vendor\\conpty.dll";
+  if (!path_util::file_exists(conptyDllPath)) {
+    throw errorWithCode(info, "Cannot find conpty.dll");
+  }
+
+  return LoadLibraryW(conptyDllPath.c_str());
+}
+
+HRESULT CreateNamedPipesAndPseudoConsole(const Napi::CallbackInfo& info,
+                                         COORD size,
                                          DWORD dwFlags,
                                          HANDLE *phInput,
                                          HANDLE *phOutput,
                                          HPCON* phPC,
                                          std::wstring& inName,
                                          std::wstring& outName,
-                                         const std::wstring& pipeName)
+                                         const std::wstring& pipeName,
+                                         const bool useConptyDll)
 {
-  HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
+  HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
+  DWORD error = GetLastError();
   bool fLoadedDll = hLibrary != nullptr;
   if (fLoadedDll)
   {
-    PFNCREATEPSEUDOCONSOLE const pfnCreate = (PFNCREATEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "CreatePseudoConsole");
+    PFNCREATEPSEUDOCONSOLE const pfnCreate = (PFNCREATEPSEUDOCONSOLE)GetProcAddress(
+        (HMODULE)hLibrary,
+        useConptyDll ? "ConptyCreatePseudoConsole" : "CreatePseudoConsole");
     if (pfnCreate)
     {
       if (phPC == NULL || phInput == NULL || phOutput == NULL)
@@ -202,6 +231,8 @@ HRESULT CreateNamedPipesAndPseudoConsole(COORD size,
       //    We should fall back to winpty in this case.
       return HRESULT_FROM_WIN32(GetLastError());
     }
+  } else {
+    throw errorWithCode(info, "Failed to load conpty.dll");
   }
 
   // Failed to find  kernel32. This is realy unlikely - honestly no idea how
@@ -219,14 +250,15 @@ static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
   std::unique_ptr<wchar_t[]> mutableCommandline;
   PROCESS_INFORMATION _piClient{};
 
-  if (info.Length() != 6 ||
+  if (info.Length() != 7 ||
       !info[0].IsString() ||
       !info[1].IsNumber() ||
       !info[2].IsNumber() ||
       !info[3].IsBoolean() ||
       !info[4].IsString() ||
-      !info[5].IsBoolean()) {
-    throw Napi::Error::New(env, "Usage: pty.startProcess(file, cols, rows, debug, pipeName, inheritCursor)");
+      !info[5].IsBoolean() ||
+      !info[6].IsBoolean()) {
+    throw Napi::Error::New(env, "Usage: pty.startProcess(file, cols, rows, debug, pipeName, inheritCursor, useConptyDll)");
   }
 
   const std::wstring filename(path_util::to_wstring(info[0].As<Napi::String>()));
@@ -235,6 +267,7 @@ static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
   const bool debug = info[3].As<Napi::Boolean>().Value();
   const std::wstring pipeName(path_util::to_wstring(info[4].As<Napi::String>()));
   const bool inheritCursor = info[5].As<Napi::Boolean>().Value();
+  const bool useConptyDll = info[6].As<Napi::Boolean>().Value();
 
   // use environment 'Path' variable to determine location of
   // the relative path that we have recieved (e.g cmd.exe)
@@ -254,7 +287,7 @@ static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
 
   HANDLE hIn, hOut;
   HPCON hpc;
-  HRESULT hr = CreateNamedPipesAndPseudoConsole({cols, rows}, inheritCursor ? 1/*PSEUDOCONSOLE_INHERIT_CURSOR*/ : 0, &hIn, &hOut, &hpc, inName, outName, pipeName);
+  HRESULT hr = CreateNamedPipesAndPseudoConsole(info, {cols, rows}, inheritCursor ? 1/*PSEUDOCONSOLE_INHERIT_CURSOR*/ : 0, &hIn, &hOut, &hpc, inName, outName, pipeName, useConptyDll);
 
   // Restore default handling of ctrl+c
   SetConsoleCtrlHandler(NULL, FALSE);
@@ -403,25 +436,27 @@ static Napi::Value PtyResize(const Napi::CallbackInfo& info) {
   Napi::Env env(info.Env());
   Napi::HandleScope scope(env);
 
-  if (info.Length() != 3 ||
+  if (info.Length() != 4 ||
       !info[0].IsNumber() ||
       !info[1].IsNumber() ||
-      !info[2].IsNumber()) {
-    throw Napi::Error::New(env, "Usage: pty.resize(id, cols, rows)");
+      !info[2].IsNumber() ||
+      !info[3].IsBoolean()) {
+    throw Napi::Error::New(env, "Usage: pty.resize(id, cols, rows, useConptyDll)");
   }
 
   int id = info[0].As<Napi::Number>().Int32Value();
   SHORT cols = static_cast<SHORT>(info[1].As<Napi::Number>().Uint32Value());
   SHORT rows = static_cast<SHORT>(info[2].As<Napi::Number>().Uint32Value());
+  const bool useConptyDll = info[3].As<Napi::Boolean>().Value();
 
   const pty_baton* handle = get_pty_baton(id);
 
   if (handle != nullptr) {
-    HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
+    HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
     {
-      PFNRESIZEPSEUDOCONSOLE const pfnResizePseudoConsole = (PFNRESIZEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ResizePseudoConsole");
+      PFNRESIZEPSEUDOCONSOLE const pfnResizePseudoConsole = (PFNRESIZEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ConptyResizePseudoConsole");
       if (pfnResizePseudoConsole)
       {
         COORD size = {cols, rows};
@@ -466,21 +501,23 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
   Napi::Env env(info.Env());
   Napi::HandleScope scope(env);
 
-  if (info.Length() != 1 ||
-      !info[0].IsNumber()) {
-    throw Napi::Error::New(env, "Usage: pty.kill(id)");
+  if (info.Length() != 2 ||
+      !info[0].IsNumber() ||
+      !info[1].IsBoolean()) {
+    throw Napi::Error::New(env, "Usage: pty.kill(id, useConptyDll)");
   }
 
   int id = info[0].As<Napi::Number>().Int32Value();
+  const bool useConptyDll = info[1].As<Napi::Boolean>().Value();
 
   const pty_baton* handle = get_pty_baton(id);
 
   if (handle != nullptr) {
-    HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
+    HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
     {
-      PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ClosePseudoConsole");
+      PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ConptyClosePseudoConsole");
       if (pfnClosePseudoConsole)
       {
         pfnClosePseudoConsole(handle->hpc);
