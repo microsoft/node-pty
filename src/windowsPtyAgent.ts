@@ -22,6 +22,8 @@ let winptyNative: IWinptyNative;
  */
 const FLUSH_DATA_INTERVAL = 1000;
 
+const useConptyDll = false;
+
 /**
  * This agent sits between the WindowsTerminal class and provides a common interface for both conpty
  * and winpty.
@@ -99,7 +101,7 @@ export class WindowsPtyAgent {
     // Open pty session.
     let term: IConptyProcess | IWinptyProcess;
     if (this._useConpty) {
-      term = (this._ptyNative as IConptyNative).startProcess(file, cols, rows, debug, this._generatePipeName(), conptyInheritCursor);
+      term = (this._ptyNative as IConptyNative).startProcess(file, cols, rows, debug, this._generatePipeName(), conptyInheritCursor, useConptyDll);
     } else {
       term = (this._ptyNative as IWinptyNative).startProcess(file, commandLine, env, cwd, cols, rows, debug);
       this._pid = (term as IWinptyProcess).pid;
@@ -144,10 +146,10 @@ export class WindowsPtyAgent {
       if (this._exitCode !== undefined) {
         throw new Error('Cannot resize a pty that has already exited');
       }
-      this._ptyNative.resize(this._pty, cols, rows);
+      this._ptyNative.resize(this._pty, cols, rows, useConptyDll);
       return;
     }
-    this._ptyNative.resize(this._pid, cols, rows);
+    this._ptyNative.resize(this._pid, cols, rows, useConptyDll);
   }
 
   public clear(): void {
@@ -169,7 +171,7 @@ export class WindowsPtyAgent {
             // Ignore if process cannot be found (kill ESRCH error)
           }
         });
-        (this._ptyNative as IConptyNative).kill(this._pty);
+        (this._ptyNative as IConptyNative).kill(this._pty, useConptyDll);
       });
     } else {
       // Because pty.kill closes the handle, it will kill most processes by itself.
