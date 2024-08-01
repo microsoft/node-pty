@@ -11,7 +11,7 @@
 #define _WIN32_WINNT 0x600
 
 #define NODE_ADDON_API_DISABLE_DEPRECATED
-#include <napi.h>
+#include <node_api.h>
 #include <assert.h>
 #include <Shlwapi.h> // PathCombine, PathIsRelative
 #include <sstream>
@@ -178,7 +178,7 @@ HANDLE LoadConptyDll(const Napi::CallbackInfo& info,
   std::wstring currentDirStr(currentDir);
 
   // TODO: Support arm64
-  std::wstring conptyDllPath = currentDirStr + L"\\vendor\\conpty.dll";
+  std::wstring conptyDllPath = currentDirStr + L"\\third_party\\conpty\\1.19.240130002\\win10-x64\\conpty.dll";
   if (!path_util::file_exists(conptyDllPath)) {
     throw errorWithCode(info, "Cannot find conpty.dll");
   }
