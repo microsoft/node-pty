@@ -26,8 +26,6 @@ extends:
             os: Linux
           strategy:
             matrix:
-              node_16_x:
-                node_version: 16.x
               node_18_x:
                 node_version: 18.x
           steps:
@@ -52,8 +50,6 @@ extends:
             os: macOS
           strategy:
             matrix:
-              node_16_x:
-                node_version: 16.x
               node_18_x:
                 node_version: 18.x
           steps:
@@ -80,8 +76,6 @@ extends:
             os: Windows
           strategy:
             matrix:
-              node_16_x:
-                node_version: 16.x
               node_18_x:
                 node_version: 18.x
           steps:
