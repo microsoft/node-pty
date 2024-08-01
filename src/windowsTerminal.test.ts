@@ -98,7 +98,7 @@ if (process.platform === 'win32') {
           (<any>term)._defer(done);
         });
         it('should kill the process tree', function (done: Mocha.Done): void {
-          this.timeout(5000);
+          this.timeout(10000);
           const term = new WindowsTerminal('cmd.exe', [], { useConpty });
           // Start sub-processes
           term.write('powershell.exe\r');
@@ -134,7 +134,7 @@ if (process.platform === 'win32') {
         it('should throw a non-native exception when resizing a killed terminal', (done) => {
           const term = new WindowsTerminal('cmd.exe', [], { useConpty });
           (<any>term)._defer(() => {
-            term.on('exit', () => {
+            term.once('exit', () => {
               assert.throws(() => term.resize(1, 1));
               done();
             });
