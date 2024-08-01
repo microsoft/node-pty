@@ -18,6 +18,7 @@
     "scripts/",
     "src/",
     "deps/",
+    "third_party/",
     "typings/"
   ],
   "homepage": "https://github.com/microsoft/node-pty",
