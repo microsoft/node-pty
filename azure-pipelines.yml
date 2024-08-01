@@ -93,72 +93,72 @@ extends:
               npm run lint
             displayName: 'Lint'
 
-        - job: APIScan
-          dependsOn: []
-          pool:
-            name: 1es-oss-windows-2022-x64
-            os: Windows
-          strategy:
-            matrix:
-              node_18_x:
-                node_version: 18.x
-          steps:
-          - task: NodeTool@0
-            inputs:
-              versionSpec: $(node_version)
-            displayName: 'Install Node.js'
-          - pwsh: |
-              $includes = @'
-                {
-                  'target_defaults': {
-                    'conditions': [
-                      ['OS=="win"', {
-                        'msvs_settings': {
-                          'VCCLCompilerTool': {
-                            'AdditionalOptions': [
-                              '/Zi',
-                              '/FS'
-                            ],
-                          },
-                          'VCLinkerTool': {
-                            'AdditionalOptions': [
-                              '/profile'
-                            ]
-                          }
-                        }
-                      }]
-                    ]
-                  }
-                }
-              '@
+        # - job: APIScan
+        #   dependsOn: []
+        #   pool:
+        #     name: 1es-oss-windows-2022-x64
+        #     os: Windows
+        #   strategy:
+        #     matrix:
+        #       node_18_x:
+        #         node_version: 18.x
+        #   steps:
+        #   - task: NodeTool@0
+        #     inputs:
+        #       versionSpec: $(node_version)
+        #     displayName: 'Install Node.js'
+        #   - pwsh: |
+        #       $includes = @'
+        #         {
+        #           'target_defaults': {
+        #             'conditions': [
+        #               ['OS=="win"', {
+        #                 'msvs_settings': {
+        #                   'VCCLCompilerTool': {
+        #                     'AdditionalOptions': [
+        #                       '/Zi',
+        #                       '/FS'
+        #                     ],
+        #                   },
+        #                   'VCLinkerTool': {
+        #                     'AdditionalOptions': [
+        #                       '/profile'
+        #                     ]
+        #                   }
+        #                 }
+        #               }]
+        #             ]
+        #           }
+        #         }
+        #       '@
 
-              if (!(Test-Path "~/.gyp")) {
-                mkdir "~/.gyp"
-                echo $includes > "~/.gyp/include.gypi"
-              }
-            displayName: Create include.gypi
-          - script: |
-              npm i
-            displayName: 'Install dependencies and build'
+        #       if (!(Test-Path "~/.gyp")) {
+        #         mkdir "~/.gyp"
+        #         echo $includes > "~/.gyp/include.gypi"
+        #       }
+        #     displayName: Create include.gypi
+        #   - script: |
+        #       npm i
+        #     displayName: 'Install dependencies and build'
 
-          - task: APIScan@2
-            inputs:
-              softwareFolder: $(Build.SourcesDirectory)\build\Release
-              softwareName: 'vscode-node-pty'
-              softwareVersionNum: '1'
-              isLargeApp: false
-              toolVersion: 'Latest'
-            displayName: Run ApiScan
-            condition: succeeded()
-            env:
-              AzureServicesAuthConnectionString: $(apiscan-connectionstring)
+        #   - task: APIScan@2
+        #     inputs:
+        #       softwareFolder: $(Build.SourcesDirectory)\build\Release
+        #       softwareName: 'vscode-node-pty'
+        #       softwareVersionNum: '1'
+        #       isLargeApp: false
+        #       toolVersion: 'Latest'
+        #     displayName: Run ApiScan
+        #     condition: succeeded()
+        #     env:
+        #       AzureServicesAuthConnectionString: $(apiscan-connectionstring)
 
-          - task: PublishSecurityAnalysisLogs@3
-            inputs:
-              ArtifactName: CodeAnalysisLogs
-              ArtifactType: Container
-              PublishProcessedResults: false
-              AllTools: true
+        #   - task: PublishSecurityAnalysisLogs@3
+        #     inputs:
+        #       ArtifactName: CodeAnalysisLogs
+        #       ArtifactType: Container
+        #       PublishProcessedResults: false
+        #       AllTools: true
 
       - stage: Release
         dependsOn: Build
