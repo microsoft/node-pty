@@ -145,10 +145,10 @@ export class WindowsPtyAgent {
       if (this._exitCode !== undefined) {
         throw new Error('Cannot resize a pty that has already exited');
       }
-      this._ptyNative.resize(this._pty, cols, rows, this._useConptyDll);
+      (this._ptyNative as IConptyNative).resize(this._pty, cols, rows, this._useConptyDll);
       return;
     }
-    this._ptyNative.resize(this._pid, cols, rows, this._useConptyDll);
+    (this._ptyNative as IWinptyNative).resize(this._pid, cols, rows);
   }
 
   public clear(): void {
