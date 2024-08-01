@@ -22,8 +22,6 @@ let winptyNative: IWinptyNative;
  */
 const FLUSH_DATA_INTERVAL = 1000;
 
-const useConptyDll = false;
-
 /**
  * This agent sits between the WindowsTerminal class and provides a common interface for both conpty
  * and winpty.
@@ -56,6 +54,7 @@ export class WindowsPtyAgent {
     rows: number,
     debug: boolean,
     private _useConpty: boolean | undefined,
+    private _useConptyDll: boolean = false,
     conptyInheritCursor: boolean = false
   ) {
     if (this._useConpty === undefined || this._useConpty === true) {
@@ -101,7 +100,7 @@ export class WindowsPtyAgent {
     // Open pty session.
     let term: IConptyProcess | IWinptyProcess;
     if (this._useConpty) {
-      term = (this._ptyNative as IConptyNative).startProcess(file, cols, rows, debug, this._generatePipeName(), conptyInheritCursor, useConptyDll);
+      term = (this._ptyNative as IConptyNative).startProcess(file, cols, rows, debug, this._generatePipeName(), conptyInheritCursor, this._useConptyDll);
     } else {
       term = (this._ptyNative as IWinptyNative).startProcess(file, commandLine, env, cwd, cols, rows, debug);
       this._pid = (term as IWinptyProcess).pid;
@@ -146,10 +145,10 @@ export class WindowsPtyAgent {
       if (this._exitCode !== undefined) {
         throw new Error('Cannot resize a pty that has already exited');
       }
-      this._ptyNative.resize(this._pty, cols, rows, useConptyDll);
+      this._ptyNative.resize(this._pty, cols, rows, this._useConptyDll);
       return;
     }
-    this._ptyNative.resize(this._pid, cols, rows, useConptyDll);
+    this._ptyNative.resize(this._pid, cols, rows, this._useConptyDll);
   }
 
   public clear(): void {
@@ -171,7 +170,7 @@ export class WindowsPtyAgent {
             // Ignore if process cannot be found (kill ESRCH error)
           }
         });
-        (this._ptyNative as IConptyNative).kill(this._pty, useConptyDll);
+        (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll);
       });
     } else {
       // Because pty.kill closes the handle, it will kill most processes by itself.
