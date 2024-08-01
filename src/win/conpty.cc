@@ -177,8 +177,7 @@ HANDLE LoadConptyDll(const Napi::CallbackInfo& info,
   }
   std::wstring currentDirStr(currentDir);
 
-  // TODO: Support arm64
-  std::wstring conptyDllPath = currentDirStr + L"\\third_party\\conpty\\1.19.240130002\\win10-x64\\conpty.dll";
+  std::wstring conptyDllPath = currentDirStr + L"\\build\\Release\\conpty\\conpty.dll";
   if (!path_util::file_exists(conptyDllPath)) {
     throw errorWithCode(info, "Cannot find conpty.dll");
   }
