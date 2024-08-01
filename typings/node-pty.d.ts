@@ -96,6 +96,14 @@ declare module 'node-pty' {
     useConpty?: boolean;
 
     /**
+     * (EXPERIMENTAL)
+     *
+     * Whether to use the conpty.dll shipped with the node-pty package instead of the one built into
+     * Windows. Defaults to false.
+     */
+    useConptyDll?: boolean;
+
+    /**
      * Whether to use PSEUDOCONSOLE_INHERIT_CURSOR in conpty.
      * @see https://docs.microsoft.com/en-us/windows/console/createpseudoconsole
      */
