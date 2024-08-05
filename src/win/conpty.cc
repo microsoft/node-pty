@@ -179,7 +179,9 @@ HANDLE LoadConptyDll(const Napi::CallbackInfo& info,
 
   std::wstring conptyDllPath = currentDirStr + L"\\build\\Release\\conpty\\conpty.dll";
   if (!path_util::file_exists(conptyDllPath)) {
-    throw errorWithCode(info, "Cannot find conpty.dll");
+    std::wstring errorMessage = L"Cannot find conpty.dll at " + conptyDllPath;
+    std::string errorMessageStr(errorMessage.begin(), errorMessage.end());
+    throw errorWithCode(info, errorMessageStr.c_str());
   }
 
   return LoadLibraryW(conptyDllPath.c_str());
