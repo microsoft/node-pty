@@ -171,20 +171,24 @@ HANDLE LoadConptyDll(const Napi::CallbackInfo& info,
     return LoadLibraryExW(L"kernel32.dll", 0, 0);
   }
   wchar_t currentDir[MAX_PATH];
-  DWORD result = GetCurrentDirectoryW(MAX_PATH, currentDir);
-  if (result == 0) {
-    throw errorWithCode(info, "Failed to get current directory");
+  HMODULE hModule = GetModuleHandleA("conpty.node");
+  if (hModule == NULL) {
+    throw errorWithCode(info, "Failed to get conpty.node module handle");
   }
-  std::wstring currentDirStr(currentDir);
-
-  std::wstring conptyDllPath = currentDirStr + L"\\build\\Release\\conpty\\conpty.dll";
+  DWORD result = GetModuleFileNameW(hModule, currentDir, MAX_PATH);
+  if (result == 0) {
+    throw errorWithCode(info, "Failed to get conpty.node module file name");
+  }
+  PathRemoveFileSpecW(currentDir);
+  wchar_t conptyDllPath[MAX_PATH];
+  PathCombineW(conptyDllPath, currentDir, L"conpty\\conpty.dll");
   if (!path_util::file_exists(conptyDllPath)) {
-    std::wstring errorMessage = L"Cannot find conpty.dll at " + conptyDllPath;
-    std::string errorMessageStr(errorMessage.begin(), errorMessage.end());
+    std::wstring errorMessage = L"Cannot find conpty.dll at " + std::wstring(conptyDllPath);
+    std::string errorMessageStr = path_util::wstring_to_string(errorMessage);
     throw errorWithCode(info, errorMessageStr.c_str());
   }
 
-  return LoadLibraryW(conptyDllPath.c_str());
+  return LoadLibraryW(conptyDllPath);
 }
 
 HRESULT CreateNamedPipesAndPseudoConsole(const Napi::CallbackInfo& info,
