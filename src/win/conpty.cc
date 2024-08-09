@@ -461,7 +461,9 @@ static Napi::Value PtyResize(const Napi::CallbackInfo& info) {
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
     {
-      PFNRESIZEPSEUDOCONSOLE const pfnResizePseudoConsole = (PFNRESIZEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ConptyResizePseudoConsole");
+      PFNRESIZEPSEUDOCONSOLE const pfnResizePseudoConsole = (PFNRESIZEPSEUDOCONSOLE)GetProcAddress(
+        (HMODULE)hLibrary,
+        useConptyDll ? "ConptyResizePseudoConsole" : "ResizePseudoConsole");
       if (pfnResizePseudoConsole)
       {
         COORD size = {cols, rows};
@@ -491,7 +493,9 @@ static Napi::Value PtyClear(const Napi::CallbackInfo& info) {
   //   bool fLoadedDll = hLibrary != nullptr;
   //   if (fLoadedDll)
   //   {
-  //     PFNCLEARPSEUDOCONSOLE const pfnClearPseudoConsole = (PFNCLEARPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ClearPseudoConsole");
+  //     PFNCLEARPSEUDOCONSOLE const pfnClearPseudoConsole = (PFNCLEARPSEUDOCONSOLE)GetProcAddress(
+  //       (HMODULE)hLibrary,
+  //       useConptyDll ? "ConptyClearPseudoConsole" : "ClearPseudoConsole");
   //     if (pfnClearPseudoConsole)
   //     {
   //       pfnClearPseudoConsole(handle->hpc);
@@ -522,7 +526,9 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
     {
-      PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ConptyClosePseudoConsole");
+      PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress(
+        (HMODULE)hLibrary,
+        useConptyDll ? "ConptyClosePseudoConsole" : "ClosePseudoConsole");
       if (pfnClosePseudoConsole)
       {
         pfnClosePseudoConsole(handle->hpc);
