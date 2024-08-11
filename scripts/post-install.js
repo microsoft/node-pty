@@ -50,7 +50,15 @@ console.log(`\x1b[32m> Moving conpty.dll...\x1b[0m`);
 if (os.platform() !== 'win32') {
   console.log('  SKIPPED (not Windows)');
 } else {
-  const windowsArch = os.arch();
+  let windowsArch;
+  if (process.env.npm_config_arch) {
+    windowsArch = process.env.npm_config_arch;
+    console.log(`  Using $npm_config_arch: ${windowsArch}`);
+  } else {
+    windowsArch = os.arch();
+    console.log(`  Using os.arch(): ${windowsArch}`);
+  }
+
   if (!CONPTY_SUPPORTED_ARCH.includes(windowsArch)) {
     console.log(`  SKIPPED (unsupported architecture ${windowsArch})`);
   } else {
