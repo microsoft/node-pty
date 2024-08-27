@@ -1,2 +1,5 @@
+examples/
+fixtures/
+test/
 *.test.js
 *.test.ts
