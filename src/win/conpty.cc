@@ -479,29 +479,36 @@ static Napi::Value PtyClear(const Napi::CallbackInfo& info) {
   Napi::Env env(info.Env());
   Napi::HandleScope scope(env);
 
-  if (info.Length() != 1 ||
-      !info[0].IsNumber()) {
-    throw Napi::Error::New(env, "Usage: pty.clear(id)");
+  if (info.Length() != 2 ||
+      !info[0].IsNumber() ||
+      !info[1].IsBoolean()) {
+    throw Napi::Error::New(env, "Usage: pty.clear(id, useConptyDll)");
   }
 
-  // int id = info[0].As<Napi::Number>().Int32Value();
+  int id = info[0].As<Napi::Number>().Int32Value();
+  const bool useConptyDll = info[1].As<Napi::Boolean>().Value();
 
-  // const pty_baton* handle = get_pty_baton(id);
+  // This API is only supported for conpty.dll as it was introduced in a later version of Windows.
+  // We could hook it up to point at >= a version of Windows only, but the future is conpty.dll
+  // anyway.
+  if (!useConptyDll) {
+    return env.Undefined();
+  }
 
-  // if (handle != nullptr) {
-  //   HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
-  //   bool fLoadedDll = hLibrary != nullptr;
-  //   if (fLoadedDll)
-  //   {
-  //     PFNCLEARPSEUDOCONSOLE const pfnClearPseudoConsole = (PFNCLEARPSEUDOCONSOLE)GetProcAddress(
-  //       (HMODULE)hLibrary,
-  //       useConptyDll ? "ConptyClearPseudoConsole" : "ClearPseudoConsole");
-  //     if (pfnClearPseudoConsole)
-  //     {
-  //       pfnClearPseudoConsole(handle->hpc);
-  //     }
-  //   }
-  // }
+  const pty_baton* handle = get_pty_baton(id);
+
+  if (handle != nullptr) {
+    HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
+    bool fLoadedDll = hLibrary != nullptr;
+    if (fLoadedDll)
+    {
+      PFNCLEARPSEUDOCONSOLE const pfnClearPseudoConsole = (PFNCLEARPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ConptyClearPseudoConsole");
+      if (pfnClearPseudoConsole)
+      {
+        pfnClearPseudoConsole(handle->hpc);
+      }
+    }
+  }
 
   return env.Undefined();
 }

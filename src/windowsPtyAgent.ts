@@ -153,7 +153,7 @@ export class WindowsPtyAgent {
 
   public clear(): void {
     if (this._useConpty) {
-      (this._ptyNative as IConptyNative).clear(this._pty);
+      (this._ptyNative as IConptyNative).clear(this._pty, this._useConptyDll);
     }
   }
 
