@@ -21,6 +21,8 @@
 #include <vector>
 #include <Windows.h>
 #include <strsafe.h>
+#include <wrl.h>
+#include "ITerminalHandoff.h"
 #include "path_util.h"
 #include "conpty.h"
 
@@ -542,16 +544,71 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
+class TerminalHandoff
+  : public Microsoft::WRL::RuntimeClass<
+  Microsoft::WRL::RuntimeClassFlags<Microsoft::WRL::ClassicCom>,
+  ITerminalHandoff2>
+{
+public:
+  virtual HRESULT STDMETHODCALLTYPE EstablishPtyHandoff(
+    /* [system_handle][in] */ HANDLE in,
+    /* [system_handle][in] */ HANDLE out,
+    /* [system_handle][in] */ HANDLE signal,
+    /* [system_handle][in] */ HANDLE ref,
+    /* [system_handle][in] */ HANDLE server,
+    /* [system_handle][in] */ HANDLE client,
+    /* [in] */ TERMINAL_STARTUP_INFO startupInfo) override
+  {
+    MessageBoxW(nullptr, L"EstablishPtyHandoff", L"", 0);
+    return E_NOTIMPL;
+  }
+};
+
+static DWORD g_cTerminalHandoffRegistration = 0;
+
+static Napi::Value PtyRegisterHandoff(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
+
+  if (info.Length() != 2 ||
+    !info[0].IsString() ||
+    !info[1].IsFunction()) {
+    throw Napi::Error::New(env, "Usage: pty.registerHandoff(clsid, callback)");
+  }
+
+  const std::wstring clsidStr(path_util::to_wstring(info[0].As<Napi::String>()));
+  Napi::Function callback = info[1].As<Napi::Function>();
+
+  using namespace Microsoft::WRL;
+
+  const auto classFactory = Make<SimpleClassFactory<TerminalHandoff>>();
+
+  ComPtr<IUnknown> unk;
+  HRESULT hr = classFactory.As(&unk);
+
+  CLSID clsid;
+  hr = CLSIDFromString(clsidStr.c_str(), &clsid);
+
+  hr = CoRegisterClassObject(clsid, unk.Get(), CLSCTX_LOCAL_SERVER, REGCLS_MULTIPLEUSE, &g_cTerminalHandoffRegistration);
+
+  CoAddRefServerProcess();
+
+  return env.Undefined();
+}
+
 /**
 * Init
 */
 
 Napi::Object init(Napi::Env env, Napi::Object exports) {
+  MessageBoxW(nullptr, L"", L"", 0); // debug
+
   exports.Set("startProcess", Napi::Function::New(env, PtyStartProcess));
   exports.Set("connect", Napi::Function::New(env, PtyConnect));
   exports.Set("resize", Napi::Function::New(env, PtyResize));
   exports.Set("clear", Napi::Function::New(env, PtyClear));
   exports.Set("kill", Napi::Function::New(env, PtyKill));
+  exports.Set("registerHandoff", Napi::Function::New(env, PtyRegisterHandoff));
   return exports;
 };
 

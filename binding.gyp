@@ -21,7 +21,11 @@
               'AdditionalOptions': [
                 '/guard:cf'
               ]
-            }
+            },
+            'VCMIDLTool': {
+              'OutputDirectory': '<(INTERMEDIATE_DIR)',
+              'HeaderFileName': '<(RULE_INPUT_ROOT).h',
+            },
           },
       }],
     ],
@@ -33,7 +37,13 @@
           'target_name': 'conpty',
           'sources' : [
             'src/win/conpty.cc',
-            'src/win/path_util.cc'
+            'src/win/path_util.cc',
+            'src/win/ITerminalHandoff.idl'
+          ],
+          'include_dirs' : [
+            'deps/wil/include',
+            # To allow including "ITerminalHandoff.h"
+            '<(INTERMEDIATE_DIR)',
           ],
           'libraries': [
             'shlwapi.lib'
