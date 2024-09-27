@@ -6,7 +6,7 @@ interface IConptyNative {
   startProcess(file: string, cols: number, rows: number, debug: boolean, pipeName: string, conptyInheritCursor: boolean, useConptyDll: boolean): IConptyProcess;
   connect(ptyId: number, commandLine: string, cwd: string, env: string[], onExitCallback: (exitCode: number) => void): { pid: number };
   resize(ptyId: number, cols: number, rows: number, useConptyDll: boolean): void;
-  clear(ptyId: number): void;
+  clear(ptyId: number, useConptyDll: boolean): void;
   kill(ptyId: number, useConptyDll: boolean): void;
 }
 
