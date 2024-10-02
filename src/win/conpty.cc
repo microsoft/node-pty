@@ -12,6 +12,7 @@
 
 #define NODE_ADDON_API_DISABLE_DEPRECATED
 #include <node_api.h>
+#include <uv.h>
 #include <assert.h>
 #include <Shlwapi.h> // PathCombine, PathIsRelative
 #include <sstream>
@@ -19,6 +20,8 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <io.h>
+#include <fcntl.h>
 #include <Windows.h>
 #include <strsafe.h>
 #include "path_util.h"
@@ -34,6 +37,7 @@ typedef HRESULT (__stdcall *PFNCREATEPSEUDOCONSOLE)(COORD c, HANDLE hIn, HANDLE 
 typedef HRESULT (__stdcall *PFNRESIZEPSEUDOCONSOLE)(HPCON hpc, COORD newSize);
 typedef HRESULT (__stdcall *PFNCLEARPSEUDOCONSOLE)(HPCON hpc);
 typedef void (__stdcall *PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
+typedef HRESULT (__stdcall *PFNPACKPSEUDOCONSOLE)(HANDLE hProcess, HANDLE hRef, HANDLE hSignal, HPCON* phPC);
 
 #endif
 
@@ -105,8 +109,10 @@ void SetupExitCallback(Napi::Env env, Napi::Function cb, pty_baton* baton) {
     // Calling DisconnectNamedPipes here or in PtyKill results in a crash,
     // ref https://github.com/microsoft/node-pty/issues/512,
     // so we only call CloseHandle for now.
-    CloseHandle(baton->hIn);
-    CloseHandle(baton->hOut);
+    if (baton->hIn)
+      CloseHandle(baton->hIn);
+    if (baton->hOut)
+      CloseHandle(baton->hOut);
 
     auto status = tsfn.BlockingCall(exit_event, callback); // In main thread
     switch (status) {
@@ -552,6 +558,65 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
+static Napi::Value PtyHandoff(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
+
+  if (info.Length() != 7 ||
+      !info[0].IsNumber() ||
+      !info[1].IsNumber() ||
+      !info[2].IsNumber() ||
+      !info[3].IsNumber() ||
+      !info[4].IsNumber() ||
+      !info[5].IsNumber() ||
+      !info[6].IsFunction()) {
+    throw Napi::Error::New(env, "Usage: pty.handoff(input, output, signal, ref, server, client, exitCallback)");
+  }
+
+  HANDLE hIn = reinterpret_cast<HANDLE>(info[0].As<Napi::Number>().Int64Value());
+  HANDLE hOut = reinterpret_cast<HANDLE>(info[1].As<Napi::Number>().Int64Value());
+  HANDLE hSig = reinterpret_cast<HANDLE>(info[2].As<Napi::Number>().Int64Value());
+  HANDLE hRef = reinterpret_cast<HANDLE>(info[3].As<Napi::Number>().Int64Value());
+  HANDLE hServerProcess = reinterpret_cast<HANDLE>(info[4].As<Napi::Number>().Int64Value());
+  HANDLE hClientProcess = reinterpret_cast<HANDLE>(info[5].As<Napi::Number>().Int64Value());
+  Napi::Function exitCallback = info[6].As<Napi::Function>();
+
+  HPCON hpc = nullptr;
+
+  HANDLE hLibrary = LoadConptyDll(info, true);
+  if (hLibrary != nullptr)
+  {
+    PFNPACKPSEUDOCONSOLE const pfnPackPseudoConsole = (PFNPACKPSEUDOCONSOLE)GetProcAddress(
+      (HMODULE)hLibrary,
+      "ConptyPackPseudoConsole");
+    if (pfnPackPseudoConsole)
+    {
+      pfnPackPseudoConsole(hServerProcess, hRef, hSig, &hpc);
+    }
+  }
+
+  if (!hpc) {
+    throw Napi::Error::New(env, "Failed to handoff conpty");
+  }
+
+  const int ptyId = InterlockedIncrement(&ptyCounter);
+  pty_baton* handle = new pty_baton(ptyId, nullptr, nullptr, hpc);
+  handle->hShell = hClientProcess;
+  ptyHandles.insert(ptyHandles.end(), handle);
+
+  SetupExitCallback(env, exitCallback, handle);
+
+  Napi::Object marshal = Napi::Object::New(env);
+  marshal.Set("pty", Napi::Number::New(env, ptyId));
+  marshal.Set("fd", Napi::Number::New(env, -1));
+  marshal.Set("conin", Napi::Number::New(env, uv_open_osfhandle(hIn)));
+  marshal.Set("conout", Napi::Number::New(env, uv_open_osfhandle(hOut)));
+  marshal.Set("innerPid", Napi::Number::New(env, GetProcessId(hClientProcess)));
+  marshal.Set("pid", Napi::Number::New(env, GetProcessId(hServerProcess)));
+
+  return marshal;
+}
+
 /**
 * Init
 */
@@ -562,6 +627,7 @@ Napi::Object init(Napi::Env env, Napi::Object exports) {
   exports.Set("resize", Napi::Function::New(env, PtyResize));
   exports.Set("clear", Napi::Function::New(env, PtyClear));
   exports.Set("kill", Napi::Function::New(env, PtyKill));
+  exports.Set("handoff", Napi::Function::New(env, PtyHandoff));
   return exports;
 };
 
