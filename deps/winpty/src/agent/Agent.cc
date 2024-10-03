@@ -223,7 +223,7 @@ Agent::Agent(LPCWSTR controlPipeName,
 
 Agent::~Agent()
 {
-    trace("Agent::~Aent entered");
+    trace("Agent::~Agent entered");
     try {
         agentShutdown();
         if (m_childProcess != NULL) {
