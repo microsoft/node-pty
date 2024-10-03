@@ -429,6 +429,9 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
   // Update handle
   handle->hShell = piClient.hProcess;
 
+  // Close the thread handle to avoid resource leak
+  CloseHandle(piClient.hThread);
+
   SetupExitCallback(env, exitCallback, handle);
 
   // Return
