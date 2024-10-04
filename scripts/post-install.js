@@ -1,5 +1,6 @@
 //@ts-check
 
+const { execSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -75,5 +76,8 @@ if (os.platform() !== 'win32') {
     }
   }
 }
+
+console.log(`\x1b[32m> Generating compile_commands.json...\x1b[0m`);
+execSync('npx node-gyp configure -- -f compile_commands_json');
 
 process.exit(0);
