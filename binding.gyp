@@ -25,6 +25,7 @@
           },
       }],
     ],
+    'includes': ['./common.gypi']
   },
   'conditions': [
     ['OS=="win"', {
@@ -38,12 +39,14 @@
           'libraries': [
             'shlwapi.lib'
           ],
+          'includes': ['./common.gypi']
         },
         {
           'target_name': 'conpty_console_list',
           'sources' : [
             'src/win/conpty_console_list.cc'
           ],
+          'includes': ['./common.gypi']
         },
         {
           'target_name': 'pty',
@@ -64,6 +67,7 @@
           'libraries': [
             'shlwapi.lib'
           ],
+          'includes': ['./common.gypi']
         }
       ]
     }, { # OS!="win"
@@ -86,7 +90,8 @@
                 '-lutil'
               ]
             }]
-          ]
+          ],
+          'includes': ['./common.gypi']
         }
       ]
     }],
@@ -100,8 +105,9 @@
           ],
           "xcode_settings": {
             "MACOSX_DEPLOYMENT_TARGET":"10.7"
-          }
-        },
+          },
+          'includes': ['./common.gypi']
+        }
       ]
     }]
   ]
