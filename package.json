@@ -35,6 +35,7 @@
     "openpty"
   ],
   "scripts": {
+    "install": "prebuild-install --verbose || npm run build",
     "build": "tsc -b ./src/tsconfig.json",
     "watch": "tsc -b -w ./src/tsconfig.json",
     "lint": "eslint -c .eslintrc.js --ext .ts src/",
@@ -45,7 +46,6 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "bindings": "^1.5.0",
     "prebuild-install": "^7.1.2"
   },
   "devDependencies": {
