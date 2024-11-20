@@ -80,6 +80,7 @@ jobs:
           node-version: 18
           registry-url: https://registry.npmjs.org
       - run: |
+          npm install --ignore-scripts
           npm run build
           npm publish
         env:
