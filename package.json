@@ -1,8 +1,8 @@
 {
-  "name": "node-pty",
+  "name": "@xiaobaidadada/node-pty-prebuilt",
   "description": "Fork pseudoterminals in Node.JS",
   "author": {
-    "name": "Microsoft Corporation"
+    "name": "xiaobaidadada"
   },
   "version": "1.0.0",
   "license": "MIT",
@@ -10,10 +10,11 @@
   "types": "./typings/node-pty.d.ts",
   "repository": {
     "type": "git",
-    "url": "git://github.com/microsoft/node-pty.git"
+    "url": "git@github.com:xiaobaidadada/node-pty-prebuilt.git"
   },
   "files": [
     "binding.gyp",
+    "common.gypi",
     "lib/",
     "scripts/",
     "src/",
