@@ -154,25 +154,25 @@ export class WindowsTerminal extends Terminal {
     });
   }
 
-  public clear(): void {
+  public clear(exePath: string = ''): void {
     this._deferNoArgs(() => {
-      this._agent.clear();
+      this._agent.clear(exePath);
     });
   }
 
-  public destroy(): void {
+  public destroy(exePath: string = ''): void {
     this._deferNoArgs(() => {
-      this.kill();
+      this.kill(exePath);
     });
   }
 
-  public kill(signal?: string): void {
+  public kill(signal?: string,exePath: string = ''): void {
     this._deferNoArgs(() => {
       if (signal) {
         throw new Error('Signals not supported on windows.');
       }
       this._close();
-      this._agent.kill();
+      this._agent.kill(exePath);
     });
   }
 

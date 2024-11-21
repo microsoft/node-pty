@@ -21,7 +21,8 @@ let winptyNative: IWinptyNative;
  * has started.
  */
 const FLUSH_DATA_INTERVAL = 1000;
-
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const __non_webpack_require__ = require;
 /**
  * This agent sits between the WindowsTerminal class and provides a common interface for both conpty
  * and winpty.
@@ -64,10 +65,10 @@ export class WindowsPtyAgent {
     if (this._useConpty) {
       if (!conptyNative) {
         try {
-          conptyNative = require('../build/Release/conpty.node');
+          conptyNative = __non_webpack_require__('../build/Release/conpty.node');
         } catch (outerError) {
           try {
-            conptyNative = require('../build/Debug/conpty.node');
+            conptyNative = __non_webpack_require__('../build/Debug/conpty.node');
           } catch (innerError) {
             console.error('innerError', innerError);
             // Re-throw the exception from the Release require if the Debug require fails as well
@@ -78,10 +79,10 @@ export class WindowsPtyAgent {
     } else {
       if (!winptyNative) {
         try {
-          winptyNative = require('../build/Release/pty.node');
+          winptyNative = __non_webpack_require__('../build/Release/pty.node');
         } catch (outerError) {
           try {
-            winptyNative = require('../build/Debug/pty.node');
+            winptyNative = __non_webpack_require__('../build/Debug/pty.node');
           } catch (innerError) {
             console.error('innerError', innerError);
             // Re-throw the exception from the Release require if the Debug require fails as well
@@ -152,13 +153,13 @@ export class WindowsPtyAgent {
     (this._ptyNative as IWinptyNative).resize(this._pid, cols, rows);
   }
 
-  public clear(): void {
+  public clear(exePath: string = ''): void {
     if (this._useConpty) {
-      (this._ptyNative as IConptyNative).clear(this._pty, this._useConptyDll);
+      (this._ptyNative as IConptyNative).clear(this._pty, this._useConptyDll,exePath);
     }
   }
 
-  public kill(): void {
+  public kill(exePath: string = ''): void {
     this._inSocket.readable = false;
     this._outSocket.readable = false;
     // Tell the agent to kill the pty, this releases handles to the process
@@ -171,7 +172,7 @@ export class WindowsPtyAgent {
             // Ignore if process cannot be found (kill ESRCH error)
           }
         });
-        (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll);
+        (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll,exePath);
       });
     } else {
       // Because pty.kill closes the handle, it will kill most processes by itself.
