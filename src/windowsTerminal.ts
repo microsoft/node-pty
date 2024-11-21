@@ -4,12 +4,12 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-import { Socket } from 'net';
-import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
-import { WindowsPtyAgent } from './windowsPtyAgent';
-import { IPtyOpenOptions, IWindowsPtyForkOptions } from './interfaces';
-import { ArgvOrCommandLine } from './types';
-import { assign } from './utils';
+import {Socket} from 'net';
+import {Terminal, DEFAULT_COLS, DEFAULT_ROWS} from './terminal';
+import {WindowsPtyAgent} from './windowsPtyAgent';
+import {IPtyOpenOptions, IWindowsPtyForkOptions} from './interfaces';
+import {ArgvOrCommandLine} from './types';
+import {assign} from './utils';
 
 const DEFAULT_FILE = 'cmd.exe';
 const DEFAULT_NAME = 'Windows Shell';
@@ -48,7 +48,7 @@ export class WindowsTerminal extends Terminal {
     this._deferreds = [];
 
     // Create new termal.
-    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.useConpty, opt.useConptyDll, opt.conptyInheritCursor);
+    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.useConpty, opt.useConptyDll, opt.conptyInheritCursor, opt.agentExePath ?? '');
     this._socket = this._agent.outSocket;
 
     // Not available until `ready` event emitted.
@@ -202,7 +202,15 @@ export class WindowsTerminal extends Terminal {
     });
   }
 
-  public get process(): string { return this._name; }
-  public get master(): Socket { throw new Error('master is not supported on Windows'); }
-  public get slave(): Socket { throw new Error('slave is not supported on Windows'); }
+  public get process(): string {
+    return this._name;
+  }
+
+  public get master(): Socket {
+    throw new Error('master is not supported on Windows');
+  }
+
+  public get slave(): Socket {
+    throw new Error('slave is not supported on Windows');
+  }
 }

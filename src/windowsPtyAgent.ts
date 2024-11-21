@@ -55,7 +55,8 @@ export class WindowsPtyAgent {
     debug: boolean,
     private _useConpty: boolean | undefined,
     private _useConptyDll: boolean = false,
-    conptyInheritCursor: boolean = false
+    conptyInheritCursor: boolean = false,
+    agentExePath: string = ''
   ) {
     if (this._useConpty === undefined || this._useConpty === true) {
       this._useConpty = this._getWindowsBuildNumber() >= 18309;
@@ -100,9 +101,9 @@ export class WindowsPtyAgent {
     // Open pty session.
     let term: IConptyProcess | IWinptyProcess;
     if (this._useConpty) {
-      term = (this._ptyNative as IConptyNative).startProcess(file, cols, rows, debug, this._generatePipeName(), conptyInheritCursor, this._useConptyDll);
+      term = (this._ptyNative as IConptyNative).startProcess(file, cols, rows, debug, this._generatePipeName(), conptyInheritCursor, this._useConptyDll,agentExePath);
     } else {
-      term = (this._ptyNative as IWinptyNative).startProcess(file, commandLine, env, cwd, cols, rows, debug);
+      term = (this._ptyNative as IWinptyNative).startProcess(file, commandLine, env, cwd, cols, rows, debug,agentExePath);
       this._pid = (term as IWinptyProcess).pid;
       this._innerPid = (term as IWinptyProcess).innerPid;
     }
