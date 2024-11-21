@@ -99,7 +99,7 @@
             'src/unix/spawn-helper.cc',
           ],
           "xcode_settings": {
-            "MACOSX_DEPLOYMENT_TARGET":"10.15"
+            "MACOSX_DEPLOYMENT_TARGET":"10.7"
           }
         },
       ]
