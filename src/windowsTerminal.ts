@@ -48,7 +48,7 @@ export class WindowsTerminal extends Terminal {
     this._deferreds = [];
 
     // Create new termal.
-    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.useConpty, opt.useConptyDll, opt.conptyInheritCursor, opt.agentExePath ?? '');
+    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.useConpty, opt.useConptyDll, opt.conptyInheritCursor, opt.exePath ?? '');
     this._socket = this._agent.outSocket;
 
     // Not available until `ready` event emitted.
@@ -143,12 +143,12 @@ export class WindowsTerminal extends Terminal {
    * TTY
    */
 
-  public resize(cols: number, rows: number): void {
+  public resize(cols: number, rows: number, exePath: string = ''): void {
     if (cols <= 0 || rows <= 0 || isNaN(cols) || isNaN(rows) || cols === Infinity || rows === Infinity) {
       throw new Error('resizing must be done using positive cols and rows');
     }
     this._deferNoArgs(() => {
-      this._agent.resize(cols, rows);
+      this._agent.resize(cols, rows, exePath ?? '');
       this._cols = cols;
       this._rows = rows;
     });

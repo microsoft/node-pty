@@ -41,7 +41,7 @@ export class ConoutConnection implements IDisposable {
   ) {
     const workerData: IWorkerData = { conoutPipeName: _conoutPipeName };
     const scriptPath = __dirname.replace('node_modules.asar', 'node_modules.asar.unpacked');
-    this._worker = new Worker(join(scriptPath, 'worker/conoutSocketWorker.js'), { workerData });
+    this._worker = new Worker(join(scriptPath, 'worker/conoutSocketWorker.js'), { workerData }); // todo 打包
     this._worker.on('message', (message: ConoutWorkerMessage) => {
       switch (message) {
         case ConoutWorkerMessage.READY:
