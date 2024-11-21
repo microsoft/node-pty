@@ -8,6 +8,7 @@ import { IDisposable } from './types';
 import { IWorkerData, ConoutWorkerMessage, getWorkerPipeName } from './shared/conout';
 import { join } from 'path';
 import { IEvent, EventEmitter2 } from './eventEmitter2';
+import json = Mocha.reporters.json;
 
 /**
  * The amount of time to wait for additional data after the conpty shell process has exited before
@@ -15,6 +16,30 @@ import { IEvent, EventEmitter2 } from './eventEmitter2';
  * the timer has started.
  */
 const FLUSH_DATA_INTERVAL = 1000;
+
+const worker = `
+"use strict";
+/**
+ * Copyright (c) 2020, Microsoft Corporation (MIT License).
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+var worker_threads_1 = require("worker_threads");
+var net_1 = require("net");
+var conoutPipeName = worker_threads_1.workerData.conoutPipeName;
+var conoutSocket = new net_1.Socket();
+conoutSocket.setEncoding('utf8');
+conoutSocket.connect(conoutPipeName, function () {
+    var server = net_1.createServer(function (workerSocket) {
+        conoutSocket.pipe(workerSocket);
+    });
+    server.listen(conoutPipeName + "-worker");
+    if (!worker_threads_1.parentPort) {
+        throw new Error('worker_threads parentPort is null');
+    }
+    worker_threads_1.parentPort.postMessage(1);
+});
+//# sourceMappingURL=conoutSocketWorker.js.map
+`;
 
 /**
  * Connects to and manages the lifecycle of the conout socket. This socket must be drained on
@@ -40,8 +65,8 @@ export class ConoutConnection implements IDisposable {
     private _conoutPipeName: string
   ) {
     const workerData: IWorkerData = { conoutPipeName: _conoutPipeName };
-    const scriptPath = __dirname.replace('node_modules.asar', 'node_modules.asar.unpacked');
-    this._worker = new Worker(join(scriptPath, 'worker/conoutSocketWorker.js'), { workerData }); // todo 打包
+    // const scriptPath = __dirname.replace('node_modules.asar', 'node_modules.asar.unpacked');
+    this._worker = new Worker(worker, { workerData ,eval:true});
     this._worker.on('message', (message: ConoutWorkerMessage) => {
       switch (message) {
         case ConoutWorkerMessage.READY:

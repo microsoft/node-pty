@@ -491,15 +491,16 @@ static Napi::Value PtyClear(const Napi::CallbackInfo& info) {
   Napi::Env env(info.Env());
   Napi::HandleScope scope(env);
 
-  if (info.Length() != 2 ||
+  if (info.Length() != 3 ||
       !info[0].IsNumber() ||
-      !info[1].IsBoolean()) {
+      !info[1].IsBoolean() ||
+      !info[2].IsString()) {
     throw Napi::Error::New(env, "Usage: pty.clear(id, useConptyDll)");
   }
 
   int id = info[0].As<Napi::Number>().Int32Value();
   const bool useConptyDll = info[1].As<Napi::Boolean>().Value();
-
+  const std::wstring exePath(path_util::to_wstring(info[2].As<Napi::String>()));
   // This API is only supported for conpty.dll as it was introduced in a later version of Windows.
   // We could hook it up to point at >= a version of Windows only, but the future is conpty.dll
   // anyway.
@@ -510,7 +511,7 @@ static Napi::Value PtyClear(const Napi::CallbackInfo& info) {
   const pty_baton* handle = get_pty_baton(id);
 
   if (handle != nullptr) {
-    HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
+    HANDLE hLibrary = LoadConptyDll(info, useConptyDll,exePath.c_str());
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
     {
@@ -529,19 +530,21 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
   Napi::Env env(info.Env());
   Napi::HandleScope scope(env);
 
-  if (info.Length() != 2 ||
+  if (info.Length() != 3 ||
       !info[0].IsNumber() ||
-      !info[1].IsBoolean()) {
+      !info[1].IsBoolean() ||
+      !info[2].IsString()) {
     throw Napi::Error::New(env, "Usage: pty.kill(id, useConptyDll)");
   }
 
   int id = info[0].As<Napi::Number>().Int32Value();
   const bool useConptyDll = info[1].As<Napi::Boolean>().Value();
+  const std::wstring exePath(path_util::to_wstring(info[2].As<Napi::String>()));
 
   const pty_baton* handle = get_pty_baton(id);
 
   if (handle != nullptr) {
-    HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
+    HANDLE hLibrary = LoadConptyDll(info, useConptyDll,exePath.c_str());
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
     {
