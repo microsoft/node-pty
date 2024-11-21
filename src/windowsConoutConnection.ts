@@ -8,7 +8,6 @@ import { IDisposable } from './types';
 import { IWorkerData, ConoutWorkerMessage, getWorkerPipeName } from './shared/conout';
 import { join } from 'path';
 import { IEvent, EventEmitter2 } from './eventEmitter2';
-import json = Mocha.reporters.json;
 
 /**
  * The amount of time to wait for additional data after the conpty shell process has exited before
