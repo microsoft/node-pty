@@ -1,10 +1,10 @@
 {
   "name": "@xiaobaidadada/node-pty-prebuilt",
-  "description": "Fork pseudoterminals in Node.JS",
+  "description": "node-pty for prebuilt 使用预构建",
   "author": {
     "name": "xiaobaidadada"
   },
-  "version": "1.0.1",
+  "version": "1.0.2",
   "license": "MIT",
   "main": "./lib/index.js",
   "types": "./typings/node-pty.d.ts",
@@ -27,6 +27,7 @@
     "url": "https://github.com/microsoft/node-pty/issues"
   },
   "keywords": [
+    "prebuilt",
     "pty",
     "tty",
     "terminal",
@@ -35,7 +36,7 @@
     "openpty"
   ],
   "scripts": {
-    "install": "prebuild-install --verbose || npm run build",
+    "install": "prebuild-install --verbose || node-gyp rebuild --release",
     "build": "tsc -b ./src/tsconfig.json",
     "watch": "tsc -b -w ./src/tsconfig.json",
     "lint": "eslint -c .eslintrc.js --ext .ts src/",

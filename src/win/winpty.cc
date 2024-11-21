@@ -131,15 +131,16 @@ static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
   Napi::Env env(info.Env());
   Napi::HandleScope scope(env);
 
-  if (info.Length() != 7 ||
+  if (info.Length() != 8 ||
       !info[0].IsString() ||
       !info[1].IsString() ||
       !info[2].IsArray() ||
       !info[3].IsString() ||
       !info[4].IsNumber() ||
       !info[5].IsNumber() ||
-      !info[6].IsBoolean()) {
-    throw Napi::Error::New(env, "Usage: pty.startProcess(file, cmdline, env, cwd, cols, rows, debug)");
+      !info[6].IsBoolean() ||
+      !info[7].IsString()) {
+    throw Napi::Error::New(env, "Usage: pty.startProcess(file, cmdline, env, cwd, cols, rows, debug , agentExePath)");
   }
 
   std::wstring filename(path_util::to_wstring(info[0].As<Napi::String>()));
@@ -177,6 +178,7 @@ static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
   int cols = info[4].As<Napi::Number>().Int32Value();
   int rows = info[5].As<Napi::Number>().Int32Value();
   bool debug = info[6].As<Napi::Boolean>().Value();
+  const std::wstring agentExePath(path_util::to_wstring(info[7].As<Napi::String>()));
 
   // Enable/disable debugging
   SetEnvironmentVariable(WINPTY_DBG_VARIABLE, debug ? "1" : NULL); // NULL = deletes variable
@@ -193,7 +195,7 @@ static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
   winpty_config_set_initial_size(winpty_config, cols, rows);
 
   // Start the pty agent
-  winpty_t *pc = winpty_open(winpty_config, &error_ptr);
+  winpty_t *pc = winpty_open(winpty_config, &error_ptr,agentExePath.c_str() );
   winpty_config_free(winpty_config);
   if (pc == nullptr) {
     throw error_with_winpty_msg("Error launching WinPTY agent", error_ptr, env);

@@ -12,3 +12,5 @@ fixtures/space folder/
 .vscode/settings.json
 .vscode/ipch/
 yarn.lock
+.idea
+test.js
