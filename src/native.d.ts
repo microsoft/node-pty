@@ -3,15 +3,15 @@
  */
 
 interface IConptyNative {
-  startProcess(file: string, cols: number, rows: number, debug: boolean, pipeName: string, conptyInheritCursor: boolean, useConptyDll: boolean,agentExePath: string): IConptyProcess;
+  startProcess(file: string, cols: number, rows: number, debug: boolean, pipeName: string, conptyInheritCursor: boolean, useConptyDll: boolean,exePath: string): IConptyProcess;
   connect(ptyId: number, commandLine: string, cwd: string, env: string[], onExitCallback: (exitCode: number) => void): { pid: number };
-  resize(ptyId: number, cols: number, rows: number, useConptyDll: boolean): void;
+  resize(ptyId: number, cols: number, rows: number, useConptyDll: boolean,exePath: string): void;
   clear(ptyId: number, useConptyDll: boolean): void;
   kill(ptyId: number, useConptyDll: boolean): void;
 }
 
 interface IWinptyNative {
-  startProcess(file: string, commandLine: string, env: string[], cwd: string, cols: number, rows: number, debug: boolean,agentExePath: string): IWinptyProcess;
+  startProcess(file: string, commandLine: string, env: string[], cwd: string, cols: number, rows: number, debug: boolean,exePath: string): IWinptyProcess;
   resize(pid: number, cols: number, rows: number): void;
   kill(pid: number, innerPid: number): void;
   getProcessList(pid: number): number[];
