@@ -122,8 +122,8 @@ jobs:
           ${{ env.ELECTRON_BUILD_CMD }} "\.(node|exe|dll|pdb)" -u ${{ secrets.GITHUB_TOKEN }}
       - if: matrix.os == 'windows-2019'
         run: |
-          ${{ env.NODE_OLD_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb')) --arch ia32 -u ${{ secrets.GITHUB_TOKEN }}
           ${{ env.NODE_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb')) --arch ia32 -u ${{ secrets.GITHUB_TOKEN }}
+          ${{ env.NODE_OLD_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb')) --arch ia32 -u ${{ secrets.GITHUB_TOKEN }}
           ${{ env.NO_V18_NODE_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb')) --arch arm64 -u ${{ secrets.GITHUB_TOKEN }}
           ${{ env.ELECTRON_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb')) --arch ia32 -u ${{ secrets.GITHUB_TOKEN }}
 
