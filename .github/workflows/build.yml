@@ -65,7 +65,7 @@ jobs:
           node -e "require('./lib/index.js')(':memory:').loadExtension('mod_spatialite').exec('SELECT InitSpatialMetaData();')"
 
   publish-npm:
-    if: ${{ github.event.inputs.job == 'push-npm' || github.event.inputs.job == "run-all"}}
+    if: ${{ github.event.inputs.job == 'push-npm' || github.event.inputs.job == 'run-all'}}
     name: Publishing to NPM
     runs-on: ubuntu-20.04
       #needs: # 等待别的 job 任务完成
@@ -87,7 +87,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   prebuild: # 执行node的 预构建
-    if: ${{ github.event.inputs.job == 'prebuild' || github.event.inputs.job == "run-all" }}
+    if: ${{ github.event.inputs.job == 'prebuild' || github.event.inputs.job == 'run-all' }}
     strategy:
       fail-fast: false
       matrix:
@@ -125,7 +125,7 @@ jobs:
           ${{ env.ELECTRON_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb')) --arch ia32 -u ${{ secrets.GITHUB_TOKEN }}
 
   prebuild-alpine:
-    if: ${{ github.event.inputs.job == 'alpine' || github.event.inputs.job == "run-all" }}
+    if: ${{ github.event.inputs.job == 'alpine' || github.event.inputs.job == 'run-all' }}
     strategy:
       fail-fast: false
     name: Prebuild on alpine
@@ -139,7 +139,7 @@ jobs:
       - run: ${{ env.NODE_BUILD_CMD }} '\.(node|exe|dll|pdb)' -u ${{ secrets.GITHUB_TOKEN }}
 
   prebuild-alpine-arm:
-    if: ${{ github.event.inputs.job == 'alpine-arm' || github.event.inputs.job == "run-all" }}
+    if: ${{ github.event.inputs.job == 'alpine-arm' || github.event.inputs.job == 'run-all' }}
     strategy:
       fail-fast: false
       matrix:
@@ -160,7 +160,7 @@ jobs:
           ${{ env.NODE_BUILD_CMD }} '\.(node|exe|dll|pdb)' -u ${{ secrets.GITHUB_TOKEN }}"
 
   prebuild-linux-arm:
-    if: ${{ github.event.inputs.job == 'linux-arm' || github.event.inputs.job == "run-all" }}
+    if: ${{ github.event.inputs.job == 'linux-arm' || github.event.inputs.job == 'run-all' }}
     strategy:
       fail-fast: false
       matrix:
