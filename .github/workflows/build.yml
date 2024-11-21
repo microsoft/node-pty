@@ -14,7 +14,8 @@ on:
 env: # 用来定义环境变量 可用于工作流中所有作业的步骤的变量的 map
   # See https://github.com/nodejs/release#release-schedule
   # Node.js v16 EOL = 2023-09-11. v21 EOL = 2024-06-01.
-  NODE_BUILD_CMD: npx --no-install prebuild -r node -t 16.0.0 -t 18.0.0 -t 20.0.0 -t 22.0.0 --include-regex
+  NODE_OLD_BUILD_CMD: npx --no-install prebuild -r node -t 14.0.0 -t 16.0.0  --include-regex
+  NODE_BUILD_CMD: npx --no-install prebuild -r node  -t 18.0.0 -t 20.0.0 -t 22.0.0 --include-regex
   # Merge with NODE_BUILD_CMD when Node.js v18 is EOL
   NO_V18_NODE_BUILD_CMD: npx --no-install prebuild -r node -t  20.0.0 -t 22.0.0 --include-regex
   # See https://www.electronjs.org/docs/latest/tutorial/electron-timelines#version-support-policy
@@ -116,10 +117,12 @@ jobs:
           sudo apt update
           sudo apt install gcc-10 g++-10 -y
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 --slave /usr/bin/g++ g++ /usr/bin/g++-10 --slave /usr/bin/gcov gcov /usr/bin/gcov-10
+          ${{ env.NODE_OLD_BUILD_CMD }} "\.(node|exe|dll|pdb)" -u ${{ secrets.GITHUB_TOKEN }}
           ${{ env.NODE_BUILD_CMD }} "\.(node|exe|dll|pdb)" -u ${{ secrets.GITHUB_TOKEN }}
           ${{ env.ELECTRON_BUILD_CMD }} "\.(node|exe|dll|pdb)" -u ${{ secrets.GITHUB_TOKEN }}
       - if: matrix.os == 'windows-2019'
         run: |
+          ${{ env.NODE_OLD_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb')) --arch ia32 -u ${{ secrets.GITHUB_TOKEN }}
           ${{ env.NODE_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb')) --arch ia32 -u ${{ secrets.GITHUB_TOKEN }}
           ${{ env.NO_V18_NODE_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb')) --arch arm64 -u ${{ secrets.GITHUB_TOKEN }}
           ${{ env.ELECTRON_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb')) --arch ia32 -u ${{ secrets.GITHUB_TOKEN }}
@@ -136,7 +139,9 @@ jobs:
       - uses: actions/checkout@v4
       - run: apk add build-base git python3 py3-setuptools --update-cache
       - run: npm install --ignore-scripts
-      - run: ${{ env.NODE_BUILD_CMD }} '\.(node|exe|dll|pdb)' -u ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          ${{ env.NODE_BUILD_CMD }} '\.(node|exe|dll|pdb)' -u ${{ secrets.GITHUB_TOKEN }}
+          ${{ env.NODE_OLD_BUILD_CMD }} '\.(node|exe|dll|pdb)' -u ${{ secrets.GITHUB_TOKEN }}
 
   prebuild-alpine-arm:
     if: ${{ github.event.inputs.job == 'alpine-arm' || github.event.inputs.job == 'run-all' }}
@@ -157,6 +162,7 @@ jobs:
           apk add build-base git python3 py3-setuptools --update-cache && \
           cd /tmp/project && \
           npm install --ignore-scripts && \
+          ${{ env.NODE_OLD_BUILD_CMD }} '\.(node|exe|dll|pdb)' -u ${{ secrets.GITHUB_TOKEN }}" &&\
           ${{ env.NODE_BUILD_CMD }} '\.(node|exe|dll|pdb)' -u ${{ secrets.GITHUB_TOKEN }}"
 
   prebuild-linux-arm:
@@ -177,4 +183,5 @@ jobs:
           docker run --rm -v $(pwd):/tmp/project --entrypoint /bin/sh --platform linux/${{ matrix.arch }} node:18-bullseye -c "\
           cd /tmp/project && \
           npm install --ignore-scripts && \
+          ${{ env.NODE_OLD_BUILD_CMD }} '\.(node|exe|dll|pdb)' -u ${{ secrets.GITHUB_TOKEN }}" && \
           ${{ env.NODE_BUILD_CMD }} '\.(node|exe|dll|pdb)' -u ${{ secrets.GITHUB_TOKEN }}"
