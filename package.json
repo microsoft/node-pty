@@ -4,7 +4,7 @@
   "author": {
     "name": "xiaobaidadada"
   },
-  "version": "1.0.2",
+  "version": "1.0.3",
   "license": "MIT",
   "main": "./lib/index.js",
   "types": "./typings/node-pty.d.ts",
