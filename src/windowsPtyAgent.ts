@@ -194,16 +194,29 @@ export class WindowsPtyAgent {
     this._conoutSocketWorker.dispose();
   }
 
+  getConsoleProcessList: any;
   private _getConsoleProcessList(): Promise<number[]> {
+    try {
+      if (!this.getConsoleProcessList) {
+        this.getConsoleProcessList = __non_webpack_require__('../build/Release/conpty_console_list.node').getConsoleProcessList;
+      }
+    } catch (err) {
+      this.getConsoleProcessList = __non_webpack_require__('../build/Debug/conpty_console_list.node').getConsoleProcessList;
+    }
     return new Promise<number[]>(resolve => {
-      const agent = fork(path.join(__dirname, 'conpty_console_list_agent'), [ this._innerPid.toString() ]);
-      agent.on('message', message => {
+      // const agent = fork(path.join(__dirname, 'conpty_console_list_agent'), [ this._innerPid.toString() ]);
+      // agent.on('message', message => {
+      //   clearTimeout(timeout);
+      //   resolve(message.consoleProcessList);
+      // });
+      this.getConsoleProcessList(this._innerPid).then((consoleProcessList: number[] | PromiseLike<number[]> | undefined) => {
         clearTimeout(timeout);
-        resolve(message.consoleProcessList);
+        resolve(consoleProcessList);
+      }).catch((error: any) => {
+        console.error('Error:', error);   // 如果发生错误，会打印出来
+        resolve([ this._innerPid ]);
       });
       const timeout = setTimeout(() => {
-        // Something went wrong, just send back the shell PID
-        agent.kill();
         resolve([ this._innerPid ]);
       }, 5000);
     });
