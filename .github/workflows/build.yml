@@ -139,7 +139,7 @@ jobs:
       - run: ${{ env.NODE_BUILD_CMD }} '\.(node|exe|dll|pdb)' -u ${{ secrets.GITHUB_TOKEN }}
 
   prebuild-alpine-arm:
-    if: ${{ github.event.inputs.job == 'alpine-arm' || github.event.inputs.job === "run-all" }}
+    if: ${{ github.event.inputs.job == 'alpine-arm' || github.event.inputs.job == "run-all" }}
     strategy:
       fail-fast: false
       matrix:
