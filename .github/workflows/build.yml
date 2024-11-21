@@ -136,7 +136,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: apk add build-base git python3 py3-setuptools --update-cache
       - run: npm install --ignore-scripts
-      - run: ${{ env.NODE_BUILD_CMD }} "\.(node|exe|dll|pdb)" -u ${{ secrets.GITHUB_TOKEN }}
+      - run: ${{ env.NODE_BUILD_CMD }} '\.(node|exe|dll|pdb)' -u ${{ secrets.GITHUB_TOKEN }}
 
   prebuild-alpine-arm:
     if: ${{ github.event.inputs.job == 'alpine-arm' }}
@@ -157,7 +157,7 @@ jobs:
           apk add build-base git python3 py3-setuptools --update-cache && \
           cd /tmp/project && \
           npm install --ignore-scripts && \
-          ${{ env.NODE_BUILD_CMD }} "\.(node|exe|dll|pdb)" -u ${{ secrets.GITHUB_TOKEN }}"
+          ${{ env.NODE_BUILD_CMD }} '\.(node|exe|dll|pdb)' -u ${{ secrets.GITHUB_TOKEN }}"
 
   prebuild-linux-arm:
     if: ${{ github.event.inputs.job == 'linux-arm' }}
@@ -177,4 +177,4 @@ jobs:
           docker run --rm -v $(pwd):/tmp/project --entrypoint /bin/sh --platform linux/${{ matrix.arch }} node:18-bullseye -c "\
           cd /tmp/project && \
           npm install --ignore-scripts && \
-          ${{ env.NODE_BUILD_CMD }} "\.(node|exe|dll|pdb)" -u ${{ secrets.GITHUB_TOKEN }}"
+          ${{ env.NODE_BUILD_CMD }} '\.(node|exe|dll|pdb)' -u ${{ secrets.GITHUB_TOKEN }}"
