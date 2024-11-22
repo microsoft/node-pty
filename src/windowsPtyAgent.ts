@@ -217,7 +217,8 @@ export class WindowsPtyAgent {
         this.getConsoleProcessList = __non_webpack_require__('../build/Release/conpty_console_list.node').getConsoleProcessList;
       }
     } catch (err) {
-      this.getConsoleProcessList = __non_webpack_require__('../build/Debug/conpty_console_list.node').getConsoleProcessList;
+      const debugPath = '../build/Debug/conpty_console_list.node';
+      this.getConsoleProcessList = require(debugPath).getConsoleProcessList;
     }
     return new Promise<number[]>(resolve => {
       // const agent = fork(path.join(__dirname, 'conpty_console_list_agent'), [ this._innerPid.toString() ]);
