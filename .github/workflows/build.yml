@@ -124,6 +124,7 @@ jobs:
           ${{ env.NODE_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb'))  -u ${{ secrets.GITHUB_TOKEN }}
           ${{ env.NODE_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb')) --arch arm64 -u ${{ secrets.GITHUB_TOKEN }}
           ${{ env.NODE_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb')) --arch ia32 -u ${{ secrets.GITHUB_TOKEN }}
+          ${{ env.ELECTRON_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb'))  -u ${{ secrets.GITHUB_TOKEN }}
           ${{ env.ELECTRON_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb')) --arch arm64 -u ${{ secrets.GITHUB_TOKEN }}
           ${{ env.ELECTRON_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb')) --arch ia32 -u ${{ secrets.GITHUB_TOKEN }}
 
