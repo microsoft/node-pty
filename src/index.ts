@@ -6,12 +6,13 @@
 
 import { ITerminal, IPtyOpenOptions, IPtyForkOptions, IWindowsPtyForkOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
-
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const __non_webpack_require__ = require;
 let terminalCtor: any;
 if (process.platform === 'win32') {
-  terminalCtor = require('./windowsTerminal').WindowsTerminal;
+  terminalCtor = __non_webpack_require__('./windowsTerminal').WindowsTerminal;
 } else {
-  terminalCtor = require('./unixTerminal').UnixTerminal;
+  terminalCtor = __non_webpack_require__('./unixTerminal').UnixTerminal;
 }
 
 /**
@@ -48,4 +49,4 @@ export function open(options: IPtyOpenOptions): ITerminal {
  * Expose the native API when not Windows, note that this is not public API and
  * could be removed at any time.
  */
-export const native = (process.platform !== 'win32' ? require('../build/Release/pty.node') : null);
+export const native = (process.platform !== 'win32' ? __non_webpack_require__('../build/Release/pty.node') : null);
