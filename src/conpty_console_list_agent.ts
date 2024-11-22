@@ -11,7 +11,7 @@ let getConsoleProcessList: any;
 try {
   getConsoleProcessList = __non_webpack_require__('../build/Release/conpty_console_list.node').getConsoleProcessList;
 } catch (err) {
-  getConsoleProcessList = __non_webpack_require__('../build/Debug/conpty_console_list.node').getConsoleProcessList;
+  getConsoleProcessList = require('../build/Debug/conpty_console_list.node').getConsoleProcessList;
 }
 
 const shellPid = parseInt(process.argv[2], 10);
