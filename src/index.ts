@@ -4,7 +4,7 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-import { ITerminal, IPtyOpenOptions, IPtyForkOptions, IWindowsPtyForkOptions } from './interfaces';
+import { ITerminal, IPtyOpenOptions, IPtyForkOptions, IWindowsPtyForkOptions, IConptyHandoffHandles } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 
 let terminalCtor: any;
@@ -42,6 +42,14 @@ export function createTerminal(file?: string, args?: ArgvOrCommandLine, opt?: IP
 
 export function open(options: IPtyOpenOptions): ITerminal {
   return terminalCtor.open(options);
+}
+
+export function handoff(handoff: IConptyHandoffHandles, opt?: IWindowsPtyForkOptions): ITerminal {
+  opt = opt || {};
+  opt.useConpty = true;
+  opt.useConptyDll = true;
+  opt.conptyHandoff = handoff;
+  return new terminalCtor(undefined, undefined, opt);
 }
 
 /**

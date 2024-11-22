@@ -4,6 +4,7 @@
 
 export interface IWorkerData {
   conoutPipeName: string;
+  conoutFD?: number;
 }
 
 export const enum ConoutWorkerMessage {
