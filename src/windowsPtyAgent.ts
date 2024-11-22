@@ -83,7 +83,7 @@ export class WindowsPtyAgent {
           conptyNative = __non_webpack_require__('../build/Release/conpty.node');
         } catch (outerError) {
           try {
-            conptyNative = __non_webpack_require__('../build/Debug/conpty.node');
+            conptyNative = require('../build/Debug/conpty.node');
           } catch (innerError) {
             console.error('innerError', innerError);
             // Re-throw the exception from the Release require if the Debug require fails as well
@@ -97,7 +97,7 @@ export class WindowsPtyAgent {
           winptyNative = __non_webpack_require__('../build/Release/pty.node');
         } catch (outerError) {
           try {
-            winptyNative = __non_webpack_require__('../build/Debug/pty.node');
+            winptyNative = require('../build/Debug/pty.node');
           } catch (innerError) {
             console.error('innerError', innerError);
             // Re-throw the exception from the Release require if the Debug require fails as well
