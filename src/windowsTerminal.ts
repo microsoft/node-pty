@@ -166,14 +166,16 @@ export class WindowsTerminal extends Terminal {
     });
   }
 
-  public kill(signal?: string): void {
-    this._deferNoArgs(() => {
-      if (signal) {
-        throw new Error('Signals not supported on windows.');
-      }
-      this._close();
-      this._agent.kill();
-    });
+  public kill(signal?: string): Promise<void> {
+    return new Promise((res) => {
+      this._deferNoArgs(() => {
+        if (signal) {
+          throw new Error('Signals not supported on windows.');
+        }
+        this._close();
+        this._agent.kill().then(res);
+      });
+    })
   }
 
   private _deferNoArgs<A>(deferredFn: () => void): void {

@@ -181,7 +181,7 @@ declare module 'node-pty' {
      * Windows.
      * @throws Will throw when signal is used on Windows.
      */
-    kill(signal?: string): void;
+    kill(signal?: string): Promise<void>;
 
     /**
      * Pauses the pty for customizable flow control.

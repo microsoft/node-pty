@@ -157,21 +157,20 @@ export class WindowsPtyAgent {
     }
   }
 
-  public kill(): void {
+  public async kill(): Promise<void> {
     this._inSocket.readable = false;
     this._outSocket.readable = false;
     // Tell the agent to kill the pty, this releases handles to the process
     if (this._useConpty) {
-      this._getConsoleProcessList().then(consoleProcessList => {
-        consoleProcessList.forEach((pid: number) => {
-          try {
-            process.kill(pid);
-          } catch (e) {
-            // Ignore if process cannot be found (kill ESRCH error)
-          }
-        });
-        (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll);
+      let consoleProcessList = await this._getConsoleProcessList();
+      consoleProcessList.forEach((pid: number) => {
+        try {
+          process.kill(pid);
+        } catch (e) {
+          // Ignore if process cannot be found (kill ESRCH error)
+        }
       });
+      (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll);
     } else {
       // Because pty.kill closes the handle, it will kill most processes by itself.
       // Process IDs can be reused as soon as all handles to them are
