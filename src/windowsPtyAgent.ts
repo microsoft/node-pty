@@ -162,7 +162,7 @@ export class WindowsPtyAgent {
     this._outSocket.readable = false;
     // Tell the agent to kill the pty, this releases handles to the process
     if (this._useConpty) {
-      let consoleProcessList = await this._getConsoleProcessList();
+      const consoleProcessList = await this._getConsoleProcessList();
       consoleProcessList.forEach((pid: number) => {
         try {
           process.kill(pid);

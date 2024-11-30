@@ -175,7 +175,7 @@ export class WindowsTerminal extends Terminal {
         this._close();
         this._agent.kill().then(res);
       });
-    })
+    });
   }
 
   private _deferNoArgs<A>(deferredFn: () => void): void {
