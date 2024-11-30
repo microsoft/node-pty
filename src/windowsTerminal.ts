@@ -171,6 +171,7 @@ export class WindowsTerminal extends Terminal {
       this._deferNoArgs(() => {
         if (signal) {
           rej(new Error('Signals not supported on windows.'));
+          return;
         }
         this._close();
         this._agent.kill().then(res, rej);
