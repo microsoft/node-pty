@@ -20,6 +20,13 @@ parameters:
     displayName: 🚀 Publish node-pty
     type: boolean
     default: false
+  - name: releaseQuality
+    displayName: Quality
+    type: string
+    default: beta
+    values:
+      - beta
+      - stable
 
 extends:
   template: azure-pipelines/npm-package/pipeline.yml@templates
@@ -42,3 +49,7 @@ extends:
             displayName: 'Lint'
 
         publishPackage: ${{ parameters.publishPackage }}
+        ${{ if eq(parameters.releaseQuality, 'stable') }}:
+          tag: latest
+        ${{ else }}:
+          tag: beta
