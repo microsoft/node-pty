@@ -28,6 +28,10 @@ parameters:
       - beta
       - stable
 
+variables:
+  - name: releaseQuality
+    value: ${{ parameters.releaseQuality }}
+
 extends:
   template: azure-pipelines/npm-package/pipeline.yml@templates
   parameters:
@@ -51,7 +55,7 @@ extends:
             displayName: 'Lint'
 
         publishPackage: ${{ parameters.publishPackage }}
-        ${{ if eq(parameters.releaseQuality, 'stable') }}:
+        ${{ if eq(variables['releaseQuality'], 'stable') }}:
           tag: latest
         ${{ else }}:
           tag: beta
