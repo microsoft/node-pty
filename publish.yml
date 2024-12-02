@@ -37,6 +37,8 @@ extends:
         buildSteps:
           - script: npm ci
             displayName: 'Install dependencies and build'
+          # The following script leaves the version unchanged for
+          # stable releases, but increments the version for beta releases.
           - script: node scripts/increment-version.js
             displayName: 'Increment version'
 
