@@ -39,7 +39,7 @@ extends:
         - job: macOS
           pool:
             name: Azure Pipelines
-            vmImage: 'macOS-latest'
+            vmImage: 'macOS-14'
             os: macOS
           steps:
           - task: NodeTool@0
