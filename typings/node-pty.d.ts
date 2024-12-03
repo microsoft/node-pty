@@ -179,9 +179,9 @@ declare module 'node-pty' {
      * Kills the pty.
      * @param signal The signal to use, defaults to SIGHUP. This parameter is not supported on
      * Windows.
-     * @throws Will throw when signal is used on Windows.
+     * @throws Will reject when signal is used on Windows.
      */
-    kill(signal?: string): void;
+    kill(signal?: string): Promise<void>;
 
     /**
      * Pauses the pty for customizable flow control.
