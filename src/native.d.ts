@@ -8,6 +8,7 @@ interface IConptyNative {
   resize(ptyId: number, cols: number, rows: number, useConptyDll: boolean): void;
   clear(ptyId: number, useConptyDll: boolean): void;
   kill(ptyId: number, useConptyDll: boolean): void;
+  handoff(input: number, output: number, signal: number, ref: number, server: number, client: number, onExitCallback: (exitCode: number) => void): IWinptyProcess;
 }
 
 interface IWinptyNative {
@@ -28,15 +29,15 @@ interface IUnixNative {
 interface IConptyProcess {
   pty: number;
   fd: number;
-  conin: string;
-  conout: string;
+  conin: string | number;
+  conout: string | number;
 }
 
 interface IWinptyProcess {
   pty: number;
   fd: number;
-  conin: string;
-  conout: string;
+  conin: string | number;
+  conout: string | number;
   pid: number;
   innerPid: number;
 }

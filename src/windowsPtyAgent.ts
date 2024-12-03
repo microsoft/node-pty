@@ -11,9 +11,21 @@ import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
 import { fork } from 'child_process';
 import { ConoutConnection } from './windowsConoutConnection';
+import { IConptyHandoffHandles } from './interfaces';
 
 let conptyNative: IConptyNative;
 let winptyNative: IWinptyNative;
+
+export interface IWindowsPtyAgentOptions {
+  file?: string;
+  args?: ArgvOrCommandLine;
+  env?: string[];
+  cwd?: string;
+  cols?: number;
+  rows?: number;
+
+  handoff?: IConptyHandoffHandles;
+}
 
 /**
  * The amount of time to wait for additional data after the conpty shell process has exited before
@@ -46,12 +58,7 @@ export class WindowsPtyAgent {
   public get pty(): number { return this._pty; }
 
   constructor(
-    file: string,
-    args: ArgvOrCommandLine,
-    env: string[],
-    cwd: string,
-    cols: number,
-    rows: number,
+    opts: IWindowsPtyAgentOptions,
     debug: boolean,
     private _useConpty: boolean | undefined,
     private _useConptyDll: boolean = false,
@@ -91,20 +98,39 @@ export class WindowsPtyAgent {
     }
     this._ptyNative = this._useConpty ? conptyNative : winptyNative;
 
-    // Sanitize input variable.
-    cwd = path.resolve(cwd);
-
-    // Compose command line
-    const commandLine = argsToCommandLine(file, args);
-
-    // Open pty session.
+    const handoff = !!opts.handoff;
+    let commandLine: string, cwd: string, env: string[];
     let term: IConptyProcess | IWinptyProcess;
-    if (this._useConpty) {
-      term = (this._ptyNative as IConptyNative).startProcess(file, cols, rows, debug, this._generatePipeName(), conptyInheritCursor, this._useConptyDll);
-    } else {
-      term = (this._ptyNative as IWinptyNative).startProcess(file, commandLine, env, cwd, cols, rows, debug);
+
+    if (handoff) {
+      if (!this._useConpty || !this._useConptyDll) {
+        throw new Error('Terminal handoff requires conpty and conpty dll');
+      }
+
+      const { input, output, signal, ref, server, client } = opts.handoff!;
+
+      term = (this._ptyNative as IConptyNative).handoff(input!, output!, signal!, ref!, server!, client!, c => this._$onProcessExit(c)); // borrow IWinptyProcess
+
       this._pid = (term as IWinptyProcess).pid;
       this._innerPid = (term as IWinptyProcess).innerPid;
+    } else {
+      const { file, args, cols, rows } = opts;
+      env = opts.env!;
+
+      // Sanitize input variable.
+      cwd = path.resolve(opts.cwd!);
+
+      // Compose command line
+      commandLine = argsToCommandLine(file!, args!);
+
+      // Open pty session.
+      if (this._useConpty) {
+        term = (this._ptyNative as IConptyNative).startProcess(file!, cols!, rows!, debug, this._generatePipeName(), conptyInheritCursor, this._useConptyDll);
+      } else {
+        term = (this._ptyNative as IWinptyNative).startProcess(file!, commandLine, env!, cwd, cols!, rows!, debug);
+        this._pid = (term as IWinptyProcess).pid;
+        this._innerPid = (term as IWinptyProcess).innerPid;
+      }
     }
 
     // Not available on windows.
@@ -118,7 +144,13 @@ export class WindowsPtyAgent {
     this._outSocket = new Socket();
     this._outSocket.setEncoding('utf8');
     // The conout socket must be ready out on another thread to avoid deadlocks
-    this._conoutSocketWorker = new ConoutConnection(term.conout);
+    let { conout } = term;
+    let conoutFD: number | undefined;
+    if (typeof conout === 'number') {
+      conoutFD = conout;
+      conout = "\\\\.\\pipe\\" + this._generatePipeName() + "-out";
+    }
+    this._conoutSocketWorker = new ConoutConnection(conout, conoutFD);
     this._conoutSocketWorker.onReady(() => {
       this._conoutSocketWorker.connectSocket(this._outSocket);
     });
@@ -126,7 +158,7 @@ export class WindowsPtyAgent {
       this._outSocket.emit('ready_datapipe');
     });
 
-    const inSocketFD = fs.openSync(term.conin, 'w');
+    const inSocketFD = typeof term.conin === 'number' ? term.conin : fs.openSync(term.conin, 'w');
     this._inSocket = new Socket({
       fd: inSocketFD,
       readable: false,
@@ -134,8 +166,8 @@ export class WindowsPtyAgent {
     });
     this._inSocket.setEncoding('utf8');
 
-    if (this._useConpty) {
-      const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, c => this._$onProcessExit(c));
+    if (this._useConpty && !handoff) {
+      const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine!, cwd!, env!, c => this._$onProcessExit(c));
       this._innerPid = connect.pid;
     }
   }

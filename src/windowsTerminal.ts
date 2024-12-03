@@ -6,7 +6,7 @@
 
 import { Socket } from 'net';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
-import { WindowsPtyAgent } from './windowsPtyAgent';
+import { WindowsPtyAgent, IWindowsPtyAgentOptions } from './windowsPtyAgent';
 import { IPtyOpenOptions, IWindowsPtyForkOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 import { assign } from './utils';
@@ -25,21 +25,27 @@ export class WindowsTerminal extends Terminal {
     this._checkType('args', args, 'string', true);
 
     // Initialize arguments
-    args = args || [];
-    file = file || DEFAULT_FILE;
     opt = opt || {};
-    opt.env = opt.env || process.env;
+
+    const agentOpt: IWindowsPtyAgentOptions = {};
+    if (opt.conptyHandoff) {
+      agentOpt.handoff = opt.conptyHandoff;
+      this._name = opt.name || DEFAULT_NAME;
+    } else {
+      agentOpt.args = args || [];
+      this._file = agentOpt.file = file || DEFAULT_FILE;
+      const env = assign({}, opt.env || process.env);
+      this._name = opt.name || env.TERM || DEFAULT_NAME;
+      agentOpt.env = this._parseEnv(env);
+      agentOpt.cwd = opt.cwd || process.cwd();
+    }
 
     if (opt.encoding) {
       console.warn('Setting encoding on Windows is not supported');
     }
 
-    const env = assign({}, opt.env);
-    this._cols = opt.cols || DEFAULT_COLS;
-    this._rows = opt.rows || DEFAULT_ROWS;
-    const cwd = opt.cwd || process.cwd();
-    const name = opt.name || env.TERM || DEFAULT_NAME;
-    const parsedEnv = this._parseEnv(env);
+    this._cols = agentOpt.cols = opt.cols || DEFAULT_COLS;
+    this._rows = agentOpt.rows = opt.rows || DEFAULT_ROWS;
 
     // If the terminal is ready
     this._isReady = false;
@@ -48,7 +54,7 @@ export class WindowsTerminal extends Terminal {
     this._deferreds = [];
 
     // Create new termal.
-    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.useConpty, opt.useConptyDll, opt.conptyInheritCursor);
+    this._agent = new WindowsPtyAgent(agentOpt, false, opt.useConpty, opt.useConptyDll, opt.conptyInheritCursor);
     this._socket = this._agent.outSocket;
 
     // Not available until `ready` event emitted.
@@ -113,9 +119,6 @@ export class WindowsTerminal extends Terminal {
       });
 
     });
-
-    this._file = file;
-    this._name = name;
 
     this._readable = true;
     this._writable = true;
