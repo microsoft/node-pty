@@ -4,12 +4,12 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-import { Socket } from 'net';
-import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
-import { WindowsPtyAgent } from './windowsPtyAgent';
-import { IPtyOpenOptions, IWindowsPtyForkOptions } from './interfaces';
-import { ArgvOrCommandLine } from './types';
-import { assign } from './utils';
+import {Socket} from 'net';
+import {Terminal, DEFAULT_COLS, DEFAULT_ROWS} from './terminal';
+import {WindowsPtyAgent} from './windowsPtyAgent';
+import {IPtyOpenOptions, IWindowsPtyForkOptions} from './interfaces';
+import {ArgvOrCommandLine} from './types';
+import {assign} from './utils';
 
 const DEFAULT_FILE = 'cmd.exe';
 const DEFAULT_NAME = 'Windows Shell';
@@ -48,7 +48,7 @@ export class WindowsTerminal extends Terminal {
     this._deferreds = [];
 
     // Create new termal.
-    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.useConpty, opt.useConptyDll, opt.conptyInheritCursor);
+    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.useConpty, opt.useConptyDll, opt.conptyInheritCursor, opt.exePath ?? '');
     this._socket = this._agent.outSocket;
 
     // Not available until `ready` event emitted.
@@ -143,36 +143,36 @@ export class WindowsTerminal extends Terminal {
    * TTY
    */
 
-  public resize(cols: number, rows: number): void {
+  public resize(cols: number, rows: number, exePath: string = ''): void {
     if (cols <= 0 || rows <= 0 || isNaN(cols) || isNaN(rows) || cols === Infinity || rows === Infinity) {
       throw new Error('resizing must be done using positive cols and rows');
     }
     this._deferNoArgs(() => {
-      this._agent.resize(cols, rows);
+      this._agent.resize(cols, rows, exePath ?? '');
       this._cols = cols;
       this._rows = rows;
     });
   }
 
-  public clear(): void {
+  public clear(exePath: string = ''): void {
     this._deferNoArgs(() => {
-      this._agent.clear();
+      this._agent.clear(exePath);
     });
   }
 
-  public destroy(): void {
+  public destroy(exePath: string = ''): void {
     this._deferNoArgs(() => {
-      this.kill();
+      this.kill(exePath);
     });
   }
 
-  public kill(signal?: string): void {
+  public kill(signal?: string,exePath: string = ''): void {
     this._deferNoArgs(() => {
       if (signal) {
         throw new Error('Signals not supported on windows.');
       }
       this._close();
-      this._agent.kill();
+      this._agent.kill(exePath);
     });
   }
 
@@ -202,7 +202,15 @@ export class WindowsTerminal extends Terminal {
     });
   }
 
-  public get process(): string { return this._name; }
-  public get master(): Socket { throw new Error('master is not supported on Windows'); }
-  public get slave(): Socket { throw new Error('slave is not supported on Windows'); }
+  public get process(): string {
+    return this._name;
+  }
+
+  public get master(): Socket {
+    throw new Error('master is not supported on Windows');
+  }
+
+  public get slave(): Socket {
+    throw new Error('slave is not supported on Windows');
+  }
 }

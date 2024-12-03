@@ -32,11 +32,15 @@
  * When compiled with __declspec(dllexport), with either MinGW or MSVC, the
  * winpty functions are unadorned--no underscore prefix or '@nn' suffix--so
  * GetProcAddress can be used easily. */
-#ifdef COMPILING_WINPTY_DLL
+// 如果是动态库，管理符号导入导出；否则为空
+#if defined(COMPILING_WINPTY_DLL) && defined(WINPTY_SHARED_LIB)
 #define WINPTY_API __declspec(dllexport)
-#else
+#elif defined(WINPTY_SHARED_LIB)
 #define WINPTY_API __declspec(dllimport)
+#else
+#define WINPTY_API // 静态库不需要定义
 #endif
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -119,7 +123,7 @@ typedef struct winpty_s winpty_t;
  * and CONOUT). */
 WINPTY_API winpty_t *
 winpty_open(const winpty_config_t *cfg,
-            winpty_error_ptr_t *err /*OPTIONAL*/);
+            winpty_error_ptr_t *err /*OPTIONAL*/,const wchar_t* = L"");
 
 /* A handle to the agent process.  This value is valid for the lifetime of the
  * winpty_t object.  Do not close it. */
