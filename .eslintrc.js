@@ -9,7 +9,10 @@ module.exports = {
     "project": "src/tsconfig.json",
     "sourceType": "module"
   },
-  "ignorePatterns": "**/typings/*.d.ts",
+  "ignorePatterns": [
+    "**/typings/*.d.ts",
+    "scripts/**/*"
+  ],
   "plugins": [
     "@typescript-eslint"
   ],

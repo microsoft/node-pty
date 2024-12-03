@@ -58,38 +58,37 @@ std::wstring get_shell_path(std::wstring filename) {
     return shellpath;
   }
 
-  wchar_t buffer_[MAX_ENV];
+  wchar_t* buffer_ = new wchar_t[MAX_ENV];
   int read = ::GetEnvironmentVariableW(L"Path", buffer_, MAX_ENV);
-  if (!read) {
-    return shellpath;
-  }
-
-  std::wstring delimiter = L";";
-  size_t pos = 0;
-  std::vector<std::wstring> paths;
-  std::wstring buffer(buffer_);
-  while ((pos = buffer.find(delimiter)) != std::wstring::npos) {
-    paths.push_back(buffer.substr(0, pos));
-    buffer.erase(0, pos + delimiter.length());
-  }
-
-  const wchar_t *filename_ = filename.c_str();
-
-  for (size_t i = 0; i < paths.size(); ++i) {
-    std::wstring path = paths[i];
-    wchar_t searchPath[MAX_PATH];
-    ::PathCombineW(searchPath, const_cast<wchar_t*>(path.c_str()), filename_);
-
-    if (searchPath == NULL) {
-      continue;
+  if (read) {
+    std::wstring delimiter = L";";
+    size_t pos = 0;
+    std::vector<std::wstring> paths;
+    std::wstring buffer(buffer_);
+    while ((pos = buffer.find(delimiter)) != std::wstring::npos) {
+      paths.push_back(buffer.substr(0, pos));
+      buffer.erase(0, pos + delimiter.length());
     }
 
-    if (file_exists(searchPath)) {
-      shellpath = searchPath;
-      break;
+    const wchar_t *filename_ = filename.c_str();
+
+    for (size_t i = 0; i < paths.size(); ++i) {
+      std::wstring path = paths[i];
+      wchar_t searchPath[MAX_PATH];
+      ::PathCombineW(searchPath, const_cast<wchar_t*>(path.c_str()), filename_);
+
+      if (searchPath == NULL) {
+        continue;
+      }
+
+      if (file_exists(searchPath)) {
+        shellpath = searchPath;
+        break;
+      }
     }
   }
 
+  delete[] buffer_;
   return shellpath;
 }
 
