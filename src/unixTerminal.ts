@@ -253,7 +253,7 @@ export class UnixTerminal extends Terminal {
     this._socket.destroy();
   }
 
-  public kill(signal?: string): void {
+  public async kill(signal?: string): Promise<void> {
     try {
       process.kill(this.pid, signal || 'SIGHUP');
     } catch (e) { /* swallow */ }
