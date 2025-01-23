@@ -50,6 +50,8 @@ struct pty_baton {
 
 static std::vector<pty_baton*> ptyHandles;
 static volatile LONG ptyCounter;
+static HANDLE pty_global_job_handle_;
+INIT_ONCE pty_initonce = INIT_ONCE_STATIC_INIT;
 
 static pty_baton* get_pty_baton(int id) {
   for (size_t i = 0; i < ptyHandles.size(); ++i) {
@@ -71,6 +73,22 @@ static bool remove_pty_baton(int id) {
     }
   }
   return false;
+}
+
+static BOOL InitPtyGlobalJobHandle(INIT_ONCE* once, void* param, void** context) {
+  pty_global_job_handle_ = CreateJobObjectW(nullptr, nullptr);
+  if (pty_global_job_handle_ == NULL) {
+    return FALSE;
+  }
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits = {};
+  limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+  if (!SetInformationJobObject(pty_global_job_handle_,
+                               JobObjectExtendedLimitInformation,
+                               &limits,
+                               sizeof(limits))) {
+    return FALSE;
+  }
+  return TRUE;
 }
 
 struct ExitEvent {
@@ -424,6 +442,14 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
   );
   if (!fSuccess) {
     throw errorWithCode(info, "Cannot create process");
+  }
+
+  if (!InitOnceExecuteOnce(&pty_initonce, InitPtyGlobalJobHandle, NULL, NULL)) {
+    throw errorWithCode(info, "InitPtyGlobalJobHandle failed");
+  }
+
+  if (!AssignProcessToJobObject(pty_global_job_handle_, piClient.hProcess)) {
+    throw errorWithCode(info, "AssignProcessToJobObject failed");
   }
 
   // Update handle
