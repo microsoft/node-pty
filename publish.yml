@@ -54,7 +54,6 @@ extends:
           - script: npm run lint
             displayName: 'Lint'
 
-        apiScanUseZ7: true
         publishPackage: ${{ parameters.publishPackage }}
         ${{ if eq(variables['releaseQuality'], 'stable') }}:
           tag: latest
