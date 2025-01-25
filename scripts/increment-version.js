@@ -42,11 +42,11 @@ function getNextBetaVersion() {
 }
 
 function getPublishedVersions(version, tag) {
-  const versionsProcess = cp.spawnSync('npm', ['view', packageJson.name, 'versions', '--json']);
-  const buffer = Buffer.from(versionsProcess.stdout).toString('utf-8');
-  console.log('buffer is', buffer);
-  console.log('typeof buffer is', typeof buffer);
-  const versionsJson = JSON.parse(buffer);
+  const isWin32 = process.platform === 'win32';
+  const versionsProcess = isWin32 ?
+    cp.spawnSync('npm.cmd', ['view', packageJson.name, 'versions', '--json'], { shell: true }) :
+    cp.spawnSync('npm', ['view', packageJson.name, 'versions', '--json']);
+  const versionsJson = JSON.parse(versionsProcess.stdout);
   if (tag) {
     return versionsJson.filter(v => !v.search(new RegExp(`${version}-${tag}[0-9]+`)));
   }
