@@ -59,3 +59,7 @@ extends:
           tag: latest
         ${{ else }}:
           tag: beta
+
+        apiScanExcludes: 'package/third_party/conpty/1.20.240626001/win10-arm64/*.*'
+        apiScanSoftwareName: 'vscode-node-pty'
+        apiScanSoftwareVersion: '1'
