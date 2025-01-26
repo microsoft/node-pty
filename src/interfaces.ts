@@ -121,10 +121,20 @@ export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
   useConpty?: boolean;
   useConptyDll?: boolean;
   conptyInheritCursor?: boolean;
+  conptyHandoff?: IConptyHandoffHandles;
 }
 
 export interface IPtyOpenOptions {
   cols?: number;
   rows?: number;
   encoding?: string | null;
+}
+
+export interface IConptyHandoffHandles {
+  input?: number;
+  output?: number;
+  signal?: number;
+  ref?: number;
+  server?: number; // ConPty process
+  client?: number; // Shell process
 }

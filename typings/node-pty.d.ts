@@ -17,6 +17,8 @@ declare module 'node-pty' {
    */
   export function spawn(file: string, args: string[] | string, options: IPtyForkOptions | IWindowsPtyForkOptions): IPty;
 
+  export function handoff(handoff: IConptyHandoffHandles, opt?: IWindowsPtyForkOptions): IPty;
+
   export interface IBasePtyForkOptions {
 
     /**
@@ -108,6 +110,15 @@ declare module 'node-pty' {
      * @see https://docs.microsoft.com/en-us/windows/console/createpseudoconsole
      */
     conptyInheritCursor?: boolean;
+  }
+
+  export interface IConptyHandoffHandles {
+    input?: number;
+    output?: number;
+    signal?: number;
+    ref?: number;
+    server?: number; // ConPty process
+    client?: number; // Shell process
   }
 
   /**
