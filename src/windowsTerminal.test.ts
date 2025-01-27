@@ -102,18 +102,25 @@ if (process.platform === 'win32') {
           const term = new WindowsTerminal('cmd.exe', [], { useConpty, useConptyDll });
           // Start sub-processes
           term.write('powershell.exe\r');
+          term.write('notepad.exe\r');
           term.write('node.exe\r');
-          pollForProcessTreeSize(term.pid, 3, 500, 5000).then(list => {
+          pollForProcessTreeSize(term.pid, 4, 500, 5000).then(list => {
             assert.strictEqual(list[0].name.toLowerCase(), 'cmd.exe');
             assert.strictEqual(list[1].name.toLowerCase(), 'powershell.exe');
-            assert.strictEqual(list[2].name.toLowerCase(), 'node.exe');
+            assert.strictEqual(list[2].name.toLowerCase(), 'notepad.exe');
+            assert.strictEqual(list[3].name.toLowerCase(), 'node.exe');
             term.kill();
             const desiredState: IProcessState = {};
             desiredState[list[0].pid] = false;
             desiredState[list[1].pid] = false;
-            desiredState[list[2].pid] = false;
+            desiredState[list[2].pid] = true;
+            desiredState[list[3].pid] = false;
             term.on('exit', () => {
-              pollForProcessState(desiredState).then(done);
+              pollForProcessState(desiredState).then(() => {
+                // Kill notepad before done
+                process.kill(list[2].pid);
+                done();
+              });
             });
           });
         });
