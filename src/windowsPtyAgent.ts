@@ -7,9 +7,9 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { fork } from 'child_process';
 import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
-import { fork } from 'child_process';
 import { ConoutConnection } from './windowsConoutConnection';
 
 let conptyNative: IConptyNative;
@@ -135,7 +135,7 @@ export class WindowsPtyAgent {
     this._inSocket.setEncoding('utf8');
 
     if (this._useConpty) {
-      const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, c => this._$onProcessExit(c));
+      const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, this._useConptyDll, c => this._$onProcessExit(c));
       this._innerPid = connect.pid;
     }
   }
@@ -162,16 +162,18 @@ export class WindowsPtyAgent {
     this._outSocket.readable = false;
     // Tell the agent to kill the pty, this releases handles to the process
     if (this._useConpty) {
-      this._getConsoleProcessList().then(consoleProcessList => {
-        consoleProcessList.forEach((pid: number) => {
-          try {
-            process.kill(pid);
-          } catch (e) {
-            // Ignore if process cannot be found (kill ESRCH error)
-          }
+      if (!this._useConptyDll) {
+        this._getConsoleProcessList().then(consoleProcessList => {
+          consoleProcessList.forEach((pid: number) => {
+            try {
+              process.kill(pid);
+            } catch (e) {
+              // Ignore if process cannot be found (kill ESRCH error)
+            }
+          });
         });
-        (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll);
-      });
+      }
+      (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll);
     } else {
       // Because pty.kill closes the handle, it will kill most processes by itself.
       // Process IDs can be reused as soon as all handles to them are

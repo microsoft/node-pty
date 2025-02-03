@@ -37,6 +37,13 @@ typedef void (__stdcall *PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
 
 #endif
 
+typedef struct _PseudoConsole
+{
+    HANDLE hSignal;
+    HANDLE hPtyReference;
+    HANDLE hConPtyProcess;
+} PseudoConsole;
+
 struct pty_baton {
   int id;
   HANDLE hIn;
@@ -44,33 +51,54 @@ struct pty_baton {
   HPCON hpc;
 
   HANDLE hShell;
+  HANDLE pty_job_handle;
 
   pty_baton(int _id, HANDLE _hIn, HANDLE _hOut, HPCON _hpc) : id(_id), hIn(_hIn), hOut(_hOut), hpc(_hpc) {};
 };
 
-static std::vector<pty_baton*> ptyHandles;
+static std::vector<std::unique_ptr<pty_baton>> ptyHandles;
 static volatile LONG ptyCounter;
 
 static pty_baton* get_pty_baton(int id) {
-  for (size_t i = 0; i < ptyHandles.size(); ++i) {
-    pty_baton* ptyHandle = ptyHandles[i];
-    if (ptyHandle->id == id) {
-      return ptyHandle;
-    }
+  auto it = std::find_if(ptyHandles.begin(), ptyHandles.end(), [id](const auto& ptyHandle) {
+    return ptyHandle->id == id;
+  });
+  if (it != ptyHandles.end()) {
+    return it->get();
   }
   return nullptr;
 }
 
 static bool remove_pty_baton(int id) {
-  for (size_t i = 0; i < ptyHandles.size(); ++i) {
-    pty_baton* ptyHandle = ptyHandles[i];
-    if (ptyHandle->id == id) {
-      ptyHandles.erase(ptyHandles.begin() + i);
-      ptyHandle = nullptr;
-      return true;
-    }
+  auto it = std::remove_if(ptyHandles.begin(), ptyHandles.end(), [id](const auto& ptyHandle) {
+    return ptyHandle->id == id;
+  });
+  if (it != ptyHandles.end()) {
+    ptyHandles.erase(it);
+    return true;
   }
   return false;
+}
+
+static BOOL InitPtyJobHandle(HANDLE* pty_job_handle) {
+  SECURITY_ATTRIBUTES attr;
+  memset(&attr, 0, sizeof(attr));
+  attr.bInheritHandle = FALSE;
+  *pty_job_handle = CreateJobObjectW(&attr, nullptr);
+  if (*pty_job_handle == NULL) {
+    return FALSE;
+  }
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits = {};
+  limits.BasicLimitInformation.LimitFlags =
+      JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION |
+      JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+  if (!SetInformationJobObject(*pty_job_handle,
+                               JobObjectExtendedLimitInformation,
+                               &limits,
+                               sizeof(limits))) {
+    return FALSE;
+  }
+  return TRUE;
 }
 
 struct ExitEvent {
@@ -107,6 +135,8 @@ void SetupExitCallback(Napi::Env env, Napi::Function cb, pty_baton* baton) {
     // so we only call CloseHandle for now.
     CloseHandle(baton->hIn);
     CloseHandle(baton->hOut);
+    CloseHandle(baton->hShell);
+    assert(remove_pty_baton(baton->id));
 
     auto status = tsfn.BlockingCall(exit_event, callback); // In main thread
     switch (status) {
@@ -304,7 +334,8 @@ static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
     // We were able to instantiate a conpty
     const int ptyId = InterlockedIncrement(&ptyCounter);
     marshal.Set("pty", Napi::Number::New(env, ptyId));
-    ptyHandles.insert(ptyHandles.end(), new pty_baton(ptyId, hIn, hOut, hpc));
+    ptyHandles.emplace_back(
+        std::make_unique<pty_baton>(ptyId, hIn, hOut, hpc));
   } else {
     throw Napi::Error::New(env, "Cannot launch conpty");
   }
@@ -335,20 +366,22 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
   std::stringstream errorText;
   BOOL fSuccess = FALSE;
 
-  if (info.Length() != 5 ||
+  if (info.Length() != 6 ||
       !info[0].IsNumber() ||
       !info[1].IsString() ||
       !info[2].IsString() ||
       !info[3].IsArray() ||
-      !info[4].IsFunction()) {
-    throw Napi::Error::New(env, "Usage: pty.connect(id, cmdline, cwd, env, exitCallback)");
+      !info[4].IsBoolean() ||
+      !info[5].IsFunction()) {
+    throw Napi::Error::New(env, "Usage: pty.connect(id, cmdline, cwd, env, useConptyDll, exitCallback)");
   }
 
   const int id = info[0].As<Napi::Number>().Int32Value();
   const std::wstring cmdline(path_util::to_wstring(info[1].As<Napi::String>()));
   const std::wstring cwd(path_util::to_wstring(info[2].As<Napi::String>()));
   const Napi::Array envValues = info[3].As<Napi::Array>();
-  Napi::Function exitCallback = info[4].As<Napi::Function>();
+  const bool useConptyDll = info[4].As<Napi::Boolean>().Value();
+  Napi::Function exitCallback = info[5].As<Napi::Function>();
 
   // Fetch pty handle from ID and start process
   pty_baton* handle = get_pty_baton(id);
@@ -424,6 +457,17 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
   );
   if (!fSuccess) {
     throw errorWithCode(info, "Cannot create process");
+  }
+
+  if (useConptyDll) {
+    if (!InitPtyJobHandle(&handle->pty_job_handle)) {
+      throw errorWithCode(info, "Initialize pty job handle failed");
+    }
+
+    PseudoConsole* server = reinterpret_cast<PseudoConsole*>(handle->hpc);
+    if (!AssignProcessToJobObject(handle->pty_job_handle, server->hConPtyProcess)) {
+      throw errorWithCode(info, "AssignProcessToJobObject for server failed");
+    }
   }
 
   // Update handle
@@ -545,8 +589,10 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
       }
     }
 
-    CloseHandle(handle->hShell);
-    assert(remove_pty_baton(id));
+    TerminateProcess(handle->hShell, 1);
+    if (useConptyDll) {
+      CloseHandle(handle->pty_job_handle);
+    }
   }
 
   return env.Undefined();
