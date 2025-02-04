@@ -1,7 +1,6 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 
 trigger:
-  batch: true
   branches:
     include:
       - main
@@ -57,8 +56,10 @@ extends:
         publishPackage: ${{ parameters.publishPackage }}
         ${{ if eq(variables['releaseQuality'], 'stable') }}:
           tag: latest
+          publishRequiresApproval: true
         ${{ else }}:
           tag: beta
+          publishRequiresApproval: false
 
         apiScanExcludes: 'package/third_party/conpty/1.20.240626001/win10-arm64/*.*'
         apiScanSoftwareName: 'vscode-node-pty'
