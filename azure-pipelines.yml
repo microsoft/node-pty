@@ -11,7 +11,7 @@ resources:
       ref: refs/tags/release
 
 extends:
-  template: v1/1ES.Unofficial.PipelineTemplate.yml@1esPipelines
+  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
   parameters:
     sdl:
       sourceAnalysisPool: 1es-oss-windows-2022-x64
@@ -70,3 +70,29 @@ extends:
             displayName: 'Test'
           - script: npm run lint
             displayName: 'Lint'
+
+      - stage: Release
+        dependsOn: Build
+        jobs:
+          - job: Release
+            condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+            # Output artifact to produce SBOM and to run SDL checks
+            templateContext:
+              outputs:
+              - output: pipelineArtifact
+                targetPath: $(Build.SourcesDirectory)
+                artifactName: drop
+            pool:
+              name: 1es-oss-ubuntu-22.04-x64
+              os: Linux
+            steps:
+            - task: NodeTool@0
+              inputs:
+                versionSpec: '20.x'
+              displayName: 'Install Node.js'
+            - script: |
+                npm i
+              displayName: 'Install dependencies and build'
+            - script: |
+                NPM_AUTH_TOKEN="$(NPM_AUTH_TOKEN)" node ./scripts/publish.js
+              displayName: 'Publish to npm'
