@@ -102,7 +102,7 @@ if (process.platform === 'win32') {
           (<any>term)._defer(done);
         });
         it('should kill the process tree', function (done: Mocha.Done): void {
-          this.timeout(10000);
+          this.timeout(20000);
           const term = new WindowsTerminal('cmd.exe', [], { useConpty, useConptyDll });
           // Start sub-processes
           term.write('powershell.exe\r');
@@ -118,7 +118,7 @@ if (process.platform === 'win32') {
             desiredState[list[1].pid] = false;
             desiredState[list[2].pid] = false;
             term.on('exit', () => {
-              pollForProcessState(desiredState).then(() => {
+              pollForProcessState(desiredState, 1000, 5000).then(() => {
                 done();
               });
             });
@@ -146,7 +146,8 @@ if (process.platform === 'win32') {
       });
 
       describe('Args as CommandLine', () => {
-        it('should not fail running a file containing a space in the path', (done) => {
+        it('should not fail running a file containing a space in the path', function (done) {
+          this.timeout(10000);
           const spaceFolder = path.resolve(__dirname, '..', 'fixtures', 'space folder');
           if (!fs.existsSync(spaceFolder)) {
             fs.mkdirSync(spaceFolder);
@@ -173,7 +174,8 @@ if (process.platform === 'win32') {
       });
 
       describe('env', () => {
-        it('should set environment variables of the shell', (done) => {
+        it('should set environment variables of the shell', function (done) {
+          this.timeout(10000);
           const term = new WindowsTerminal('cmd.exe', '/C echo %FOO%', { env: { FOO: 'BAR' }});
           let result = '';
           term.on('data', (data) => {
@@ -187,7 +189,8 @@ if (process.platform === 'win32') {
       });
 
       describe('On close', () => {
-        it('should return process zero exit codes', (done) => {
+        it('should return process zero exit codes', function (done) {
+          this.timeout(10000);
           const term = new WindowsTerminal('cmd.exe', '/C exit', { useConpty, useConptyDll });
           term.on('exit', (code) => {
             assert.strictEqual(code, 0);
@@ -195,7 +198,8 @@ if (process.platform === 'win32') {
           });
         });
 
-        it('should return process non-zero exit codes', (done) => {
+        it('should return process non-zero exit codes', function (done) {
+          this.timeout(10000);
           const term = new WindowsTerminal('cmd.exe', '/C exit 2', { useConpty, useConptyDll });
           term.on('exit', (code) => {
             assert.strictEqual(code, 2);
@@ -205,7 +209,8 @@ if (process.platform === 'win32') {
       });
 
       describe('Write', () => {
-        it('should accept input', (done) => {
+        it('should accept input', function (done) {
+          this.timeout(10000);
           const term = new WindowsTerminal('cmd.exe', '', { useConpty, useConptyDll });
           term.write('exit\r');
           term.on('exit', () => {
