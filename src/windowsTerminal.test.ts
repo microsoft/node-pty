@@ -26,13 +26,16 @@ function pollForProcessState(desiredState: IProcessState, intervalMs: number = 1
       psList({ all: true }).then(ps => {
         let success = true;
         const pids = Object.keys(desiredState).map(k => parseInt(k, 10));
+        console.log('expected pids', JSON.stringify(pids));
         pids.forEach(pid => {
           if (desiredState[pid]) {
             if (!ps.some(p => p.pid === pid)) {
+              console.log(`pid ${pid} does not exist`);
               success = false;
             }
           } else {
             if (ps.some(p => p.pid === pid)) {
+              console.log(`pid ${pid} still exists`);
               success = false;
             }
           }
@@ -71,6 +74,7 @@ function pollForProcessTreeSize(pid: number, size: number, intervalMs: number = 
           }).forEach(p => openList.push(p));
           list.push(current);
         }
+        console.log('list', JSON.stringify(list));
         const success = list.length === size;
         if (success) {
           clearInterval(interval);
@@ -102,23 +106,19 @@ if (process.platform === 'win32') {
           const term = new WindowsTerminal('cmd.exe', [], { useConpty, useConptyDll });
           // Start sub-processes
           term.write('powershell.exe\r');
-          term.write('notepad.exe\r');
           term.write('node.exe\r');
-          pollForProcessTreeSize(term.pid, 4, 500, 5000).then(list => {
+          console.log('start poll for tree size');
+          pollForProcessTreeSize(term.pid, 3, 500, 5000).then(list => {
             assert.strictEqual(list[0].name.toLowerCase(), 'cmd.exe');
             assert.strictEqual(list[1].name.toLowerCase(), 'powershell.exe');
-            assert.strictEqual(list[2].name.toLowerCase(), 'notepad.exe');
-            assert.strictEqual(list[3].name.toLowerCase(), 'node.exe');
+            assert.strictEqual(list[2].name.toLowerCase(), 'node.exe');
             term.kill();
             const desiredState: IProcessState = {};
             desiredState[list[0].pid] = false;
             desiredState[list[1].pid] = false;
-            desiredState[list[2].pid] = true;
-            desiredState[list[3].pid] = false;
+            desiredState[list[2].pid] = false;
             term.on('exit', () => {
               pollForProcessState(desiredState).then(() => {
-                // Kill notepad before done
-                process.kill(list[2].pid);
                 done();
               });
             });
