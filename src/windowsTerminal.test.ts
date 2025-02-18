@@ -92,7 +92,7 @@ function pollForProcessTreeSize(pid: number, size: number, intervalMs: number = 
 }
 
 if (process.platform === 'win32') {
-  [[false, false], [true, true]].forEach(([useConpty, useConptyDll]) => {
+  [[false, false], [true, false], [true, true]].forEach(([useConpty, useConptyDll]) => {
     describe(`WindowsTerminal (useConpty = ${useConpty}, useConptyDll = ${useConptyDll})`, () => {
       describe('kill', () => {
         it('should not crash parent process', function (done) {
