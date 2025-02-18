@@ -34,15 +34,9 @@ typedef HRESULT (__stdcall *PFNCREATEPSEUDOCONSOLE)(COORD c, HANDLE hIn, HANDLE 
 typedef HRESULT (__stdcall *PFNRESIZEPSEUDOCONSOLE)(HPCON hpc, COORD newSize);
 typedef HRESULT (__stdcall *PFNCLEARPSEUDOCONSOLE)(HPCON hpc);
 typedef void (__stdcall *PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
+typedef void (__stdcall *PFNRELEASEPSEUDOCONSOLE)(HPCON hpc);
 
 #endif
-
-typedef struct _PseudoConsole
-{
-    HANDLE hSignal;
-    HANDLE hPtyReference;
-    HANDLE hConPtyProcess;
-} PseudoConsole;
 
 struct pty_baton {
   int id;
@@ -51,7 +45,6 @@ struct pty_baton {
   HPCON hpc;
 
   HANDLE hShell;
-  HANDLE pty_job_handle;
 
   pty_baton(int _id, HANDLE _hIn, HANDLE _hOut, HPCON _hpc) : id(_id), hIn(_hIn), hOut(_hOut), hpc(_hpc) {};
 };
@@ -78,27 +71,6 @@ static bool remove_pty_baton(int id) {
     return true;
   }
   return false;
-}
-
-static BOOL InitPtyJobHandle(HANDLE* pty_job_handle) {
-  SECURITY_ATTRIBUTES attr;
-  memset(&attr, 0, sizeof(attr));
-  attr.bInheritHandle = FALSE;
-  *pty_job_handle = CreateJobObjectW(&attr, nullptr);
-  if (*pty_job_handle == NULL) {
-    return FALSE;
-  }
-  JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits = {};
-  limits.BasicLimitInformation.LimitFlags =
-      JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION |
-      JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-  if (!SetInformationJobObject(*pty_job_handle,
-                               JobObjectExtendedLimitInformation,
-                               &limits,
-                               sizeof(limits))) {
-    return FALSE;
-  }
-  return TRUE;
 }
 
 struct ExitEvent {
@@ -130,11 +102,6 @@ void SetupExitCallback(Napi::Env env, Napi::Function cb, pty_baton* baton) {
     // Get process exit code.
     GetExitCodeProcess(baton->hShell, (LPDWORD)(&exit_event->exit_code));
     // Clean up handles
-    // Calling DisconnectNamedPipes here or in PtyKill results in a crash,
-    // ref https://github.com/microsoft/node-pty/issues/512,
-    // so we only call CloseHandle for now.
-    CloseHandle(baton->hIn);
-    CloseHandle(baton->hOut);
     CloseHandle(baton->hShell);
     assert(remove_pty_baton(baton->id));
 
@@ -459,14 +426,15 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
     throw errorWithCode(info, "Cannot create process");
   }
 
-  if (useConptyDll) {
-    if (!InitPtyJobHandle(&handle->pty_job_handle)) {
-      throw errorWithCode(info, "Initialize pty job handle failed");
-    }
-
-    PseudoConsole* server = reinterpret_cast<PseudoConsole*>(handle->hpc);
-    if (!AssignProcessToJobObject(handle->pty_job_handle, server->hConPtyProcess)) {
-      throw errorWithCode(info, "AssignProcessToJobObject for server failed");
+  HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
+  bool fLoadedDll = hLibrary != nullptr;
+  if (fLoadedDll)
+  {
+    PFNRELEASEPSEUDOCONSOLE const pfnReleasePseudoConsole = (PFNRELEASEPSEUDOCONSOLE)GetProcAddress(
+      (HMODULE)hLibrary, "ConptyReleasePseudoConsole");
+    if (pfnReleasePseudoConsole)
+    {
+      pfnReleasePseudoConsole(handle->hpc);
     }
   }
 
@@ -475,6 +443,9 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
 
   // Close the thread handle to avoid resource leak
   CloseHandle(piClient.hThread);
+  // Close the input read and output write handle of the pseudoconsole
+  CloseHandle(handle->hIn);
+  CloseHandle(handle->hOut);
 
   SetupExitCallback(env, exitCallback, handle);
 
@@ -588,11 +559,7 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
         pfnClosePseudoConsole(handle->hpc);
       }
     }
-
     TerminateProcess(handle->hShell, 1);
-    if (useConptyDll) {
-      CloseHandle(handle->pty_job_handle);
-    }
   }
 
   return env.Undefined();

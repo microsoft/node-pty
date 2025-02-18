@@ -54,10 +54,6 @@ export class ConoutConnection implements IDisposable {
   }
 
   dispose(): void {
-    if (this._isDisposed) {
-      return;
-    }
-    this._isDisposed = true;
     // Drain all data from the socket before closing
     this._drainDataAndClose();
   }
