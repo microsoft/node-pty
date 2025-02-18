@@ -1,10 +1,9 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 
+pr: none
 trigger:
   branches:
-    include:
-      - main
-pr: none
+    include: ["main"]
 
 resources:
   repositories:
