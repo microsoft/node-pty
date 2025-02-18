@@ -7,20 +7,12 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { fork } from 'child_process';
 import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
 import { ConoutConnection } from './windowsConoutConnection';
 
 let conptyNative: IConptyNative;
 let winptyNative: IWinptyNative;
-
-/**
- * The amount of time to wait for additional data after the conpty shell process has exited before
- * shutting down the socket. The timer will be reset if a new data event comes in after the timer
- * has started.
- */
-const FLUSH_DATA_INTERVAL = 1000;
 
 /**
  * This agent sits between the WindowsTerminal class and provides a common interface for both conpty
@@ -158,22 +150,14 @@ export class WindowsPtyAgent {
   }
 
   public kill(): void {
-    this._inSocket.readable = false;
-    this._outSocket.readable = false;
     // Tell the agent to kill the pty, this releases handles to the process
     if (this._useConpty) {
-      if (!this._useConptyDll) {
-        this._getConsoleProcessList().then(consoleProcessList => {
-          consoleProcessList.forEach((pid: number) => {
-            try {
-              process.kill(pid);
-            } catch (e) {
-              // Ignore if process cannot be found (kill ESRCH error)
-            }
-          });
-        });
-      }
+      // Close the input write handle to signal the end of session.
+      this._inSocket.destroy();
       (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll);
+      this._outSocket.on('data', () => {
+        this._conoutSocketWorker.dispose();
+      });
     } else {
       // Because pty.kill closes the handle, it will kill most processes by itself.
       // Process IDs can be reused as soon as all handles to them are
@@ -191,22 +175,6 @@ export class WindowsPtyAgent {
         }
       });
     }
-    this._conoutSocketWorker.dispose();
-  }
-
-  private _getConsoleProcessList(): Promise<number[]> {
-    return new Promise<number[]>(resolve => {
-      const agent = fork(path.join(__dirname, 'conpty_console_list_agent'), [ this._innerPid.toString() ]);
-      agent.on('message', message => {
-        clearTimeout(timeout);
-        resolve(message.consoleProcessList);
-      });
-      const timeout = setTimeout(() => {
-        // Something went wrong, just send back the shell PID
-        agent.kill();
-        resolve([ this._innerPid ]);
-      }, 5000);
-    });
   }
 
   public get exitCode(): number | undefined {
@@ -235,21 +203,6 @@ export class WindowsPtyAgent {
    */
   private _$onProcessExit(exitCode: number): void {
     this._exitCode = exitCode;
-    this._flushDataAndCleanUp();
-    this._outSocket.on('data', () => this._flushDataAndCleanUp());
-  }
-
-  private _flushDataAndCleanUp(): void {
-    if (this._closeTimeout) {
-      clearTimeout(this._closeTimeout);
-    }
-    this._closeTimeout = setTimeout(() => this._cleanUpProcess(), FLUSH_DATA_INTERVAL);
-  }
-
-  private _cleanUpProcess(): void {
-    this._inSocket.readable = false;
-    this._outSocket.readable = false;
-    this._outSocket.destroy();
   }
 }
 

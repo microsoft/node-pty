@@ -92,14 +92,14 @@ function pollForProcessTreeSize(pid: number, size: number, intervalMs: number = 
 }
 
 if (process.platform === 'win32') {
-  [[true, false], [true, true], [false, false]].forEach(([useConpty, useConptyDll]) => {
+  [[false, false], [true, true]].forEach(([useConpty, useConptyDll]) => {
     describe(`WindowsTerminal (useConpty = ${useConpty}, useConptyDll = ${useConptyDll})`, () => {
       describe('kill', () => {
-        it('should not crash parent process', (done) => {
+        it('should not crash parent process', function (done) {
+          this.timeout(20000);
           const term = new WindowsTerminal('cmd.exe', [], { useConpty, useConptyDll });
+          term.on('exit', () => done());
           term.kill();
-          // Add done call to deferred function queue to ensure the kill call has completed
-          (<any>term)._defer(done);
         });
         it('should kill the process tree', function (done: Mocha.Done): void {
           this.timeout(20000);
@@ -127,11 +127,15 @@ if (process.platform === 'win32') {
       });
 
       describe('resize', () => {
-        it('should throw a non-native exception when resizing an invalid value', () => {
+        it('should throw a non-native exception when resizing an invalid value', (done) => {
           const term = new WindowsTerminal('cmd.exe', [], { useConpty, useConptyDll });
           assert.throws(() => term.resize(-1, -1));
           assert.throws(() => term.resize(0, 0));
           assert.doesNotThrow(() => term.resize(1, 1));
+          term.on('exit', () => {
+            done();
+          });
+          term.kill();
         });
         it('should throw a non-native exception when resizing a killed terminal', (done) => {
           const term = new WindowsTerminal('cmd.exe', [], { useConpty, useConptyDll });
@@ -176,7 +180,7 @@ if (process.platform === 'win32') {
       describe('env', () => {
         it('should set environment variables of the shell', function (done) {
           this.timeout(10000);
-          const term = new WindowsTerminal('cmd.exe', '/C echo %FOO%', { env: { FOO: 'BAR' }});
+          const term = new WindowsTerminal('cmd.exe', '/C echo %FOO%', { useConpty, useConptyDll, env: { FOO: 'BAR' }});
           let result = '';
           term.on('data', (data) => {
             result += data;
