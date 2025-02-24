@@ -7,9 +7,9 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { fork } from 'child_process';
 import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
-import { fork } from 'child_process';
 import { ConoutConnection } from './windowsConoutConnection';
 
 let conptyNative: IConptyNative;
@@ -54,6 +54,7 @@ export class WindowsPtyAgent {
     rows: number,
     debug: boolean,
     private _useConpty: boolean | undefined,
+    private _useConptyDll: boolean = false,
     conptyInheritCursor: boolean = false
   ) {
     if (this._useConpty === undefined || this._useConpty === true) {
@@ -99,7 +100,7 @@ export class WindowsPtyAgent {
     // Open pty session.
     let term: IConptyProcess | IWinptyProcess;
     if (this._useConpty) {
-      term = (this._ptyNative as IConptyNative).startProcess(file, cols, rows, debug, this._generatePipeName(), conptyInheritCursor);
+      term = (this._ptyNative as IConptyNative).startProcess(file, cols, rows, debug, this._generatePipeName(), conptyInheritCursor, this._useConptyDll);
     } else {
       term = (this._ptyNative as IWinptyNative).startProcess(file, commandLine, env, cwd, cols, rows, debug);
       this._pid = (term as IWinptyProcess).pid;
@@ -134,7 +135,7 @@ export class WindowsPtyAgent {
     this._inSocket.setEncoding('utf8');
 
     if (this._useConpty) {
-      const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, c => this._$onProcessExit(c));
+      const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, this._useConptyDll, c => this._$onProcessExit(c));
       this._innerPid = connect.pid;
     }
   }
@@ -144,33 +145,43 @@ export class WindowsPtyAgent {
       if (this._exitCode !== undefined) {
         throw new Error('Cannot resize a pty that has already exited');
       }
-      this._ptyNative.resize(this._pty, cols, rows);
+      (this._ptyNative as IConptyNative).resize(this._pty, cols, rows, this._useConptyDll);
       return;
     }
-    this._ptyNative.resize(this._pid, cols, rows);
+    (this._ptyNative as IWinptyNative).resize(this._pid, cols, rows);
   }
 
   public clear(): void {
     if (this._useConpty) {
-      (this._ptyNative as IConptyNative).clear(this._pty);
+      (this._ptyNative as IConptyNative).clear(this._pty, this._useConptyDll);
     }
   }
 
   public kill(): void {
-    this._inSocket.readable = false;
-    this._outSocket.readable = false;
     // Tell the agent to kill the pty, this releases handles to the process
     if (this._useConpty) {
-      this._getConsoleProcessList().then(consoleProcessList => {
-        consoleProcessList.forEach((pid: number) => {
-          try {
-            process.kill(pid);
-          } catch (e) {
-            // Ignore if process cannot be found (kill ESRCH error)
-          }
+      if (!this._useConptyDll) {
+        this._inSocket.readable = false;
+        this._outSocket.readable = false;
+        this._getConsoleProcessList().then(consoleProcessList => {
+          consoleProcessList.forEach((pid: number) => {
+            try {
+              process.kill(pid);
+            } catch (e) {
+              // Ignore if process cannot be found (kill ESRCH error)
+            }
+          });
         });
-        (this._ptyNative as IConptyNative).kill(this._pty);
-      });
+        (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll);
+        this._conoutSocketWorker.dispose();
+      } else {
+        // Close the input write handle to signal the end of session.
+        this._inSocket.destroy();
+        (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll);
+        this._outSocket.on('data', () => {
+          this._conoutSocketWorker.dispose();
+        });
+      }
     } else {
       // Because pty.kill closes the handle, it will kill most processes by itself.
       // Process IDs can be reused as soon as all handles to them are
@@ -188,7 +199,6 @@ export class WindowsPtyAgent {
         }
       });
     }
-    this._conoutSocketWorker.dispose();
   }
 
   private _getConsoleProcessList(): Promise<number[]> {
@@ -232,11 +242,16 @@ export class WindowsPtyAgent {
    */
   private _$onProcessExit(exitCode: number): void {
     this._exitCode = exitCode;
-    this._flushDataAndCleanUp();
-    this._outSocket.on('data', () => this._flushDataAndCleanUp());
+    if (!this._useConptyDll) {
+      this._flushDataAndCleanUp();
+      this._outSocket.on('data', () => this._flushDataAndCleanUp());
+    }
   }
 
   private _flushDataAndCleanUp(): void {
+    if (this._useConptyDll) {
+      return;
+    }
     if (this._closeTimeout) {
       clearTimeout(this._closeTimeout);
     }
@@ -244,6 +259,9 @@ export class WindowsPtyAgent {
   }
 
   private _cleanUpProcess(): void {
+    if (this._useConptyDll) {
+      return;
+    }
     this._inSocket.readable = false;
     this._outSocket.readable = false;
     this._outSocket.destroy();

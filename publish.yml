@@ -1,0 +1,65 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)
+
+pr: none
+trigger:
+  branches:
+    include: ["main"]
+
+resources:
+  repositories:
+    - repository: templates
+      type: github
+      name: microsoft/vscode-engineering
+      ref: main
+      endpoint: Monaco
+
+parameters:
+  - name: publishPackage
+    displayName: 🚀 Publish node-pty
+    type: boolean
+    default: false
+  - name: releaseQuality
+    displayName: Quality
+    type: string
+    default: beta
+    values:
+      - beta
+      - stable
+
+variables:
+  - name: releaseQuality
+    value: ${{ parameters.releaseQuality }}
+
+extends:
+  template: azure-pipelines/npm-package/pipeline.yml@templates
+  parameters:
+    npmPackages:
+      - name: node-pty
+
+        buildSteps:
+          - script: npm ci
+            displayName: 'Install dependencies and build'
+          # The following script leaves the version unchanged for
+          # stable releases, but increments the version for beta releases.
+          - script: node scripts/increment-version.js
+            displayName: 'Increment version'
+
+        testSteps:
+          - script: npm ci
+            displayName: 'Install dependencies and build'
+          - script: npm test
+            displayName: 'Test'
+          - script: npm run lint
+            displayName: 'Lint'
+
+        publishPackage: ${{ parameters.publishPackage }}
+        ${{ if eq(variables['releaseQuality'], 'stable') }}:
+          tag: latest
+          publishRequiresApproval: true
+        ${{ else }}:
+          tag: beta
+          publishRequiresApproval: false
+
+        apiScanExcludes: 'package/third_party/conpty/1.22.250204002/win10-arm64/*.*'
+        apiScanSoftwareName: 'vscode-node-pty'
+        apiScanSoftwareVersion: '1'

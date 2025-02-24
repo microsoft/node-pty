@@ -224,9 +224,17 @@ Agent::Agent(LPCWSTR controlPipeName,
 Agent::~Agent()
 {
     trace("Agent::~Agent entered");
-    agentShutdown();
-    if (m_childProcess != NULL) {
-        CloseHandle(m_childProcess);
+    try {
+        agentShutdown();
+        if (m_childProcess != NULL) {
+            CloseHandle(m_childProcess);
+        }
+    } catch (const std::exception &e) {
+        // Log the exception or handle it as needed
+        trace("Exception in Agent::~Agent: %s", e.what());
+    } catch (...) {
+        // Catch any other types of exceptions
+        trace("Unknown exception in Agent::~Agent");
     }
 }
 

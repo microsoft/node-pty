@@ -18,6 +18,7 @@
     "scripts/",
     "src/",
     "deps/",
+    "third_party/",
     "typings/"
   ],
   "homepage": "https://github.com/microsoft/node-pty",
@@ -43,7 +44,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "nan": "^2.17.0"
+    "node-addon-api": "^7.1.0"
   },
   "devDependencies": {
     "@types/mocha": "^7.0.2",
@@ -53,7 +54,7 @@
     "cross-env": "^5.1.4",
     "eslint": "^6.8.0",
     "mocha": "10",
-    "node-gyp": "^9.4.0",
+    "node-gyp": "^10.0.1",
     "ps-list": "^6.0.0",
     "typescript": "^3.8.3"
   }

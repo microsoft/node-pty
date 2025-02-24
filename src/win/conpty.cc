@@ -8,23 +8,21 @@
  *   with pseudo-terminal file descriptors.
  */
 
-// node versions lower than 10 define this as 0x502 which disables many of the definitions needed to compile
-#include <node_version.h>
-#if NODE_MODULE_VERSION <= 57
-  #define _WIN32_WINNT 0x600
-#endif
+#define _WIN32_WINNT 0x600
 
-#include <iostream>
-#include <nan.h>
+#define NODE_ADDON_API_DISABLE_DEPRECATED
+#include <node_api.h>
+#include <assert.h>
 #include <Shlwapi.h> // PathCombine, PathIsRelative
 #include <sstream>
+#include <iostream>
 #include <string>
+#include <thread>
 #include <vector>
 #include <Windows.h>
 #include <strsafe.h>
 #include "path_util.h"
-
-extern "C" void init(v8::Local<v8::Object>);
+#include "conpty.h"
 
 // Taken from the RS5 Windows SDK, but redefined here in case we're targeting <= 17134
 #ifndef PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE
@@ -36,6 +34,7 @@ typedef HRESULT (__stdcall *PFNCREATEPSEUDOCONSOLE)(COORD c, HANDLE hIn, HANDLE 
 typedef HRESULT (__stdcall *PFNRESIZEPSEUDOCONSOLE)(HPCON hpc, COORD newSize);
 typedef HRESULT (__stdcall *PFNCLEARPSEUDOCONSOLE)(HPCON hpc);
 typedef void (__stdcall *PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
+typedef void (__stdcall *PFNRELEASEPSEUDOCONSOLE)(HPCON hpc);
 
 #endif
 
@@ -46,40 +45,91 @@ struct pty_baton {
   HPCON hpc;
 
   HANDLE hShell;
-  HANDLE hWait;
-  Nan::Callback cb;
-  uv_async_t async;
-  uv_thread_t tid;
 
   pty_baton(int _id, HANDLE _hIn, HANDLE _hOut, HPCON _hpc) : id(_id), hIn(_hIn), hOut(_hOut), hpc(_hpc) {};
 };
 
-static std::vector<pty_baton*> ptyHandles;
+static std::vector<std::unique_ptr<pty_baton>> ptyHandles;
 static volatile LONG ptyCounter;
 
 static pty_baton* get_pty_baton(int id) {
-  for (size_t i = 0; i < ptyHandles.size(); ++i) {
-    pty_baton* ptyHandle = ptyHandles[i];
-    if (ptyHandle->id == id) {
-      return ptyHandle;
-    }
+  auto it = std::find_if(ptyHandles.begin(), ptyHandles.end(), [id](const auto& ptyHandle) {
+    return ptyHandle->id == id;
+  });
+  if (it != ptyHandles.end()) {
+    return it->get();
   }
   return nullptr;
 }
 
-template <typename T>
-std::vector<T> vectorFromString(const std::basic_string<T> &str) {
-    return std::vector<T>(str.begin(), str.end());
+static bool remove_pty_baton(int id) {
+  auto it = std::remove_if(ptyHandles.begin(), ptyHandles.end(), [id](const auto& ptyHandle) {
+    return ptyHandle->id == id;
+  });
+  if (it != ptyHandles.end()) {
+    ptyHandles.erase(it);
+    return true;
+  }
+  return false;
 }
 
-void throwNanError(const Nan::FunctionCallbackInfo<v8::Value>* info, const char* text, const bool getLastError) {
+struct ExitEvent {
+  int exit_code = 0;
+};
+
+void SetupExitCallback(Napi::Env env, Napi::Function cb, pty_baton* baton) {
+  std::thread *th = new std::thread;
+  // Don't use Napi::AsyncWorker which is limited by UV_THREADPOOL_SIZE.
+  auto tsfn = Napi::ThreadSafeFunction::New(
+      env,
+      cb,                           // JavaScript function called asynchronously
+      "SetupExitCallback_resource", // Name
+      0,                            // Unlimited queue
+      1,                            // Only one thread will use this initially
+      [th](Napi::Env) {   // Finalizer used to clean threads up
+        th->join();
+        delete th;
+      });
+  *th = std::thread([tsfn = std::move(tsfn), baton] {
+    auto callback = [](Napi::Env env, Napi::Function cb, ExitEvent *exit_event) {
+      cb.Call({Napi::Number::New(env, exit_event->exit_code)});
+      delete exit_event;
+    };
+
+    ExitEvent *exit_event = new ExitEvent;
+    // Wait for process to complete.
+    WaitForSingleObject(baton->hShell, INFINITE);
+    // Get process exit code.
+    GetExitCodeProcess(baton->hShell, (LPDWORD)(&exit_event->exit_code));
+    // Clean up handles
+    CloseHandle(baton->hShell);
+    assert(remove_pty_baton(baton->id));
+
+    auto status = tsfn.BlockingCall(exit_event, callback); // In main thread
+    switch (status) {
+      case napi_closing:
+        break;
+
+      case napi_queue_full:
+        Napi::Error::Fatal("SetupExitCallback", "Queue was full");
+
+      case napi_ok:
+        if (tsfn.Release() != napi_ok) {
+          Napi::Error::Fatal("SetupExitCallback", "ThreadSafeFunction.Release() failed");
+        }
+        break;
+
+      default:
+        Napi::Error::Fatal("SetupExitCallback", "ThreadSafeFunction.BlockingCall() failed");
+    }
+  });
+}
+
+Napi::Error errorWithCode(const Napi::CallbackInfo& info, const char* text) {
   std::stringstream errorText;
   errorText << text;
-  if (getLastError) {
-    errorText << ", error code: " << GetLastError();
-  }
-  Nan::ThrowError(errorText.str().c_str());
-  (*info).GetReturnValue().SetUndefined();
+  errorText << ", error code: " << GetLastError();
+  return Napi::Error::New(info.Env(), errorText.str());
 }
 
 // Returns a new server named pipe.  It has not yet been connected.
@@ -111,20 +161,52 @@ bool createDataServerPipe(bool write,
   return *hServer != INVALID_HANDLE_VALUE;
 }
 
-HRESULT CreateNamedPipesAndPseudoConsole(COORD size,
+HANDLE LoadConptyDll(const Napi::CallbackInfo& info,
+                     const bool useConptyDll)
+{
+  if (!useConptyDll) {
+    return LoadLibraryExW(L"kernel32.dll", 0, 0);
+  }
+  wchar_t currentDir[MAX_PATH];
+  HMODULE hModule = GetModuleHandleA("conpty.node");
+  if (hModule == NULL) {
+    throw errorWithCode(info, "Failed to get conpty.node module handle");
+  }
+  DWORD result = GetModuleFileNameW(hModule, currentDir, MAX_PATH);
+  if (result == 0) {
+    throw errorWithCode(info, "Failed to get conpty.node module file name");
+  }
+  PathRemoveFileSpecW(currentDir);
+  wchar_t conptyDllPath[MAX_PATH];
+  PathCombineW(conptyDllPath, currentDir, L"conpty\\conpty.dll");
+  if (!path_util::file_exists(conptyDllPath)) {
+    std::wstring errorMessage = L"Cannot find conpty.dll at " + std::wstring(conptyDllPath);
+    std::string errorMessageStr = path_util::wstring_to_string(errorMessage);
+    throw errorWithCode(info, errorMessageStr.c_str());
+  }
+
+  return LoadLibraryW(conptyDllPath);
+}
+
+HRESULT CreateNamedPipesAndPseudoConsole(const Napi::CallbackInfo& info,
+                                         COORD size,
                                          DWORD dwFlags,
                                          HANDLE *phInput,
                                          HANDLE *phOutput,
                                          HPCON* phPC,
                                          std::wstring& inName,
                                          std::wstring& outName,
-                                         const std::wstring& pipeName)
+                                         const std::wstring& pipeName,
+                                         const bool useConptyDll)
 {
-  HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
+  HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
+  DWORD error = GetLastError();
   bool fLoadedDll = hLibrary != nullptr;
   if (fLoadedDll)
   {
-    PFNCREATEPSEUDOCONSOLE const pfnCreate = (PFNCREATEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "CreatePseudoConsole");
+    PFNCREATEPSEUDOCONSOLE const pfnCreate = (PFNCREATEPSEUDOCONSOLE)GetProcAddress(
+        (HMODULE)hLibrary,
+        useConptyDll ? "ConptyCreatePseudoConsole" : "CreatePseudoConsole");
     if (pfnCreate)
     {
       if (phPC == NULL || phInput == NULL || phOutput == NULL)
@@ -151,6 +233,8 @@ HRESULT CreateNamedPipesAndPseudoConsole(COORD size,
       //    We should fall back to winpty in this case.
       return HRESULT_FROM_WIN32(GetLastError());
     }
+  } else {
+    throw errorWithCode(info, "Failed to load conpty.dll");
   }
 
   // Failed to find  kernel32. This is realy unlikely - honestly no idea how
@@ -158,32 +242,34 @@ HRESULT CreateNamedPipesAndPseudoConsole(COORD size,
   return HRESULT_FROM_WIN32(GetLastError());
 }
 
-static NAN_METHOD(PtyStartProcess) {
-  Nan::HandleScope scope;
+static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
 
-  v8::Local<v8::Object> marshal;
+  Napi::Object marshal;
   std::wstring inName, outName;
   BOOL fSuccess = FALSE;
   std::unique_ptr<wchar_t[]> mutableCommandline;
   PROCESS_INFORMATION _piClient{};
 
-  if (info.Length() != 6 ||
-      !info[0]->IsString() ||
-      !info[1]->IsNumber() ||
-      !info[2]->IsNumber() ||
-      !info[3]->IsBoolean() ||
-      !info[4]->IsString() ||
-      !info[5]->IsBoolean()) {
-    Nan::ThrowError("Usage: pty.startProcess(file, cols, rows, debug, pipeName, inheritCursor)");
-    return;
+  if (info.Length() != 7 ||
+      !info[0].IsString() ||
+      !info[1].IsNumber() ||
+      !info[2].IsNumber() ||
+      !info[3].IsBoolean() ||
+      !info[4].IsString() ||
+      !info[5].IsBoolean() ||
+      !info[6].IsBoolean()) {
+    throw Napi::Error::New(env, "Usage: pty.startProcess(file, cols, rows, debug, pipeName, inheritCursor, useConptyDll)");
   }
 
-  const std::wstring filename(path_util::to_wstring(Nan::Utf8String(info[0])));
-  const SHORT cols = static_cast<SHORT>(info[1]->Uint32Value(Nan::GetCurrentContext()).FromJust());
-  const SHORT rows = static_cast<SHORT>(info[2]->Uint32Value(Nan::GetCurrentContext()).FromJust());
-  const bool debug = Nan::To<bool>(info[3]).FromJust();
-  const std::wstring pipeName(path_util::to_wstring(Nan::Utf8String(info[4])));
-  const bool inheritCursor = Nan::To<bool>(info[5]).FromJust();
+  const std::wstring filename(path_util::to_wstring(info[0].As<Napi::String>()));
+  const SHORT cols = static_cast<SHORT>(info[1].As<Napi::Number>().Uint32Value());
+  const SHORT rows = static_cast<SHORT>(info[2].As<Napi::Number>().Uint32Value());
+  const bool debug = info[3].As<Napi::Boolean>().Value();
+  const std::wstring pipeName(path_util::to_wstring(info[4].As<Napi::String>()));
+  const bool inheritCursor = info[5].As<Napi::Boolean>().Value();
+  const bool useConptyDll = info[6].As<Napi::Boolean>().Value();
 
   // use environment 'Path' variable to determine location of
   // the relative path that we have recieved (e.g cmd.exe)
@@ -195,88 +281,50 @@ static NAN_METHOD(PtyStartProcess) {
   }
 
   if (shellpath.empty() || !path_util::file_exists(shellpath)) {
-    std::wstringstream why;
-    why << "File not found: " << shellpath;
-    Nan::ThrowError(path_util::from_wstring(why.str().c_str()));
-    return;
+    std::string why;
+    why += "File not found: ";
+    why += path_util::wstring_to_string(shellpath);
+    throw Napi::Error::New(env, why);
   }
 
   HANDLE hIn, hOut;
   HPCON hpc;
-  HRESULT hr = CreateNamedPipesAndPseudoConsole({cols, rows}, inheritCursor ? 1/*PSEUDOCONSOLE_INHERIT_CURSOR*/ : 0, &hIn, &hOut, &hpc, inName, outName, pipeName);
+  HRESULT hr = CreateNamedPipesAndPseudoConsole(info, {cols, rows}, inheritCursor ? 1/*PSEUDOCONSOLE_INHERIT_CURSOR*/ : 0, &hIn, &hOut, &hpc, inName, outName, pipeName, useConptyDll);
 
   // Restore default handling of ctrl+c
   SetConsoleCtrlHandler(NULL, FALSE);
 
   // Set return values
-  marshal = Nan::New<v8::Object>();
+  marshal = Napi::Object::New(env);
 
   if (SUCCEEDED(hr)) {
     // We were able to instantiate a conpty
     const int ptyId = InterlockedIncrement(&ptyCounter);
-    Nan::Set(marshal, Nan::New<v8::String>("pty").ToLocalChecked(), Nan::New<v8::Number>(ptyId));
-    ptyHandles.insert(ptyHandles.end(), new pty_baton(ptyId, hIn, hOut, hpc));
+    marshal.Set("pty", Napi::Number::New(env, ptyId));
+    ptyHandles.emplace_back(
+        std::make_unique<pty_baton>(ptyId, hIn, hOut, hpc));
   } else {
-    Nan::ThrowError("Cannot launch conpty");
-    return;
+    throw Napi::Error::New(env, "Cannot launch conpty");
   }
 
-  std::string inNameStr(path_util::from_wstring(inName.c_str()));
+  std::string inNameStr = path_util::wstring_to_string(inName);
   if (inNameStr.empty()) {
-    Nan::ThrowError("Failed to initialize conpty conin");
-    return;
+    throw Napi::Error::New(env, "Failed to initialize conpty conin");
   }
-  std::string outNameStr(path_util::from_wstring(outName.c_str()));
+  std::string outNameStr = path_util::wstring_to_string(outName);
   if (outNameStr.empty()) {
-    Nan::ThrowError("Failed to initialize conpty conout");
-    return;
+    throw Napi::Error::New(env, "Failed to initialize conpty conout");
   }
 
-  Nan::Set(marshal, Nan::New<v8::String>("fd").ToLocalChecked(), Nan::New<v8::Number>(-1));
-  Nan::Set(marshal, Nan::New<v8::String>("conin").ToLocalChecked(), Nan::New<v8::String>(inNameStr).ToLocalChecked());
-  Nan::Set(marshal, Nan::New<v8::String>("conout").ToLocalChecked(), Nan::New<v8::String>(outNameStr).ToLocalChecked());
-  info.GetReturnValue().Set(marshal);
+  marshal.Set("fd", Napi::Number::New(env, -1));
+  marshal.Set("conin", Napi::String::New(env, inNameStr));
+  marshal.Set("conout", Napi::String::New(env, outNameStr));
+  return marshal;
 }
 
-VOID CALLBACK OnProcessExitWinEvent(
-    _In_ PVOID context,
-    _In_ BOOLEAN TimerOrWaitFired) {
-  pty_baton *baton = static_cast<pty_baton*>(context);
-
-  // Fire OnProcessExit
-  uv_async_send(&baton->async);
-}
-
-static void OnProcessExit(uv_async_t *async) {
-  Nan::HandleScope scope;
-  pty_baton *baton = static_cast<pty_baton*>(async->data);
-
-  UnregisterWait(baton->hWait);
-
-  // Get exit code
-  DWORD exitCode = 0;
-  GetExitCodeProcess(baton->hShell, &exitCode);
-
-  // Clean up handles
-  // Calling DisconnectNamedPipes here or in PtyKill results in a crash,
-  // ref https://github.com/microsoft/node-pty/issues/512,
-  // so we only call CloseHandle for now.
-  CloseHandle(baton->hIn);
-  CloseHandle(baton->hOut);
-
-  // Call function
-  v8::Local<v8::Value> args[1] = {
-    Nan::New<v8::Number>(exitCode)
-  };
-
-  Nan::AsyncResource asyncResource("node-pty.callback");
-  baton->cb.Call(1, args, &asyncResource);
-  // Clean up
-  baton->cb.Reset();
-}
-
-static NAN_METHOD(PtyConnect) {
-  Nan::HandleScope scope;
+static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
 
   // If we're working with conpty's we need to call ConnectNamedPipe here AFTER
   //    the Socket has attempted to connect to the other end, then actually
@@ -285,27 +333,27 @@ static NAN_METHOD(PtyConnect) {
   std::stringstream errorText;
   BOOL fSuccess = FALSE;
 
-  if (info.Length() != 5 ||
-      !info[0]->IsNumber() ||
-      !info[1]->IsString() ||
-      !info[2]->IsString() ||
-      !info[3]->IsArray() ||
-      !info[4]->IsFunction()) {
-    Nan::ThrowError("Usage: pty.connect(id, cmdline, cwd, env, exitCallback)");
-    return;
+  if (info.Length() != 6 ||
+      !info[0].IsNumber() ||
+      !info[1].IsString() ||
+      !info[2].IsString() ||
+      !info[3].IsArray() ||
+      !info[4].IsBoolean() ||
+      !info[5].IsFunction()) {
+    throw Napi::Error::New(env, "Usage: pty.connect(id, cmdline, cwd, env, useConptyDll, exitCallback)");
   }
 
-  const int id = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
-  const std::wstring cmdline(path_util::to_wstring(Nan::Utf8String(info[1])));
-  const std::wstring cwd(path_util::to_wstring(Nan::Utf8String(info[2])));
-  const v8::Local<v8::Array> envValues = info[3].As<v8::Array>();
-  const v8::Local<v8::Function> exitCallback = v8::Local<v8::Function>::Cast(info[4]);
+  const int id = info[0].As<Napi::Number>().Int32Value();
+  const std::wstring cmdline(path_util::to_wstring(info[1].As<Napi::String>()));
+  const std::wstring cwd(path_util::to_wstring(info[2].As<Napi::String>()));
+  const Napi::Array envValues = info[3].As<Napi::Array>();
+  const bool useConptyDll = info[4].As<Napi::Boolean>().Value();
+  Napi::Function exitCallback = info[5].As<Napi::Function>();
 
   // Fetch pty handle from ID and start process
   pty_baton* handle = get_pty_baton(id);
   if (!handle) {
-    Nan::ThrowError("Invalid pty handle");
-    return;
+    throw Napi::Error::New(env, "Invalid pty handle");
   }
 
   // Prepare command line
@@ -317,17 +365,17 @@ static NAN_METHOD(PtyConnect) {
   hr = StringCchCopyW(mutableCwd.get(), cwd.length() + 1, cwd.c_str());
 
   // Prepare environment
-  std::wstring env;
+  std::wstring envStr;
   if (!envValues.IsEmpty()) {
-    std::wstringstream envBlock;
-    for(uint32_t i = 0; i < envValues->Length(); i++) {
-      std::wstring envValue(path_util::to_wstring(Nan::Utf8String(Nan::Get(envValues, i).ToLocalChecked())));
-      envBlock << envValue << L'\0';
+    std::wstring envBlock;
+    for(uint32_t i = 0; i < envValues.Length(); i++) {
+      envBlock += path_util::to_wstring(envValues.Get(i).As<Napi::String>());
+      envBlock += L'\0';
     }
-    envBlock << L'\0';
-    env = envBlock.str();
+    envBlock += L'\0';
+    envStr = std::move(envBlock);
   }
-  auto envV = vectorFromString(env);
+  std::vector<wchar_t> envV(envStr.cbegin(), envStr.cend());
   LPWSTR envArg = envV.empty() ? nullptr : envV.data();
 
   ConnectNamedPipe(handle->hIn, nullptr);
@@ -348,7 +396,7 @@ static NAN_METHOD(PtyConnect) {
 
   fSuccess = InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
   if (!fSuccess) {
-    return throwNanError(&info, "InitializeProcThreadAttributeList failed", true);
+    throw errorWithCode(info, "InitializeProcThreadAttributeList failed");
   }
   fSuccess = UpdateProcThreadAttribute(siEx.lpAttributeList,
                                        0,
@@ -358,7 +406,7 @@ static NAN_METHOD(PtyConnect) {
                                        NULL,
                                        NULL);
   if (!fSuccess) {
-    return throwNanError(&info, "UpdateProcThreadAttribute failed", true);
+    throw errorWithCode(info, "UpdateProcThreadAttribute failed");
   }
 
   PROCESS_INFORMATION piClient{};
@@ -375,49 +423,65 @@ static NAN_METHOD(PtyConnect) {
       &piClient                     // lpProcessInformation
   );
   if (!fSuccess) {
-    return throwNanError(&info, "Cannot create process", true);
+    throw errorWithCode(info, "Cannot create process");
+  }
+
+  HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
+  bool fLoadedDll = hLibrary != nullptr;
+  if (fLoadedDll)
+  {
+    PFNRELEASEPSEUDOCONSOLE const pfnReleasePseudoConsole = (PFNRELEASEPSEUDOCONSOLE)GetProcAddress(
+      (HMODULE)hLibrary, "ConptyReleasePseudoConsole");
+    if (pfnReleasePseudoConsole)
+    {
+      pfnReleasePseudoConsole(handle->hpc);
+    }
   }
 
   // Update handle
   handle->hShell = piClient.hProcess;
-  handle->cb.Reset(exitCallback);
-  handle->async.data = handle;
 
-  // Setup OnProcessExit callback
-  uv_async_init(uv_default_loop(), &handle->async, OnProcessExit);
+  // Close the thread handle to avoid resource leak
+  CloseHandle(piClient.hThread);
+  // Close the input read and output write handle of the pseudoconsole
+  CloseHandle(handle->hIn);
+  CloseHandle(handle->hOut);
 
-  // Setup Windows wait for process exit event
-  RegisterWaitForSingleObject(&handle->hWait, piClient.hProcess, OnProcessExitWinEvent, (PVOID)handle, INFINITE, WT_EXECUTEONLYONCE);
+  SetupExitCallback(env, exitCallback, handle);
 
   // Return
-  v8::Local<v8::Object> marshal = Nan::New<v8::Object>();
-  Nan::Set(marshal, Nan::New<v8::String>("pid").ToLocalChecked(), Nan::New<v8::Number>(piClient.dwProcessId));
-  info.GetReturnValue().Set(marshal);
+  auto marshal = Napi::Object::New(env);
+  marshal.Set("pid", Napi::Number::New(env, piClient.dwProcessId));
+  return marshal;
 }
 
-static NAN_METHOD(PtyResize) {
-  Nan::HandleScope scope;
+static Napi::Value PtyResize(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
 
-  if (info.Length() != 3 ||
-      !info[0]->IsNumber() ||
-      !info[1]->IsNumber() ||
-      !info[2]->IsNumber()) {
-    Nan::ThrowError("Usage: pty.resize(id, cols, rows)");
-    return;
+  if (info.Length() != 4 ||
+      !info[0].IsNumber() ||
+      !info[1].IsNumber() ||
+      !info[2].IsNumber() ||
+      !info[3].IsBoolean()) {
+    throw Napi::Error::New(env, "Usage: pty.resize(id, cols, rows, useConptyDll)");
   }
 
-  int id = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
-  SHORT cols = static_cast<SHORT>(info[1]->Uint32Value(Nan::GetCurrentContext()).FromJust());
-  SHORT rows = static_cast<SHORT>(info[2]->Uint32Value(Nan::GetCurrentContext()).FromJust());
+  int id = info[0].As<Napi::Number>().Int32Value();
+  SHORT cols = static_cast<SHORT>(info[1].As<Napi::Number>().Uint32Value());
+  SHORT rows = static_cast<SHORT>(info[2].As<Napi::Number>().Uint32Value());
+  const bool useConptyDll = info[3].As<Napi::Boolean>().Value();
 
   const pty_baton* handle = get_pty_baton(id);
 
   if (handle != nullptr) {
-    HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
+    HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
     {
-      PFNRESIZEPSEUDOCONSOLE const pfnResizePseudoConsole = (PFNRESIZEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ResizePseudoConsole");
+      PFNRESIZEPSEUDOCONSOLE const pfnResizePseudoConsole = (PFNRESIZEPSEUDOCONSOLE)GetProcAddress(
+        (HMODULE)hLibrary,
+        useConptyDll ? "ConptyResizePseudoConsole" : "ResizePseudoConsole");
       if (pfnResizePseudoConsole)
       {
         COORD size = {cols, rows};
@@ -426,28 +490,37 @@ static NAN_METHOD(PtyResize) {
     }
   }
 
-  return info.GetReturnValue().SetUndefined();
+  return env.Undefined();
 }
 
-static NAN_METHOD(PtyClear) {
-  Nan::HandleScope scope;
+static Napi::Value PtyClear(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
 
-  if (info.Length() != 1 ||
-      !info[0]->IsNumber()) {
-    Nan::ThrowError("Usage: pty.clear(id)");
-    return;
+  if (info.Length() != 2 ||
+      !info[0].IsNumber() ||
+      !info[1].IsBoolean()) {
+    throw Napi::Error::New(env, "Usage: pty.clear(id, useConptyDll)");
   }
 
-  int id = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
+  int id = info[0].As<Napi::Number>().Int32Value();
+  const bool useConptyDll = info[1].As<Napi::Boolean>().Value();
+
+  // This API is only supported for conpty.dll as it was introduced in a later version of Windows.
+  // We could hook it up to point at >= a version of Windows only, but the future is conpty.dll
+  // anyway.
+  if (!useConptyDll) {
+    return env.Undefined();
+  }
 
   const pty_baton* handle = get_pty_baton(id);
 
   if (handle != nullptr) {
-    HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
+    HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
     {
-      PFNCLEARPSEUDOCONSOLE const pfnClearPseudoConsole = (PFNCLEARPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ClearPseudoConsole");
+      PFNCLEARPSEUDOCONSOLE const pfnClearPseudoConsole = (PFNCLEARPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ConptyClearPseudoConsole");
       if (pfnClearPseudoConsole)
       {
         pfnClearPseudoConsole(handle->hpc);
@@ -455,51 +528,54 @@ static NAN_METHOD(PtyClear) {
     }
   }
 
-  return info.GetReturnValue().SetUndefined();
+  return env.Undefined();
 }
 
-static NAN_METHOD(PtyKill) {
-  Nan::HandleScope scope;
+static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
 
-  if (info.Length() != 1 ||
-      !info[0]->IsNumber()) {
-    Nan::ThrowError("Usage: pty.kill(id)");
-    return;
+  if (info.Length() != 2 ||
+      !info[0].IsNumber() ||
+      !info[1].IsBoolean()) {
+    throw Napi::Error::New(env, "Usage: pty.kill(id, useConptyDll)");
   }
 
-  int id = info[0]->Int32Value(Nan::GetCurrentContext()).FromJust();
+  int id = info[0].As<Napi::Number>().Int32Value();
+  const bool useConptyDll = info[1].As<Napi::Boolean>().Value();
 
   const pty_baton* handle = get_pty_baton(id);
 
   if (handle != nullptr) {
-    HANDLE hLibrary = LoadLibraryExW(L"kernel32.dll", 0, 0);
+    HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
     {
-      PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress((HMODULE)hLibrary, "ClosePseudoConsole");
+      PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress(
+        (HMODULE)hLibrary,
+        useConptyDll ? "ConptyClosePseudoConsole" : "ClosePseudoConsole");
       if (pfnClosePseudoConsole)
       {
         pfnClosePseudoConsole(handle->hpc);
       }
     }
-
-    CloseHandle(handle->hShell);
+    TerminateProcess(handle->hShell, 1);
   }
 
-  return info.GetReturnValue().SetUndefined();
+  return env.Undefined();
 }
 
 /**
 * Init
 */
 
-extern "C" void init(v8::Local<v8::Object> target) {
-  Nan::HandleScope scope;
-  Nan::SetMethod(target, "startProcess", PtyStartProcess);
-  Nan::SetMethod(target, "connect", PtyConnect);
-  Nan::SetMethod(target, "resize", PtyResize);
-  Nan::SetMethod(target, "clear", PtyClear);
-  Nan::SetMethod(target, "kill", PtyKill);
+Napi::Object init(Napi::Env env, Napi::Object exports) {
+  exports.Set("startProcess", Napi::Function::New(env, PtyStartProcess));
+  exports.Set("connect", Napi::Function::New(env, PtyConnect));
+  exports.Set("resize", Napi::Function::New(env, PtyResize));
+  exports.Set("clear", Napi::Function::New(env, PtyClear));
+  exports.Set("kill", Napi::Function::New(env, PtyKill));
+  return exports;
 };
 
-NODE_MODULE(pty, init);
+NODE_API_MODULE(NODE_GYP_MODULE_NAME, init);

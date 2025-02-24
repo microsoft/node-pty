@@ -17,11 +17,14 @@
  * Includes
  */
 
-#include <nan.h>
+#define NODE_ADDON_API_DISABLE_DEPRECATED
+#include <napi.h>
+#include <assert.h>
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <thread>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -38,6 +41,7 @@
 #include <util.h>
 #elif defined(__FreeBSD__)
 #include <libutil.h>
+#include <termios.h>
 #endif
 
 /* Some platforms name VWERASE and VDISCARD differently */
@@ -99,27 +103,120 @@ int pthread_fchdir_np(int fd) API_AVAILABLE(macosx(10.12));
 })
 #endif
 
-/**
- * Structs
- */
-
-struct pty_baton {
-  Nan::Persistent<v8::Function> cb;
-  int exit_code;
-  int signal_code;
-  pid_t pid;
-  uv_async_t async;
-  uv_thread_t tid;
+struct ExitEvent {
+  int exit_code = 0, signal_code = 0;
 };
+
+void SetupExitCallback(Napi::Env env, Napi::Function cb, pid_t pid) {
+  std::thread *th = new std::thread;
+  // Don't use Napi::AsyncWorker which is limited by UV_THREADPOOL_SIZE.
+  auto tsfn = Napi::ThreadSafeFunction::New(
+      env,
+      cb,                           // JavaScript function called asynchronously
+      "SetupExitCallback_resource", // Name
+      0,                            // Unlimited queue
+      1,                            // Only one thread will use this initially
+      [th](Napi::Env) {   // Finalizer used to clean threads up
+        th->join();
+        delete th;
+      });
+  *th = std::thread([tsfn = std::move(tsfn), pid] {
+    auto callback = [](Napi::Env env, Napi::Function cb, ExitEvent *exit_event) {
+      cb.Call({Napi::Number::New(env, exit_event->exit_code),
+               Napi::Number::New(env, exit_event->signal_code)});
+      delete exit_event;
+    };
+
+    int ret;
+    int stat_loc;
+#if defined(__APPLE__)
+    // Based on
+    // https://source.chromium.org/chromium/chromium/src/+/main:base/process/kill_mac.cc;l=35-69?
+    int kq = HANDLE_EINTR(kqueue());
+    struct kevent change = {0};
+    EV_SET(&change, pid, EVFILT_PROC, EV_ADD, NOTE_EXIT, 0, NULL);
+    ret = HANDLE_EINTR(kevent(kq, &change, 1, NULL, 0, NULL));
+    if (ret == -1) {
+      if (errno == ESRCH) {
+        // At this point, one of the following has occurred:
+        // 1. The process has died but has not yet been reaped.
+        // 2. The process has died and has already been reaped.
+        // 3. The process is in the process of dying. It's no longer
+        //    kqueueable, but it may not be waitable yet either. Mark calls
+        //    this case the "zombie death race".
+        ret = HANDLE_EINTR(waitpid(pid, &stat_loc, WNOHANG));
+        if (ret == 0) {
+          ret = kill(pid, SIGKILL);
+          if (ret != -1) {
+            HANDLE_EINTR(waitpid(pid, &stat_loc, 0));
+          }
+        }
+      }
+    } else {
+      struct kevent event = {0};
+      ret = HANDLE_EINTR(kevent(kq, NULL, 0, &event, 1, NULL));
+      if (ret == 1) {
+        if ((event.fflags & NOTE_EXIT) &&
+            (event.ident == static_cast<uintptr_t>(pid))) {
+          // The process is dead or dying. This won't block for long, if at
+          // all.
+          HANDLE_EINTR(waitpid(pid, &stat_loc, 0));
+        }
+      }
+    }
+#else
+    while (true) {
+      errno = 0;
+      if ((ret = waitpid(pid, &stat_loc, 0)) != pid) {
+        if (ret == -1 && errno == EINTR) {
+          continue;
+        }
+        if (ret == -1 && errno == ECHILD) {
+          // XXX node v0.8.x seems to have this problem.
+          // waitpid is already handled elsewhere.
+          ;
+        } else {
+          assert(false);
+        }
+      }
+      break;
+    }
+#endif
+    ExitEvent *exit_event = new ExitEvent;
+    if (WIFEXITED(stat_loc)) {
+      exit_event->exit_code = WEXITSTATUS(stat_loc); // errno?
+    }
+    if (WIFSIGNALED(stat_loc)) {
+      exit_event->signal_code = WTERMSIG(stat_loc);
+    }
+    auto status = tsfn.BlockingCall(exit_event, callback); // In main thread
+    switch (status) {
+      case napi_closing:
+        break;
+
+      case napi_queue_full:
+        Napi::Error::Fatal("SetupExitCallback", "Queue was full");
+
+      case napi_ok:
+        if (tsfn.Release() != napi_ok) {
+          Napi::Error::Fatal("SetupExitCallback", "ThreadSafeFunction.Release() failed");
+        }
+        break;
+
+      default:
+        Napi::Error::Fatal("SetupExitCallback", "ThreadSafeFunction.BlockingCall() failed");
+    }
+  });
+}
 
 /**
  * Methods
  */
 
-NAN_METHOD(PtyFork);
-NAN_METHOD(PtyOpen);
-NAN_METHOD(PtyResize);
-NAN_METHOD(PtyGetProc);
+Napi::Value PtyFork(const Napi::CallbackInfo& info);
+Napi::Value PtyOpen(const Napi::CallbackInfo& info);
+Napi::Value PtyResize(const Napi::CallbackInfo& info);
+Napi::Value PtyGetProc(const Napi::CallbackInfo& info);
 
 /**
  * Functions
@@ -136,15 +233,6 @@ static char *
 pty_getproc(int, char *);
 #endif
 
-static void
-pty_waitpid(void *);
-
-static void
-pty_after_waitpid(uv_async_t *);
-
-static void
-pty_after_close(uv_handle_t *);
-
 #if defined(__APPLE__) || defined(__OpenBSD__)
 static void
 pty_posix_spawn(char** argv, char** env,
@@ -155,63 +243,76 @@ pty_posix_spawn(char** argv, char** env,
                 int* err);
 #endif
 
-NAN_METHOD(PtyFork) {
-  Nan::HandleScope scope;
+struct DelBuf {
+  int len;
+  DelBuf(int len) : len(len) {}
+  void operator()(char **p) {
+    if (p == nullptr)
+      return;
+    for (int i = 0; i < len; i++)
+      free(p[i]);
+    delete[] p;
+  }
+};
+
+Napi::Value PtyFork(const Napi::CallbackInfo& info) {
+  Napi::Env napiEnv(info.Env());
+  Napi::HandleScope scope(napiEnv);
 
   if (info.Length() != 12 ||
-      !info[0]->IsString() ||
-      !info[1]->IsArray() ||
-      !info[2]->IsArray() ||
-      !info[3]->IsString() ||
-      !info[4]->IsNumber() ||
-      !info[5]->IsNumber() ||
-      !info[6]->IsNumber() ||
-      !info[7]->IsNumber() ||
-      !info[8]->IsBoolean() ||
-      !info[9]->IsString() ||
-      !info[10]->IsFunction() ||
-      !info[11]->IsString()) {
-    return Nan::ThrowError(
-        "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, helperPath, onexit, argv0)");
+      !info[0].IsString() ||
+      !info[1].IsArray() ||
+      !info[2].IsArray() ||
+      !info[3].IsString() ||
+      !info[4].IsNumber() ||
+      !info[5].IsNumber() ||
+      !info[6].IsNumber() ||
+      !info[7].IsNumber() ||
+      !info[8].IsBoolean() ||
+      !info[9].IsString() ||
+      !info[10].IsFunction() ||
+      !info[11].IsString()) {
+    throw Napi::Error::New(napiEnv, "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, helperPath, onexit, argv0)");
   }
 
   // file
-  Nan::Utf8String file(info[0]);
+  std::string file = info[0].As<Napi::String>();
 
   // args
-  v8::Local<v8::Array> argv_ = v8::Local<v8::Array>::Cast(info[1]);
+  Napi::Array argv_ = info[1].As<Napi::Array>();
 
   // env
-  v8::Local<v8::Array> env_ = v8::Local<v8::Array>::Cast(info[2]);
-  int envc = env_->Length();
-  char **env = new char*[envc+1];
+  Napi::Array env_ = info[2].As<Napi::Array>();
+  int envc = env_.Length();
+  std::unique_ptr<char *, DelBuf> env_unique_ptr(new char *[envc + 1], DelBuf(envc + 1));
+  char **env = env_unique_ptr.get();
   env[envc] = NULL;
   for (int i = 0; i < envc; i++) {
-    Nan::Utf8String pair(Nan::Get(env_, i).ToLocalChecked());
-    env[i] = strdup(*pair);
+    std::string pair = env_.Get(i).As<Napi::String>();
+    env[i] = strdup(pair.c_str());
   }
 
   // cwd
-  Nan::Utf8String cwd_(info[3]);
+  std::string cwd_ = info[3].As<Napi::String>();
 
   // size
   struct winsize winp;
-  winp.ws_col = info[4]->IntegerValue(Nan::GetCurrentContext()).FromJust();
-  winp.ws_row = info[5]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  winp.ws_col = info[4].As<Napi::Number>().Int32Value();
+  winp.ws_row = info[5].As<Napi::Number>().Int32Value();
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
 #if !defined(__APPLE__)
   // uid / gid
-  int uid = info[6]->IntegerValue(Nan::GetCurrentContext()).FromJust();
-  int gid = info[7]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  int uid = info[6].As<Napi::Number>().Int32Value();
+  int gid = info[7].As<Napi::Number>().Int32Value();
 #endif
 
   // termios
   struct termios t = termios();
   struct termios *term = &t;
   term->c_iflag = ICRNL | IXON | IXANY | IMAXBEL | BRKINT;
-  if (Nan::To<bool>(info[8]).FromJust()) {
+  if (info[8].As<Napi::Boolean>().Value()) {
 #if defined(IUTF8)
     term->c_iflag |= IUTF8;
 #endif
@@ -246,49 +347,48 @@ NAN_METHOD(PtyFork) {
   cfsetospeed(term, B38400);
 
   // helperPath
-  Nan::Utf8String helper_path(info[9]);
+  std::string helper_path = info[9].As<Napi::String>();
 
   // argv0
-  Nan::Utf8String argv0(info[11]);
+  std::string argv0 = info[11].As<Napi::String>();
 
   pid_t pid;
   int master;
 #if defined(__APPLE__)
-  int argc = argv_->Length();
+  int argc = argv_.Length();
   int argl = argc + 5;
-  char **argv = new char*[argl];
-  argv[0] = strdup(*helper_path);
-  argv[1] = strdup(*cwd_);
-  argv[2] = strdup(*file);
-  argv[3] = strdup(*argv0);
+  std::unique_ptr<char *, DelBuf> argv_unique_ptr(new char *[argl], DelBuf(argl));
+  char **argv = argv_unique_ptr.get();
+  argv[0] = strdup(helper_path.c_str());
+  argv[1] = strdup(cwd_.c_str());
+  argv[2] = strdup(file.c_str());
+  argv[3] = strdup(argv0.c_str());
   argv[argl - 1] = NULL;
   for (int i = 0; i < argc; i++) {
-    Nan::Utf8String arg(Nan::Get(argv_, i).ToLocalChecked());
-    argv[i + 4] = strdup(*arg);
+    std::string arg = argv_.Get(i).As<Napi::String>();
+    argv[i + 4] = strdup(arg.c_str());
   }
 
   int err = -1;
   pty_posix_spawn(argv, env, term, &winp, &master, &pid, &err);
   if (err != 0) {
-    Nan::ThrowError("posix_spawnp failed.");
-    goto done;
+    throw Napi::Error::New(napiEnv, "posix_spawnp failed.");
   }
   if (pty_nonblock(master) == -1) {
-    Nan::ThrowError("Could not set master fd to nonblocking.");
-    goto done;
+    throw Napi::Error::New(napiEnv, "Could not set master fd to nonblocking.");
   }
 #else
-  int argc = argv_->Length();
+  int argc = argv_.Length();
   int argl = argc + 2;
-  char **argv = new char*[argl];
-  argv[0] = strdup(*argv0);
+  std::unique_ptr<char *, DelBuf> argv_unique_ptr(new char *[argl], DelBuf(argl));
+  char** argv = argv_unique_ptr.get();
+  argv[0] = strdup(argv0.c_str());
   argv[argl - 1] = NULL;
   for (int i = 0; i < argc; i++) {
-    Nan::Utf8String arg(Nan::Get(argv_, i).ToLocalChecked());
-    argv[i + 1] = strdup(*arg);
+    std::string arg = argv_.Get(i).As<Napi::String>();
+    argv[i + 1] = strdup(arg.c_str());
   }
 
-  char* cwd = strdup(*cwd_);
   sigset_t newmask, oldmask;
   struct sigaction sig_action;
   // temporarily block all signals
@@ -308,14 +408,6 @@ NAN_METHOD(PtyFork) {
     for (int i = 0 ; i < NSIG ; i++) {    // NSIG is a macro for all signals + 1
       sigaction(i, &sig_action, NULL);
     }
-  } else {
-    for (int i = 0; i < argl; i++) free(argv[i]);
-    delete[] argv;
-
-    for (int i = 0; i < envc; i++) free(env[i]);
-    delete[] env;
-
-    free(cwd);
   }
 
   // reenable signals
@@ -323,11 +415,10 @@ NAN_METHOD(PtyFork) {
 
   switch (pid) {
     case -1:
-      Nan::ThrowError("forkpty(3) failed.");
-      goto done;
+      throw Napi::Error::New(napiEnv, "forkpty(3) failed.");
     case 0:
-      if (strlen(cwd)) {
-        if (chdir(cwd) == -1) {
+      if (strlen(cwd_.c_str())) {
+        if (chdir(cwd_.c_str()) == -1) {
           perror("chdir(2) failed.");
           _exit(1);
         }
@@ -347,7 +438,7 @@ NAN_METHOD(PtyFork) {
       {
         char **old = environ;
         environ = env;
-        char* file_ = strdup(*file);
+        char* file_ = strdup(file.c_str());
         execvp(file_, argv);
         environ = old;
         perror("execvp(3) failed.");
@@ -355,62 +446,36 @@ NAN_METHOD(PtyFork) {
       }
     default:
       if (pty_nonblock(master) == -1) {
-        Nan::ThrowError("Could not set master fd to nonblocking.");
-        goto done;
+        throw Napi::Error::New(napiEnv, "Could not set master fd to nonblocking.");
       }
   }
 #endif
 
-  {
-    v8::Local<v8::Object> obj = Nan::New<v8::Object>();
-    Nan::Set(obj,
-      Nan::New<v8::String>("fd").ToLocalChecked(),
-      Nan::New<v8::Number>(master));
-    Nan::Set(obj,
-      Nan::New<v8::String>("pid").ToLocalChecked(),
-      Nan::New<v8::Number>(pid));
-    Nan::Set(obj,
-      Nan::New<v8::String>("pty").ToLocalChecked(),
-      Nan::New<v8::String>(ptsname(master)).ToLocalChecked());
+  Napi::Object obj = Napi::Object::New(napiEnv);  
+  obj.Set("fd", Napi::Number::New(napiEnv, master));  
+  obj.Set("pid", Napi::Number::New(napiEnv, pid));  
+  obj.Set("pty", Napi::String::New(napiEnv, ptsname(master)));  
 
-    pty_baton *baton = new pty_baton();
-    baton->exit_code = 0;
-    baton->signal_code = 0;
-    baton->cb.Reset(v8::Local<v8::Function>::Cast(info[10]));
-    baton->pid = pid;
-    baton->async.data = baton;
-
-    uv_async_init(uv_default_loop(), &baton->async, pty_after_waitpid);
-
-    uv_thread_create(&baton->tid, pty_waitpid, static_cast<void*>(baton));
-
-    return info.GetReturnValue().Set(obj);
-  }
-
-done:
-#if defined(__APPLE__)
-  for (int i = 0; i < argl; i++) free(argv[i]);
-  delete[] argv;
-
-  for (int i = 0; i < envc; i++) free(env[i]);
-  delete[] env;
-#endif
-  return info.GetReturnValue().SetUndefined();
+  // Set up process exit callback.
+  Napi::Function cb = info[10].As<Napi::Function>();
+  SetupExitCallback(napiEnv, cb, pid);
+  return obj;
 }
 
-NAN_METHOD(PtyOpen) {
-  Nan::HandleScope scope;
+Napi::Value PtyOpen(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
 
   if (info.Length() != 2 ||
-      !info[0]->IsNumber() ||
-      !info[1]->IsNumber()) {
-    return Nan::ThrowError("Usage: pty.open(cols, rows)");
+      !info[0].IsNumber() ||
+      !info[1].IsNumber()) {
+    throw Napi::Error::New(env, "Usage: pty.open(cols, rows)");
   }
 
   // size
   struct winsize winp;
-  winp.ws_col = info[0]->IntegerValue(Nan::GetCurrentContext()).FromJust();
-  winp.ws_row = info[1]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  winp.ws_col = info[0].As<Napi::Number>().Int32Value();
+  winp.ws_row = info[1].As<Napi::Number>().Int32Value();
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
@@ -419,98 +484,98 @@ NAN_METHOD(PtyOpen) {
   int ret = openpty(&master, &slave, nullptr, NULL, static_cast<winsize*>(&winp));
 
   if (ret == -1) {
-    return Nan::ThrowError("openpty(3) failed.");
+    throw Napi::Error::New(env, "openpty(3) failed.");
   }
 
   if (pty_nonblock(master) == -1) {
-    return Nan::ThrowError("Could not set master fd to nonblocking.");
+    throw Napi::Error::New(env, "Could not set master fd to nonblocking.");
   }
 
   if (pty_nonblock(slave) == -1) {
-    return Nan::ThrowError("Could not set slave fd to nonblocking.");
+    throw Napi::Error::New(env, "Could not set slave fd to nonblocking.");
   }
 
-  v8::Local<v8::Object> obj = Nan::New<v8::Object>();
-  Nan::Set(obj,
-    Nan::New<v8::String>("master").ToLocalChecked(),
-    Nan::New<v8::Number>(master));
-  Nan::Set(obj,
-    Nan::New<v8::String>("slave").ToLocalChecked(),
-    Nan::New<v8::Number>(slave));
-  Nan::Set(obj,
-    Nan::New<v8::String>("pty").ToLocalChecked(),
-    Nan::New<v8::String>(ptsname(master)).ToLocalChecked());
+  Napi::Object obj = Napi::Object::New(env);  
+  obj.Set("master", Napi::Number::New(env, master));  
+  obj.Set("slave", Napi::Number::New(env, slave));  
+  obj.Set("pty", Napi::String::New(env, ptsname(master)));  
 
-  return info.GetReturnValue().Set(obj);
+  return obj;
 }
 
-NAN_METHOD(PtyResize) {
-  Nan::HandleScope scope;
+Napi::Value PtyResize(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
 
   if (info.Length() != 3 ||
-      !info[0]->IsNumber() ||
-      !info[1]->IsNumber() ||
-      !info[2]->IsNumber()) {
-    return Nan::ThrowError("Usage: pty.resize(fd, cols, rows)");
+      !info[0].IsNumber() ||
+      !info[1].IsNumber() ||
+      !info[2].IsNumber()) {
+    throw Napi::Error::New(env, "Usage: pty.resize(fd, cols, rows)");
   }
 
-  int fd = info[0]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  int fd = info[0].As<Napi::Number>().Int32Value();
 
   struct winsize winp;
-  winp.ws_col = info[1]->IntegerValue(Nan::GetCurrentContext()).FromJust();
-  winp.ws_row = info[2]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  winp.ws_col = info[1].As<Napi::Number>().Int32Value();
+  winp.ws_row = info[2].As<Napi::Number>().Int32Value();
   winp.ws_xpixel = 0;
   winp.ws_ypixel = 0;
 
   if (ioctl(fd, TIOCSWINSZ, &winp) == -1) {
     switch (errno) {
-      case EBADF: return Nan::ThrowError("ioctl(2) failed, EBADF");
-      case EFAULT: return Nan::ThrowError("ioctl(2) failed, EFAULT");
-      case EINVAL: return Nan::ThrowError("ioctl(2) failed, EINVAL");
-      case ENOTTY: return Nan::ThrowError("ioctl(2) failed, ENOTTY");
+      case EBADF:
+        throw Napi::Error::New(env, "ioctl(2) failed, EBADF");
+      case EFAULT:
+        throw Napi::Error::New(env, "ioctl(2) failed, EFAULT");
+      case EINVAL:
+        throw Napi::Error::New(env, "ioctl(2) failed, EINVAL");
+      case ENOTTY:
+        throw Napi::Error::New(env, "ioctl(2) failed, ENOTTY");
     }
-    return Nan::ThrowError("ioctl(2) failed");
+    throw Napi::Error::New(env, "ioctl(2) failed");
   }
 
-  return info.GetReturnValue().SetUndefined();
+  return env.Undefined();
 }
 
 /**
  * Foreground Process Name
  */
-NAN_METHOD(PtyGetProc) {
-  Nan::HandleScope scope;
+Napi::Value PtyGetProc(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
 
 #if defined(__APPLE__)
   if (info.Length() != 1 ||
-      !info[0]->IsNumber()) {
-    return Nan::ThrowError("Usage: pty.process(pid)");
+      !info[0].IsNumber()) {
+    throw Napi::Error::New(env, "Usage: pty.process(pid)");
   }
 
-  int fd = info[0]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  int fd = info[0].As<Napi::Number>().Int32Value();
   char *name = pty_getproc(fd);
 #else
   if (info.Length() != 2 ||
-      !info[0]->IsNumber() ||
-      !info[1]->IsString()) {
-    return Nan::ThrowError("Usage: pty.process(fd, tty)");
+      !info[0].IsNumber() ||
+      !info[1].IsString()) {
+    throw Napi::Error::New(env, "Usage: pty.process(fd, tty)");
   }
 
-  int fd = info[0]->IntegerValue(Nan::GetCurrentContext()).FromJust();
+  int fd = info[0].As<Napi::Number>().Int32Value();
 
-  Nan::Utf8String tty_(info[1]);
-  char *tty = strdup(*tty_);
+  std::string tty_ = info[1].As<Napi::String>();
+  char *tty = strdup(tty_.c_str());
   char *name = pty_getproc(fd, tty);
   free(tty);
 #endif
 
   if (name == NULL) {
-    return info.GetReturnValue().SetUndefined();
+    return env.Undefined();
   }
 
-  v8::Local<v8::String> name_ = Nan::New<v8::String>(name).ToLocalChecked();
+  Napi::String name_ = Napi::String::New(env, name);
   free(name);
-  return info.GetReturnValue().Set(name_);
+  return name_;
 }
 
 /**
@@ -522,114 +587,6 @@ pty_nonblock(int fd) {
   int flags = fcntl(fd, F_GETFL, 0);
   if (flags == -1) return -1;
   return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-}
-
-/**
- * pty_waitpid
- * Wait for SIGCHLD to read exit status.
- */
-
-static void
-pty_waitpid(void *data) {
-  int ret;
-  int stat_loc;
-  pty_baton *baton = static_cast<pty_baton*>(data);
-  errno = 0;
-#if defined(__APPLE__)
-  // Based on
-  // https://source.chromium.org/chromium/chromium/src/+/main:base/process/kill_mac.cc;l=35-69?
-  int kq = HANDLE_EINTR(kqueue());
-  struct kevent change = {0};
-  EV_SET(&change, baton->pid, EVFILT_PROC, EV_ADD, NOTE_EXIT, 0, NULL);
-  ret = HANDLE_EINTR(kevent(kq, &change, 1, NULL, 0, NULL));
-  if (ret == -1) {
-    if (errno == ESRCH) {
-      // At this point, one of the following has occurred:
-      // 1. The process has died but has not yet been reaped.
-      // 2. The process has died and has already been reaped.
-      // 3. The process is in the process of dying. It's no longer
-      //    kqueueable, but it may not be waitable yet either. Mark calls
-      //    this case the "zombie death race".
-      ret = HANDLE_EINTR(waitpid(baton->pid, &stat_loc, WNOHANG));
-      if (ret == 0) {
-        ret = kill(baton->pid, SIGKILL);
-        if (ret != -1) {
-          HANDLE_EINTR(waitpid(baton->pid, &stat_loc, 0));
-        }
-      }
-    }
-  } else {
-    struct kevent event = {0};
-    ret = HANDLE_EINTR(kevent(kq, NULL, 0, &event, 1, NULL));
-    if (ret == 1) {
-      if ((event.fflags & NOTE_EXIT) &&
-          (event.ident == static_cast<uintptr_t>(baton->pid))) {
-        // The process is dead or dying. This won't block for long, if at
-        // all.
-        HANDLE_EINTR(waitpid(baton->pid, &stat_loc, 0));
-      }
-    }
-  }
-#else
-  if ((ret = waitpid(baton->pid, &stat_loc, 0)) != baton->pid) {
-    if (ret == -1 && errno == EINTR) {
-      return pty_waitpid(baton);
-    }
-    if (ret == -1 && errno == ECHILD) {
-      // XXX node v0.8.x seems to have this problem.
-      // waitpid is already handled elsewhere.
-      ;
-    } else {
-      assert(false);
-    }
-  }
-#endif
-
-  if (WIFEXITED(stat_loc)) {
-    baton->exit_code = WEXITSTATUS(stat_loc); // errno?
-  }
-
-  if (WIFSIGNALED(stat_loc)) {
-    baton->signal_code = WTERMSIG(stat_loc);
-  }
-
-  uv_async_send(&baton->async);
-}
-
-/**
- * pty_after_waitpid
- * Callback after exit status has been read.
- */
-
-static void
-pty_after_waitpid(uv_async_t *async) {
-  Nan::HandleScope scope;
-  pty_baton *baton = static_cast<pty_baton*>(async->data);
-
-  v8::Local<v8::Value> argv[] = {
-    Nan::New<v8::Integer>(baton->exit_code),
-    Nan::New<v8::Integer>(baton->signal_code),
-  };
-
-  v8::Local<v8::Function> cb = Nan::New<v8::Function>(baton->cb);
-  baton->cb.Reset();
-  memset(&baton->cb, -1, sizeof(baton->cb));
-  Nan::AsyncResource resource("pty_after_waitpid");
-  resource.runInAsyncScope(Nan::GetCurrentContext()->Global(), cb, 2, argv);
-
-  uv_close((uv_handle_t *)async, pty_after_close);
-}
-
-/**
- * pty_after_close
- * uv_close() callback - free handle data
- */
-
-static void
-pty_after_close(uv_handle_t *handle) {
-  uv_async_t *async = (uv_async_t *)handle;
-  pty_baton *baton = static_cast<pty_baton*>(async->data);
-  delete baton;
 }
 
 /**
@@ -834,12 +791,12 @@ done:
  * Init
  */
 
-NAN_MODULE_INIT(init) {
-  Nan::HandleScope scope;
-  Nan::Export(target, "fork", PtyFork);
-  Nan::Export(target, "open", PtyOpen);
-  Nan::Export(target, "resize", PtyResize);
-  Nan::Export(target, "process", PtyGetProc);
+Napi::Object init(Napi::Env env, Napi::Object exports) {
+  exports.Set("fork",    Napi::Function::New(env, PtyFork));
+  exports.Set("open",    Napi::Function::New(env, PtyOpen));
+  exports.Set("resize",  Napi::Function::New(env, PtyResize));
+  exports.Set("process", Napi::Function::New(env, PtyGetProc));
+  return exports;
 }
 
-NODE_MODULE(pty, init)
+NODE_API_MODULE(NODE_GYP_MODULE_NAME, init)

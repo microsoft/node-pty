@@ -272,10 +272,9 @@ if (process.platform !== 'win32') {
           ptyProcess.on('data', function (data) {
             if (ptyProcess.process === 'Python') {
               console.log('title', ptyProcess.process);
+              console.log('ready', ptyProcess.pid);
             }
           });
-          setTimeout(() => null, 500);
-          console.log('ready', ptyProcess.pid);
           `;
           const p = cp.spawn('node', ['-e', data]);
           let sub = '';
@@ -283,12 +282,10 @@ if (process.platform !== 'win32') {
           p.stdout.on('data', (data) => {
             if (!data.toString().indexOf('title')) {
               sub = data.toString().split(' ')[1].slice(0, -1);
-              setTimeout(() => {
-                process.kill(parseInt(pid), 'SIGINT');
-                p.kill('SIGINT');
-              }, 200);
             } else if (!data.toString().indexOf('ready')) {
               pid = data.toString().split(' ')[1].slice(0, -1);
+              process.kill(parseInt(pid), 'SIGINT');
+              p.kill('SIGINT');
             }
           });
           p.on('exit', () => {

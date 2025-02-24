@@ -7,29 +7,18 @@ const fs = require('fs');
 const path = require('path');
 const packageJson = require('../package.json');
 
-// Setup auth
-fs.writeFileSync(`${process.env['HOME']}/.npmrc`, `//registry.npmjs.org/:_authToken=${process.env['NPM_AUTH_TOKEN']}`);
-
 // Determine if this is a stable or beta release
 const publishedVersions = getPublishedVersions();
-const isStableRelease = publishedVersions.indexOf(packageJson.version) === -1;
+const isStableRelease = !publishedVersions.includes(packageJson.version);
 
 // Get the next version
-let nextVersion = isStableRelease ? packageJson.version : getNextBetaVersion();
-console.log(`Publishing version: ${nextVersion}`);
+const nextVersion = isStableRelease ? packageJson.version : getNextBetaVersion();
+console.log(`Setting version to ${nextVersion}`);
 
 // Set the version in package.json
 const packageJsonFile = path.resolve(__dirname, '..', 'package.json');
 packageJson.version = nextVersion;
 fs.writeFileSync(packageJsonFile, JSON.stringify(packageJson, null, 2));
-
-// Publish
-const args = ['publish'];
-if (!isStableRelease) {
-  args.push('--tag', 'beta');
-}
-const result = cp.spawn('npm', args, { stdio: 'inherit' });
-result.on('exit', code => process.exit(code));
 
 function getNextBetaVersion() {
   if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.exec(packageJson.version)) {
@@ -53,7 +42,10 @@ function getNextBetaVersion() {
 }
 
 function getPublishedVersions(version, tag) {
-  const versionsProcess = cp.spawnSync('npm', ['view', packageJson.name, 'versions', '--json']);
+  const isWin32 = process.platform === 'win32';
+  const versionsProcess = isWin32 ?
+    cp.spawnSync('npm.cmd', ['view', packageJson.name, 'versions', '--json'], { shell: true }) :
+    cp.spawnSync('npm', ['view', packageJson.name, 'versions', '--json']);
   const versionsJson = JSON.parse(versionsProcess.stdout);
   if (tag) {
     return versionsJson.filter(v => !v.search(new RegExp(`${version}-${tag}[0-9]+`)));
