@@ -1,15 +1,22 @@
-name: "Run prebuild's and Create GitHub and NPM release"
-run-name: Package against ${{ github.ref_name }} # 每次运行的时候显示的名字
+name: "构建与发布"
+run-name: 任务参数:${{ inputs.job }} ;分支:${{ github.ref_name }} # 每次运行的时候显示的名字
 
-# 本yml参考于 https://github.com/WiseLibs/better-sqlite3/blob/master/.github/workflows/build.yml
 on:
   workflow_dispatch: # 手动触发
     inputs: # 定义触发的时候可以输入的参数
       job: # 参数名称 通过 ${{ github.event.inputs.job }} 访问值 下面是参数的要求描述
-        description: "任务类型"
+        description: "任务类型 all,push-npm,预构建:prebuild(linux和win,mac x64),alpine,alpine-arm,linux-arm"
         required: true
         default: prebuild
         type: string
+      ubuntu_version:
+        description: 'ubuntu版本'
+        required: false
+        default: 'ubuntu-latest' #  ${{ inputs.ubuntu_version || 'ubuntu-20.04' }} 也可以
+      win_version:
+        description: 'windows版本'
+        required: false
+        default: 'windows-latest'
 
 env: # 用来定义环境变量 可用于工作流中所有作业的步骤的变量的 map
   # See https://github.com/nodejs/release#release-schedule
@@ -66,9 +73,9 @@ jobs:
           node -e "require('./lib/index.js')(':memory:').loadExtension('mod_spatialite').exec('SELECT InitSpatialMetaData();')"
 
   publish-npm:
-    if: ${{ github.event.inputs.job == 'push-npm' || github.event.inputs.job == 'run-all'}}
+    if: ${{ github.event.inputs.job == 'push-npm' || github.event.inputs.job == 'all'}}
     name: Publishing to NPM
-    runs-on: ubuntu-20.04
+    runs-on: ${{inputs.ubuntu_version}}
       #needs: # 等待别的 job 任务完成
       #- prebuild
       #- prebuild-alpine
@@ -88,15 +95,15 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   prebuild: # 执行node的 预构建
-    if: ${{ github.event.inputs.job == 'prebuild' || github.event.inputs.job == 'run-all' }}
+    if: ${{ github.event.inputs.job == 'prebuild' || github.event.inputs.job == 'all' }}
     strategy:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-20.04
+          - ${{inputs.ubuntu_version}}
           #- macos-13
           #- macos-14
-          - windows-2019
+          - ${{inputs.win_version}}
     name: Prebuild on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     # needs: test
@@ -129,11 +136,11 @@ jobs:
           ${{ env.ELECTRON_BUILD_CMD }} ('\.' -join ('node', 'exe', 'dll', 'pdb')) --arch ia32 -u ${{ secrets.GITHUB_TOKEN }}
 
   prebuild-alpine:
-    if: ${{ github.event.inputs.job == 'alpine' || github.event.inputs.job == 'run-all' }}
+    if: ${{ github.event.inputs.job == 'alpine' || github.event.inputs.job == 'all' }}
     strategy:
       fail-fast: false
     name: Prebuild on alpine
-    runs-on: ubuntu-latest
+    runs-on: ${{inputs.ubuntu_version}}
     container: node:18-alpine
     #needs: test
     steps:
@@ -144,7 +151,7 @@ jobs:
           ${{ env.NODE_BUILD_CMD }} '\.(node|exe|dll|pdb)' -u ${{ secrets.GITHUB_TOKEN }}
 
   prebuild-alpine-arm:
-    if: ${{ github.event.inputs.job == 'alpine-arm' || github.event.inputs.job == 'run-all' }}
+    if: ${{ github.event.inputs.job == 'alpine-arm' || github.event.inputs.job == 'all' }}
     strategy:
       fail-fast: false
       matrix:
@@ -152,7 +159,7 @@ jobs:
           - arm/v7
           - arm64
     name: Prebuild on alpine (${{ matrix.arch }})
-    runs-on: ubuntu-latest
+    runs-on: ${{inputs.ubuntu_version}}
     #needs: test
     steps:
       - uses: actions/checkout@v4
@@ -165,7 +172,7 @@ jobs:
           ${{ env.NODE_BUILD_CMD }} '\.(node|exe|dll|pdb)' -u ${{ secrets.GITHUB_TOKEN }}"
 
   prebuild-linux-arm:
-    if: ${{ github.event.inputs.job == 'linux-arm' || github.event.inputs.job == 'run-all' }}
+    if: ${{ github.event.inputs.job == 'linux-arm' || github.event.inputs.job == 'all' }}
     strategy:
       fail-fast: false
       matrix:
@@ -173,7 +180,7 @@ jobs:
           - arm/v7
           - arm64
     name: Prebuild on Linux (${{ matrix.arch }})
-    runs-on: ubuntu-latest
+    runs-on: ${{inputs.ubuntu_version}}
     #needs: test
     steps:
       - uses: actions/checkout@v4
