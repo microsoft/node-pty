@@ -559,7 +559,9 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
         pfnClosePseudoConsole(handle->hpc);
       }
     }
-    TerminateProcess(handle->hShell, 1);
+    if (useConptyDll) {
+      TerminateProcess(handle->hShell, 1);
+    }
   }
 
   return env.Undefined();
