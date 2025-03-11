@@ -118,7 +118,7 @@ export class WindowsPtyAgent {
     this._outSocket = new Socket();
     this._outSocket.setEncoding('utf8');
     // The conout socket must be ready out on another thread to avoid deadlocks
-    this._conoutSocketWorker = new ConoutConnection(term.conout);
+    this._conoutSocketWorker = new ConoutConnection(term.conout, this._useConptyDll);
     this._conoutSocketWorker.onReady(() => {
       this._conoutSocketWorker.connectSocket(this._outSocket);
     });
