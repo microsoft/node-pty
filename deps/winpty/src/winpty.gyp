@@ -24,6 +24,28 @@
             # run the script (re)generating the version header.
             '<!(cmd /c "cd shared && UpdateGenVersion.bat <(WINPTY_COMMIT_HASH)")',
         ],
+        'conditions': [
+            ['OS=="win"', {
+                'msvs_configuration_attributes': {
+                    'SpectreMitigation': 'Spectre'
+                },
+                'msvs_settings': {
+                    'VCCLCompilerTool': {
+                        'AdditionalOptions': [
+                            '/guard:cf',
+                            '/w34244',
+                            '/w34267',
+                            '/ZH:SHA_256'
+                        ]
+                    },
+                    'VCLinkerTool': {
+                        'AdditionalOptions': [
+                            '/guard:cf'
+                        ]
+                    }
+                },
+            }],
+        ],
     },
     'targets' : [
         {
