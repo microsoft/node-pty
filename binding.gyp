@@ -30,7 +30,7 @@
     ['OS=="win"', {
       'targets': [
         {
-          'target_name': 'conpty',
+          'target_name': 'conpty_backend',
           'sources' : [
             'src/win/conpty_backend.cc',
             'src/win/path_util.cc'
