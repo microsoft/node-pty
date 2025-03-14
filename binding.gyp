@@ -58,7 +58,7 @@
             'deps/winpty/src/winpty.gyp:winpty',
           ],
           'sources' : [
-            'src/win/winpty.cc',
+            'src/win/winpty_backend.cc',
             'src/win/path_util.cc'
           ],
           'libraries': [
