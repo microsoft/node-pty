@@ -32,7 +32,7 @@
         {
           'target_name': 'conpty',
           'sources' : [
-            'src/win/conpty.cc',
+            'src/win/conpty_backend.cc',
             'src/win/path_util.cc'
           ],
           'libraries': [
