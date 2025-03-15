@@ -32,7 +32,7 @@
         {
           'target_name': 'conpty_backend',
           'sources' : [
-            'src/win/conpty_backend.cc',
+            'src/win/conpty.cc',
             'src/win/path_util.cc'
           ],
           'libraries': [
@@ -58,7 +58,7 @@
             'deps/winpty/src/winpty.gyp:winpty',
           ],
           'sources' : [
-            'src/win/winpty_backend.cc',
+            'src/win/winpty.cc',
             'src/win/path_util.cc'
           ],
           'libraries': [
