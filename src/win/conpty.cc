@@ -153,8 +153,8 @@ bool createDataServerPipe(bool write,
       /*dwOpenMode=*/winOpenMode,
       /*dwPipeMode=*/PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
       /*nMaxInstances=*/1,
-      /*nOutBufferSize=*/0,
-      /*nInBufferSize=*/0,
+      /*nOutBufferSize=*/128 * 1024,
+      /*nInBufferSize=*/128 * 1024,
       /*nDefaultTimeOut=*/30000,
       &sa);
 
