@@ -143,7 +143,7 @@ bool createDataServerPipe(bool write,
 
   name = L"\\\\.\\pipe\\" + pipeName + L"-" + kind;
 
-  const DWORD winOpenMode =  PIPE_ACCESS_INBOUND | PIPE_ACCESS_OUTBOUND | FILE_FLAG_FIRST_PIPE_INSTANCE/*  | FILE_FLAG_OVERLAPPED */;
+  const DWORD winOpenMode =  PIPE_ACCESS_INBOUND | PIPE_ACCESS_OUTBOUND | FILE_FLAG_FIRST_PIPE_INSTANCE | FILE_FLAG_OVERLAPPED;
 
   SECURITY_ATTRIBUTES sa = {};
   sa.nLength = sizeof(sa);
