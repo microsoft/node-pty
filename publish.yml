@@ -1,9 +1,11 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 
-pr: none
 trigger:
   branches:
-    include: ["main"]
+    include:
+      - main
+
+pr: none
 
 resources:
   repositories:
@@ -21,10 +23,10 @@ parameters:
   - name: releaseQuality
     displayName: Quality
     type: string
-    default: beta
     values:
       - beta
       - stable
+    default: beta
 
 variables:
   - name: releaseQuality
