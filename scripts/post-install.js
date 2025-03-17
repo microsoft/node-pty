@@ -66,9 +66,9 @@ if (os.platform() !== 'win32') {
     const versionFolder = fs.readdirSync(CONPTY_DIR)[0];
     console.log(`  Found version ${versionFolder}`);
     const sourceFolder = path.join(CONPTY_DIR, versionFolder, `win10-${windowsArch}`);
-    const destFolder = path.join(RELEASE_DIR, 'conpty_backend');
+    const destFolder = path.join(RELEASE_DIR, 'conpty');
     fs.mkdirSync(destFolder, { recursive: true });
-    for (const file of ['conpty_backend.dll', 'OpenConsole.exe']) {
+    for (const file of ['conpty.dll', 'OpenConsole.exe']) {
       const sourceFile = path.join(sourceFolder, file);
       const destFile = path.join(destFolder, file);
       console.log(`  Copying ${sourceFile} -> ${destFile}`);
