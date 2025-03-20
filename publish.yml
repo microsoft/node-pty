@@ -62,6 +62,6 @@ extends:
           tag: beta
           publishRequiresApproval: false
 
-        apiScanExcludes: 'package/third_party/conpty/1.22.250204002/win10-arm64/*.*'
+        apiScanExcludes: 'package/third_party/conpty/1.22.250314001/win10-arm64/*.*'
         apiScanSoftwareName: 'vscode-node-pty'
         apiScanSoftwareVersion: '1'
