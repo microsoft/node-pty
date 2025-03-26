@@ -168,7 +168,7 @@ HANDLE LoadConptyDll(const Napi::CallbackInfo& info,
     return LoadLibraryExW(L"kernel32.dll", 0, 0);
   }
   wchar_t currentDir[MAX_PATH];
-  HMODULE hModule = GetModuleHandleA("conpty.node");
+  HMODULE hModule = GetModuleHandleA("conpty_backend.node");
   if (hModule == NULL) {
     throw errorWithCode(info, "Failed to get conpty.node module handle");
   }
