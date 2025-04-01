@@ -428,7 +428,7 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
 
   HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
   bool fLoadedDll = hLibrary != nullptr;
-  if (fLoadedDll)
+  if (useConptyDll && fLoadedDll)
   {
     PFNRELEASEPSEUDOCONSOLE const pfnReleasePseudoConsole = (PFNRELEASEPSEUDOCONSOLE)GetProcAddress(
       (HMODULE)hLibrary, "ConptyReleasePseudoConsole");
