@@ -135,7 +135,7 @@ export class WindowsPtyAgent {
     this._outSocket = new Socket();
     this._outSocket.setEncoding('utf8');
     // The conout socket must be ready out on another thread to avoid deadlocks
-    this._conoutSocketWorker = new ConoutConnection(term.conout);
+    this._conoutSocketWorker = new ConoutConnection(term.conout, this._useConptyDll);
     this._conoutSocketWorker.onReady(() => {
       this._conoutSocketWorker.connectSocket(this._outSocket);
     });
@@ -152,7 +152,7 @@ export class WindowsPtyAgent {
     this._inSocket.setEncoding('utf8');
 
     if (this._useConpty) {
-      const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, c => this._$onProcessExit(c));
+      const connect = (this._ptyNative as IConptyNative).connect(this._pty, commandLine, cwd, env, this._useConptyDll, c => this._$onProcessExit(c));
       this._innerPid = connect.pid;
     }
   }
@@ -179,16 +179,28 @@ export class WindowsPtyAgent {
     this._outSocket.readable = false;
     // Tell the agent to kill the pty, this releases handles to the process
     if (this._useConpty) {
-      this._getConsoleProcessList().then(consoleProcessList => {
-        consoleProcessList.forEach((pid: number) => {
-          try {
-            process.kill(pid);
-          } catch (e) {
-            // Ignore if process cannot be found (kill ESRCH error)
-          }
+      if (!this._useConptyDll) {
+        this._inSocket.readable = false;
+        this._outSocket.readable = false;
+        this._getConsoleProcessList().then(consoleProcessList => {
+          consoleProcessList.forEach((pid: number) => {
+            try {
+              process.kill(pid);
+            } catch (e) {
+              // Ignore if process cannot be found (kill ESRCH error)
+            }
+          });
         });
         (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll, exePath);
-      });
+        this._conoutSocketWorker.dispose();
+      } else {
+        // Close the input write handle to signal the end of session.
+        this._inSocket.destroy();
+       (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll, exePath);
+        this._outSocket.on('data', () => {
+          this._conoutSocketWorker.dispose();
+        });
+      }
     } else {
       // Because pty.kill closes the handle, it will kill most processes by itself.
       // Process IDs can be reused as soon as all handles to them are
@@ -206,7 +218,6 @@ export class WindowsPtyAgent {
         }
       });
     }
-    this._conoutSocketWorker.dispose();
   }
 
   getConsoleProcessList: any;
@@ -265,11 +276,16 @@ export class WindowsPtyAgent {
    */
   private _$onProcessExit(exitCode: number): void {
     this._exitCode = exitCode;
-    this._flushDataAndCleanUp();
-    this._outSocket.on('data', () => this._flushDataAndCleanUp());
+    if (!this._useConptyDll) {
+      this._flushDataAndCleanUp();
+      this._outSocket.on('data', () => this._flushDataAndCleanUp());
+    }
   }
 
   private _flushDataAndCleanUp(): void {
+    if (this._useConptyDll) {
+      return;
+    }
     if (this._closeTimeout) {
       clearTimeout(this._closeTimeout);
     }
@@ -277,6 +293,9 @@ export class WindowsPtyAgent {
   }
 
   private _cleanUpProcess(): void {
+    if (this._useConptyDll) {
+      return;
+    }
     this._inSocket.readable = false;
     this._outSocket.readable = false;
     this._outSocket.destroy();

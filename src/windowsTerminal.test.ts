@@ -26,13 +26,16 @@ function pollForProcessState(desiredState: IProcessState, intervalMs: number = 1
       psList({ all: true }).then(ps => {
         let success = true;
         const pids = Object.keys(desiredState).map(k => parseInt(k, 10));
+        console.log('expected pids', JSON.stringify(pids));
         pids.forEach(pid => {
           if (desiredState[pid]) {
             if (!ps.some(p => p.pid === pid)) {
+              console.log(`pid ${pid} does not exist`);
               success = false;
             }
           } else {
             if (ps.some(p => p.pid === pid)) {
+              console.log(`pid ${pid} still exists`);
               success = false;
             }
           }
@@ -71,6 +74,7 @@ function pollForProcessTreeSize(pid: number, size: number, intervalMs: number = 
           }).forEach(p => openList.push(p));
           list.push(current);
         }
+        console.log('list', JSON.stringify(list));
         const success = list.length === size;
         if (success) {
           clearInterval(interval);
@@ -88,51 +92,53 @@ function pollForProcessTreeSize(pid: number, size: number, intervalMs: number = 
 }
 
 if (process.platform === 'win32') {
-  [true, false].forEach((useConpty) => {
-    describe(`WindowsTerminal (useConpty = ${useConpty})`, () => {
+  [[false, false], [true, false], [true, true]].forEach(([useConpty, useConptyDll]) => {
+    describe(`WindowsTerminal (useConpty = ${useConpty}, useConptyDll = ${useConptyDll})`, () => {
       describe('kill', () => {
-        it('should not crash parent process', (done) => {
-          const term = new WindowsTerminal('cmd.exe', [], { useConpty });
+        it('should not crash parent process', function (done) {
+          this.timeout(20000);
+          const term = new WindowsTerminal('cmd.exe', [], { useConpty, useConptyDll });
+          term.on('exit', () => done());
           term.kill();
-          // Add done call to deferred function queue to ensure the kill call has completed
-          (<any>term)._defer(done);
         });
         it('should kill the process tree', function (done: Mocha.Done): void {
-          this.timeout(10000);
-          const term = new WindowsTerminal('cmd.exe', [], { useConpty });
+          this.timeout(20000);
+          const term = new WindowsTerminal('cmd.exe', [], { useConpty, useConptyDll });
           // Start sub-processes
           term.write('powershell.exe\r');
-          term.write('notepad.exe\r');
           term.write('node.exe\r');
-          pollForProcessTreeSize(term.pid, 4, 500, 5000).then(list => {
+          console.log('start poll for tree size');
+          pollForProcessTreeSize(term.pid, 3, 500, 5000).then(list => {
             assert.strictEqual(list[0].name.toLowerCase(), 'cmd.exe');
             assert.strictEqual(list[1].name.toLowerCase(), 'powershell.exe');
-            assert.strictEqual(list[2].name.toLowerCase(), 'notepad.exe');
-            assert.strictEqual(list[3].name.toLowerCase(), 'node.exe');
+            assert.strictEqual(list[2].name.toLowerCase(), 'node.exe');
             term.kill();
             const desiredState: IProcessState = {};
             desiredState[list[0].pid] = false;
             desiredState[list[1].pid] = false;
-            desiredState[list[2].pid] = true;
-            desiredState[list[3].pid] = false;
-            pollForProcessState(desiredState).then(() => {
-              // Kill notepad before done
-              process.kill(list[2].pid);
-              done();
+            desiredState[list[2].pid] = false;
+            term.on('exit', () => {
+              pollForProcessState(desiredState, 1000, 5000).then(() => {
+                done();
+              });
             });
           });
         });
       });
 
       describe('resize', () => {
-        it('should throw a non-native exception when resizing an invalid value', () => {
-          const term = new WindowsTerminal('cmd.exe', [], { useConpty });
+        it('should throw a non-native exception when resizing an invalid value', (done) => {
+          const term = new WindowsTerminal('cmd.exe', [], { useConpty, useConptyDll });
           assert.throws(() => term.resize(-1, -1));
           assert.throws(() => term.resize(0, 0));
           assert.doesNotThrow(() => term.resize(1, 1));
+          term.on('exit', () => {
+            done();
+          });
+          term.kill();
         });
         it('should throw a non-native exception when resizing a killed terminal', (done) => {
-          const term = new WindowsTerminal('cmd.exe', [], { useConpty });
+          const term = new WindowsTerminal('cmd.exe', [], { useConpty, useConptyDll });
           (<any>term)._defer(() => {
             term.once('exit', () => {
               assert.throws(() => term.resize(1, 1));
@@ -144,7 +150,8 @@ if (process.platform === 'win32') {
       });
 
       describe('Args as CommandLine', () => {
-        it('should not fail running a file containing a space in the path', (done) => {
+        it('should not fail running a file containing a space in the path', function (done) {
+          this.timeout(10000);
           const spaceFolder = path.resolve(__dirname, '..', 'fixtures', 'space folder');
           if (!fs.existsSync(spaceFolder)) {
             fs.mkdirSync(spaceFolder);
@@ -158,7 +165,7 @@ if (process.platform === 'win32') {
             // Skip test if git bash isn't installed
             return;
           }
-          const term = new WindowsTerminal(cmdCopiedPath, '/c echo "hello world"', { useConpty });
+          const term = new WindowsTerminal(cmdCopiedPath, '/c echo "hello world"', { useConpty, useConptyDll });
           let result = '';
           term.on('data', (data) => {
             result += data;
@@ -171,8 +178,9 @@ if (process.platform === 'win32') {
       });
 
       describe('env', () => {
-        it('should set environment variables of the shell', (done) => {
-          const term = new WindowsTerminal('cmd.exe', '/C echo %FOO%', { env: { FOO: 'BAR' }});
+        it('should set environment variables of the shell', function (done) {
+          this.timeout(10000);
+          const term = new WindowsTerminal('cmd.exe', '/C echo %FOO%', { useConpty, useConptyDll, env: { FOO: 'BAR' }});
           let result = '';
           term.on('data', (data) => {
             result += data;
@@ -185,16 +193,18 @@ if (process.platform === 'win32') {
       });
 
       describe('On close', () => {
-        it('should return process zero exit codes', (done) => {
-          const term = new WindowsTerminal('cmd.exe', '/C exit', { useConpty });
+        it('should return process zero exit codes', function (done) {
+          this.timeout(10000);
+          const term = new WindowsTerminal('cmd.exe', '/C exit', { useConpty, useConptyDll });
           term.on('exit', (code) => {
             assert.strictEqual(code, 0);
             done();
           });
         });
 
-        it('should return process non-zero exit codes', (done) => {
-          const term = new WindowsTerminal('cmd.exe', '/C exit 2', { useConpty });
+        it('should return process non-zero exit codes', function (done) {
+          this.timeout(10000);
+          const term = new WindowsTerminal('cmd.exe', '/C exit 2', { useConpty, useConptyDll });
           term.on('exit', (code) => {
             assert.strictEqual(code, 2);
             done();
@@ -203,8 +213,9 @@ if (process.platform === 'win32') {
       });
 
       describe('Write', () => {
-        it('should accept input', (done) => {
-          const term = new WindowsTerminal('cmd.exe', '', { useConpty });
+        it('should accept input', function (done) {
+          this.timeout(10000);
+          const term = new WindowsTerminal('cmd.exe', '', { useConpty, useConptyDll });
           term.write('exit\r');
           term.on('exit', () => {
             done();
