@@ -1,5 +1,5 @@
 {
-  "name": "node-pty",
+  "name": "@northernman54/node-pty",
   "description": "Fork pseudoterminals in Node.JS",
   "author": {
     "name": "Microsoft Corporation"
@@ -41,7 +41,9 @@
     "test": "cross-env NODE_ENV=test mocha -R spec --exit lib/*.test.js",
     "posttest": "npm run lint",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "prebuildify:gyp": "prebuildify --napi false --strip -t 24.0.0 -t 23.0.0 -t 22.0.0 -t 21.0.0 -t 20.0.0 -t 19.0.0 -t 18.0.0",
+    "prebuildify:gyp-cross": "prebuildify-cross --napi false --strip -t 24.0.0 -t 23.0.0 -t 22.0.0 -t 21.0.0 -t 20.0.0 -t 19.0.0 -t 18.0.0"
   },
   "dependencies": {
     "node-addon-api": "^7.1.0"
@@ -55,6 +57,8 @@
     "eslint": "^6.8.0",
     "mocha": "10",
     "node-gyp": "^10.0.1",
+    "prebuildify": "^6.0.1",
+    "prebuildify-cross": "^5.1.1",
     "ps-list": "^6.0.0",
     "typescript": "^3.8.3"
   }

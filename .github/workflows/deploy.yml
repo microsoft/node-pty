@@ -1,0 +1,145 @@
+name: Automated deploy
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+env:
+  VERSION: ${{ github.event.release.tag_name }}
+  TARGET_REF: ${{ github.event.release.target_commitish }}
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Intel Mac
+          - os: macos-13
+            label: x64
+            node_arch: x64
+            command: prebuildify:gyp
+            args: --arch x64
+          # Arm64 Mac
+          - os: macos-14
+            label: arm64
+            node_arch: arm64
+            command: prebuildify:gyp
+            args: --arch arm64
+          - os: macos-15
+            label: arm64
+            node_arch: arm64
+            command: prebuildify:gyp
+            args: --arch arm64
+          # Windows x86
+          - os: windows-2019
+            label: x86
+            node_arch: x86
+            command: prebuildify:gyp
+          # Windows x64
+          - os: windows-2019
+            label: x64
+            node_arch: x64
+            command: prebuildify:gyp
+          - os: windows-2022
+            label: x64
+            node_arch: x64
+            command: prebuildify:gyp
+          - os: windows-2025
+            label: x64
+            node_arch: x64
+            command: prebuildify:gyp
+          # Ubuntu 22.04
+          - os: ubuntu-22.04
+            label: alpine
+            command: prebuildify:gyp-cross
+            args: -i centos7-devtoolset7 -i alpine
+          - os: ubuntu-22.04
+            label: armv6+armv7
+            command: prebuildify:gyp-cross
+            args: -i linux-arm64-lts -i linux-armv7 -i linux-armv6
+          - os: ubuntu-22.04
+            label: musl+arm64-musl
+            command: prebuildify:gyp-cross
+            args: --tag-libc musl -i linux-arm64-musl
+          - os: ubuntu-22.04
+            label: arm64+armv7
+            command: prebuildify:gyp-cross
+            args: -i android-arm64 -i android-armv7
+          # Ubuntu 24.04
+          - os: ubuntu-24.04
+            label: alpine
+            command: prebuildify:gyp-cross
+            args: -i centos7-devtoolset7 -i alpine
+          - os: ubuntu-24.04
+            label: armv6+armv7
+            command: prebuildify:gyp-cross
+            args: -i linux-arm64-lts -i linux-armv7 -i linux-armv6
+          - os: ubuntu-24.04
+            label: musl+arm64-musl
+            command: prebuildify:gyp-cross
+            args: --tag-libc musl -i linux-arm64-musl
+          - os: ubuntu-24.04
+            label: arm64+armv7
+            command: prebuildify:gyp-cross
+            args: -i android-arm64 -i android-armv7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_REF }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          architecture: ${{ matrix.node_arch }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prebuild package
+        run: npm run ${{ matrix.command }} -- ${{ matrix.args }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ matrix.os }}-${{ matrix.label }}
+          path: prebuilds/
+          if-no-files-found: error
+
+  merge:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Merge Artifacts
+        uses: actions/upload-artifact/merge@v4
+        with:
+          name: build-artifacts
+          pattern: build-artifacts-*
+
+  deploy:
+    needs: merge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_REF }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: prebuilds
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Publish to npm
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
