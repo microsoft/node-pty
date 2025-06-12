@@ -21,68 +21,55 @@ jobs:
             label: x64
             node_arch: x64
             command: prebuildify:gyp
-            args: --arch x64
+            args: --arch x64 -t 24.0.0 -t 22.0.0 -t 20.0.0 -t 18.0.0
           # Arm64 Mac
           - os: macos-14
             label: arm64
             node_arch: arm64
             command: prebuildify:gyp
-            args: --arch arm64
+            args: --arch arm64 -t 24.0.0 -t 22.0.0 -t 20.0.0 -t 18.0.0
           - os: macos-15
             label: arm64
             node_arch: arm64
             command: prebuildify:gyp
-            args: --arch arm64
+            args: --arch arm64 -t 24.0.0 -t 22.0.0 -t 20.0.0 -t 18.0.0
           # Windows x86
           - os: windows-2019
             label: x86
             node_arch: x86
             command: prebuildify:gyp
+            args: -t 22.0.0 -t 20.0.0 -t 18.0.0
           # Windows x64
           - os: windows-2019
             label: x64
             node_arch: x64
             command: prebuildify:gyp
+            args: -t 24.0.0 -t 22.0.0 -t 20.0.0 -t 18.0.0
           - os: windows-2022
             label: x64
             node_arch: x64
             command: prebuildify:gyp
+            args: -t 24.0.0 -t 22.0.0 -t 20.0.0 -t 18.0.0
           - os: windows-2025
             label: x64
             node_arch: x64
             command: prebuildify:gyp
+            args: -t 24.0.0 -t 22.0.0 -t 20.0.0 -t 18.0.0
           # Ubuntu 22.04
           - os: ubuntu-22.04
             label: alpine
             command: prebuildify:gyp-cross
-            args: -i centos7-devtoolset7 -i alpine
+            args: -i almalinux-devtoolset11 -i alpine
           - os: ubuntu-22.04
-            label: armv6+armv7
+            label: armv6+armv7+arm64-lts
             command: prebuildify:gyp-cross
             args: -i linux-arm64-lts -i linux-armv7 -i linux-armv6
           - os: ubuntu-22.04
-            label: musl+arm64-musl
+            label: musl+arm64-musl+armv7-musl
             command: prebuildify:gyp-cross
-            args: --tag-libc musl -i linux-arm64-musl
+            args: --tag-libc musl -i linux-arm64-musl -i linux-armv7l-musl
           - os: ubuntu-22.04
-            label: arm64+armv7
-            command: prebuildify:gyp-cross
-            args: -i android-arm64 -i android-armv7
-          # Ubuntu 24.04
-          - os: ubuntu-24.04
-            label: alpine
-            command: prebuildify:gyp-cross
-            args: -i centos7-devtoolset7 -i alpine
-          - os: ubuntu-24.04
-            label: armv6+armv7
-            command: prebuildify:gyp-cross
-            args: -i linux-arm64-lts -i linux-armv7 -i linux-armv6
-          - os: ubuntu-24.04
-            label: musl+arm64-musl
-            command: prebuildify:gyp-cross
-            args: --tag-libc musl -i linux-arm64-musl
-          - os: ubuntu-24.04
-            label: arm64+armv7
+            label: android+arm64+armv7
             command: prebuildify:gyp-cross
             args: -i android-arm64 -i android-armv7
     steps:
