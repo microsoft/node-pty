@@ -86,8 +86,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Update package.json version and commit
+        run: |
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+          npm version ${{ env.VERSION }}
+          git push origin ${{ env.TARGET_REF }}
+          git push origin ${{ env.VERSION }} --force
+
       - name: Publish to npm
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
