@@ -6,8 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  VERSION: ${{ github.event.release.tag_name }}
-  TARGET_REF: ${{ github.event.release.target_commitish }}
+  TARGET_REF: ${{ github.event.release.target_commitish || github.ref }}
 
 jobs:
   build:
@@ -77,6 +76,7 @@ jobs:
         with:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
 
       - uses: actions/download-artifact@v4
         with:
@@ -86,13 +86,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Update package.json version and commit
+      - name: Increment package.json version and commit
         run: |
           git config user.name "GitHub Action"
           git config user.email "action@github.com"
-          npm version ${{ env.VERSION }}
+          npm version patch
           git push origin ${{ env.TARGET_REF }}
-          git push origin ${{ env.VERSION }} --force
+          git push origin v$(node -p "require('./package.json').version") --force
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish to npm
         run: npm publish
