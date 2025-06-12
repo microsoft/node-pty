@@ -18,8 +18,9 @@
     "scripts/",
     "src/",
     "deps/",
-    "third_party/",
-    "typings/"
+    "typings/",
+    "prebuilds/",
+    "third_party/conpty"
   ],
   "homepage": "https://github.com/microsoft/node-pty",
   "bugs": {
