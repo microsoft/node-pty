@@ -5,10 +5,11 @@
  * called from a different process (child_process.fork) as there can only be a
  * single console attached to a process.
  */
-
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const __non_webpack_require__ = require;
 let getConsoleProcessList: any;
 try {
-  getConsoleProcessList = require('../build/Release/conpty_console_list.node').getConsoleProcessList;
+  getConsoleProcessList = __non_webpack_require__('../build/Release/conpty_console_list.node').getConsoleProcessList;
 } catch (err) {
   getConsoleProcessList = require('../build/Debug/conpty_console_list.node').getConsoleProcessList;
 }

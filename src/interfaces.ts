@@ -121,6 +121,7 @@ export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
   useConpty?: boolean;
   useConptyDll?: boolean;
   conptyInheritCursor?: boolean;
+  exePath?: string;
 }
 
 export interface IPtyOpenOptions {

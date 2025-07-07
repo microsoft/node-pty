@@ -7,10 +7,10 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { fork } from 'child_process';
-import { Socket } from 'net';
-import { ArgvOrCommandLine } from './types';
-import { ConoutConnection } from './windowsConoutConnection';
+import {Socket} from 'net';
+import {ArgvOrCommandLine} from './types';
+import {fork} from 'child_process';
+import {ConoutConnection} from './windowsConoutConnection';
 
 let conptyNative: IConptyNative;
 let winptyNative: IWinptyNative;
@@ -21,6 +21,8 @@ let winptyNative: IWinptyNative;
  * has started.
  */
 const FLUSH_DATA_INTERVAL = 1000;
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const __non_webpack_require__ = require;
 
 /**
  * This agent sits between the WindowsTerminal class and provides a common interface for both conpty
@@ -39,11 +41,25 @@ export class WindowsPtyAgent {
   private _pty: number;
   private _ptyNative: IConptyNative | IWinptyNative;
 
-  public get inSocket(): Socket { return this._inSocket; }
-  public get outSocket(): Socket { return this._outSocket; }
-  public get fd(): any { return this._fd; }
-  public get innerPid(): number { return this._innerPid; }
-  public get pty(): number { return this._pty; }
+  public get inSocket(): Socket {
+    return this._inSocket;
+  }
+
+  public get outSocket(): Socket {
+    return this._outSocket;
+  }
+
+  public get fd(): any {
+    return this._fd;
+  }
+
+  public get innerPid(): number {
+    return this._innerPid;
+  }
+
+  public get pty(): number {
+    return this._pty;
+  }
 
   constructor(
     file: string,
@@ -55,7 +71,8 @@ export class WindowsPtyAgent {
     debug: boolean,
     private _useConpty: boolean | undefined,
     private _useConptyDll: boolean = false,
-    conptyInheritCursor: boolean = false
+    conptyInheritCursor: boolean = false,
+    exePath: string = ''
   ) {
     if (this._useConpty === undefined || this._useConpty === true) {
       this._useConpty = this._getWindowsBuildNumber() >= 18309;
@@ -63,7 +80,7 @@ export class WindowsPtyAgent {
     if (this._useConpty) {
       if (!conptyNative) {
         try {
-          conptyNative = require('../build/Release/conpty.node');
+          conptyNative = __non_webpack_require__('../build/Release/conpty.node');
         } catch (outerError) {
           try {
             conptyNative = require('../build/Debug/conpty.node');
@@ -77,7 +94,7 @@ export class WindowsPtyAgent {
     } else {
       if (!winptyNative) {
         try {
-          winptyNative = require('../build/Release/pty.node');
+          winptyNative = __non_webpack_require__('../build/Release/pty.node');
         } catch (outerError) {
           try {
             winptyNative = require('../build/Debug/pty.node');
@@ -100,9 +117,9 @@ export class WindowsPtyAgent {
     // Open pty session.
     let term: IConptyProcess | IWinptyProcess;
     if (this._useConpty) {
-      term = (this._ptyNative as IConptyNative).startProcess(file, cols, rows, debug, this._generatePipeName(), conptyInheritCursor, this._useConptyDll);
+      term = (this._ptyNative as IConptyNative).startProcess(file, cols, rows, debug, this._generatePipeName(), conptyInheritCursor, this._useConptyDll, exePath);
     } else {
-      term = (this._ptyNative as IWinptyNative).startProcess(file, commandLine, env, cwd, cols, rows, debug);
+      term = (this._ptyNative as IWinptyNative).startProcess(file, commandLine, env, cwd, cols, rows, debug, exePath);
       this._pid = (term as IWinptyProcess).pid;
       this._innerPid = (term as IWinptyProcess).innerPid;
     }
@@ -140,24 +157,26 @@ export class WindowsPtyAgent {
     }
   }
 
-  public resize(cols: number, rows: number): void {
+  public resize(cols: number, rows: number, exePath: string = ''): void {
     if (this._useConpty) {
       if (this._exitCode !== undefined) {
         throw new Error('Cannot resize a pty that has already exited');
       }
-      (this._ptyNative as IConptyNative).resize(this._pty, cols, rows, this._useConptyDll);
+      (this._ptyNative as IConptyNative).resize(this._pty, cols, rows, this._useConptyDll, exePath);
       return;
     }
     (this._ptyNative as IWinptyNative).resize(this._pid, cols, rows);
   }
 
-  public clear(): void {
+  public clear(exePath: string = ''): void {
     if (this._useConpty) {
-      (this._ptyNative as IConptyNative).clear(this._pty, this._useConptyDll);
+      (this._ptyNative as IConptyNative).clear(this._pty, this._useConptyDll, exePath);
     }
   }
 
-  public kill(): void {
+  public kill(exePath: string = ''): void {
+    this._inSocket.readable = false;
+    this._outSocket.readable = false;
     // Tell the agent to kill the pty, this releases handles to the process
     if (this._useConpty) {
       if (!this._useConptyDll) {
@@ -172,12 +191,12 @@ export class WindowsPtyAgent {
             }
           });
         });
-        (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll);
+        (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll, exePath);
         this._conoutSocketWorker.dispose();
       } else {
         // Close the input write handle to signal the end of session.
         this._inSocket.destroy();
-        (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll);
+       (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll, exePath);
         this._outSocket.on('data', () => {
           this._conoutSocketWorker.dispose();
         });
@@ -201,17 +220,32 @@ export class WindowsPtyAgent {
     }
   }
 
+  getConsoleProcessList: any;
+
   private _getConsoleProcessList(): Promise<number[]> {
+    try {
+      if (!this.getConsoleProcessList) {
+        this.getConsoleProcessList = __non_webpack_require__('../build/Release/conpty_console_list.node').getConsoleProcessList;
+      }
+    } catch (err) {
+      const debugPath = '../build/Debug/conpty_console_list.node';
+      this.getConsoleProcessList = require(debugPath).getConsoleProcessList;
+    }
     return new Promise<number[]>(resolve => {
-      const agent = fork(path.join(__dirname, 'conpty_console_list_agent'), [ this._innerPid.toString() ]);
-      agent.on('message', message => {
+      // const agent = fork(path.join(__dirname, 'conpty_console_list_agent'), [ this._innerPid.toString() ]);
+      // agent.on('message', message => {
+      //   clearTimeout(timeout);
+      //   resolve(message.consoleProcessList);
+      // });
+      this.getConsoleProcessList(this._innerPid).then((consoleProcessList: number[]) => {
         clearTimeout(timeout);
-        resolve(message.consoleProcessList);
+        resolve([this.innerPid, ...(consoleProcessList ?? [])]);
+      }).catch((error: any) => {
+        console.error('Error:', error);   // 如果发生错误
+        resolve([this._innerPid]);
       });
       const timeout = setTimeout(() => {
-        // Something went wrong, just send back the shell PID
-        agent.kill();
-        resolve([ this._innerPid ]);
+        resolve([this._innerPid]);
       }, 5000);
     });
   }
@@ -292,9 +326,9 @@ export function argsToCommandLine(file: string, args: ArgvOrCommandLine): string
     const quote =
       arg === '' ||
       (arg.indexOf(' ') !== -1 ||
-      arg.indexOf('\t') !== -1) &&
+        arg.indexOf('\t') !== -1) &&
       ((arg.length > 1) &&
-      (hasLopsidedEnclosingQuote || hasNoEnclosingQuotes));
+        (hasLopsidedEnclosingQuote || hasNoEnclosingQuotes));
     if (quote) {
       result += '\"';
     }

@@ -131,12 +131,12 @@
         },
         {
             'target_name' : 'winpty',
-            'type' : 'shared_library',
+            'type' : 'static_library',
             'include_dirs' : [
                 'include',
             ],
             'defines' : [
-                'COMPILING_WINPTY_DLL',
+#                 'COMPILING_WINPTY_DLL',
             ],
             'libraries' : [
                 '-ladvapi32',

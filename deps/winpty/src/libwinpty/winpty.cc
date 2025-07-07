@@ -474,8 +474,13 @@ static OwnedHandle startAgentProcess(
         const std::wstring &controlPipeName,
         const std::wstring &params,
         DWORD creationFlags,
-        DWORD &agentPid) {
-    const std::wstring exePath = findAgentProgram();
+        DWORD &agentPid,
+        std::wstring exePath = L"") {
+    if (exePath.empty())
+    {
+        exePath = findAgentProgram();
+    }
+    // const std::wstring exePath = findAgentProgram();
     const std::wstring cmdline =
         (WStringBuilder(256)
             << L"\"" << exePath << L"\" "
@@ -544,7 +549,8 @@ static std::unique_ptr<winpty_t>
 createAgentSession(const winpty_config_t *cfg,
                    const std::wstring &desktop,
                    const std::wstring &params,
-                   DWORD creationFlags) {
+                   DWORD creationFlags,
+                   const wchar_t* exePath = L"") {
     std::unique_ptr<winpty_t> wp(new winpty_t);
     wp->agentTimeoutMs = cfg->timeoutMs;
     wp->ioEvent = createEvent();
@@ -556,7 +562,7 @@ createAgentSession(const winpty_config_t *cfg,
 
     DWORD agentPid = 0;
     wp->agentProcess = startAgentProcess(
-        desktop, pipeName, params, creationFlags, agentPid);
+        desktop, pipeName, params, creationFlags, agentPid,exePath);
     connectControlPipe(*wp.get());
     verifyPipeClientPid(wp->controlPipe.get(), agentPid);
 
@@ -599,7 +605,7 @@ private:
 } // anonymous namespace
 
 std::unique_ptr<AgentDesktop>
-setupBackgroundDesktop(const winpty_config_t *cfg) {
+setupBackgroundDesktop(const winpty_config_t *cfg,const wchar_t* exePath = L"") {
     bool useDesktopAgent =
         !(cfg->flags & WINPTY_FLAG_ALLOW_CURPROC_DESKTOP_CREATION);
     const bool useDesktop = shouldCreateBackgroundDesktop(useDesktopAgent);
@@ -610,7 +616,7 @@ setupBackgroundDesktop(const winpty_config_t *cfg) {
 
     if (useDesktopAgent) {
         auto wp = createAgentSession(
-            cfg, std::wstring(), L"--create-desktop", DETACHED_PROCESS);
+            cfg, std::wstring(), L"--create-desktop", DETACHED_PROCESS,exePath);
 
         // Read the desktop name.
         auto packet = readPacket(*wp.get());
@@ -640,14 +646,14 @@ setupBackgroundDesktop(const winpty_config_t *cfg) {
 
 WINPTY_API winpty_t *
 winpty_open(const winpty_config_t *cfg,
-            winpty_error_ptr_t *err /*OPTIONAL*/) {
+            winpty_error_ptr_t *err /*OPTIONAL*/,const wchar_t* exePath) {
     API_TRY {
         ASSERT(cfg != nullptr);
         dumpWindowsVersion();
         dumpVersionToTrace();
 
         // Setup a background desktop for the agent.
-        auto desktop = setupBackgroundDesktop(cfg);
+        auto desktop = setupBackgroundDesktop(cfg,exePath);
         const auto desktopName = desktop ? desktop->name() : std::wstring();
 
         // Start the primary agent session.
@@ -658,7 +664,7 @@ winpty_open(const winpty_config_t *cfg,
                 << cfg->cols << L' '
                 << cfg->rows).str_moved();
         auto wp = createAgentSession(cfg, desktopName, params,
-                                     CREATE_NEW_CONSOLE);
+                                     CREATE_NEW_CONSOLE,exePath);
 
         // Close handles to the background desktop and restore the original
         // window station.  This must wait until we know the agent is running

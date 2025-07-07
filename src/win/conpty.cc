@@ -162,12 +162,16 @@ bool createDataServerPipe(bool write,
 }
 
 HANDLE LoadConptyDll(const Napi::CallbackInfo& info,
-                     const bool useConptyDll)
+                     const bool useConptyDll,std::wstring exePath  )
 {
   if (!useConptyDll) {
     return LoadLibraryExW(L"kernel32.dll", 0, 0);
   }
   wchar_t currentDir[MAX_PATH];
+  if (exePath.empty())
+  {
+    wcscpy(currentDir, exePath.c_str());
+  }
   HMODULE hModule = GetModuleHandleA("conpty.node");
   if (hModule == NULL) {
     throw errorWithCode(info, "Failed to get conpty.node module handle");
@@ -197,9 +201,10 @@ HRESULT CreateNamedPipesAndPseudoConsole(const Napi::CallbackInfo& info,
                                          std::wstring& inName,
                                          std::wstring& outName,
                                          const std::wstring& pipeName,
-                                         const bool useConptyDll)
+                                         const bool useConptyDll,
+                                         const wchar_t * exePath)
 {
-  HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
+  HANDLE hLibrary = LoadConptyDll(info, useConptyDll,exePath);
   DWORD error = GetLastError();
   bool fLoadedDll = hLibrary != nullptr;
   if (fLoadedDll)
@@ -252,15 +257,16 @@ static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
   std::unique_ptr<wchar_t[]> mutableCommandline;
   PROCESS_INFORMATION _piClient{};
 
-  if (info.Length() != 7 ||
+  if (info.Length() != 8 ||
       !info[0].IsString() ||
       !info[1].IsNumber() ||
       !info[2].IsNumber() ||
       !info[3].IsBoolean() ||
       !info[4].IsString() ||
       !info[5].IsBoolean() ||
-      !info[6].IsBoolean()) {
-    throw Napi::Error::New(env, "Usage: pty.startProcess(file, cols, rows, debug, pipeName, inheritCursor, useConptyDll)");
+      !info[6].IsBoolean() ||
+      !info[7].IsString()) {
+    throw Napi::Error::New(env, "Usage: pty.startProcess(file, cols, rows, debug, pipeName, inheritCursor, useConptyDll, agentExePath)");
   }
 
   const std::wstring filename(path_util::to_wstring(info[0].As<Napi::String>()));
@@ -270,6 +276,7 @@ static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
   const std::wstring pipeName(path_util::to_wstring(info[4].As<Napi::String>()));
   const bool inheritCursor = info[5].As<Napi::Boolean>().Value();
   const bool useConptyDll = info[6].As<Napi::Boolean>().Value();
+  const std::wstring exePath(path_util::to_wstring(info[7].As<Napi::String>()));
 
   // use environment 'Path' variable to determine location of
   // the relative path that we have recieved (e.g cmd.exe)
@@ -289,7 +296,7 @@ static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
 
   HANDLE hIn, hOut;
   HPCON hpc;
-  HRESULT hr = CreateNamedPipesAndPseudoConsole(info, {cols, rows}, inheritCursor ? 1/*PSEUDOCONSOLE_INHERIT_CURSOR*/ : 0, &hIn, &hOut, &hpc, inName, outName, pipeName, useConptyDll);
+  HRESULT hr = CreateNamedPipesAndPseudoConsole(info, {cols, rows}, inheritCursor ? 1/*PSEUDOCONSOLE_INHERIT_CURSOR*/ : 0, &hIn, &hOut, &hpc, inName, outName, pipeName, useConptyDll,exePath.c_str());
 
   // Restore default handling of ctrl+c
   SetConsoleCtrlHandler(NULL, FALSE);
@@ -459,23 +466,25 @@ static Napi::Value PtyResize(const Napi::CallbackInfo& info) {
   Napi::Env env(info.Env());
   Napi::HandleScope scope(env);
 
-  if (info.Length() != 4 ||
+  if (info.Length() != 5 ||
       !info[0].IsNumber() ||
       !info[1].IsNumber() ||
       !info[2].IsNumber() ||
-      !info[3].IsBoolean()) {
-    throw Napi::Error::New(env, "Usage: pty.resize(id, cols, rows, useConptyDll)");
+      !info[3].IsBoolean() ||
+      !info[4].IsString()) {
+    throw Napi::Error::New(env, "Usage: pty.resize(id, cols, rows, useConptyDll,exePath)");
   }
 
   int id = info[0].As<Napi::Number>().Int32Value();
   SHORT cols = static_cast<SHORT>(info[1].As<Napi::Number>().Uint32Value());
   SHORT rows = static_cast<SHORT>(info[2].As<Napi::Number>().Uint32Value());
   const bool useConptyDll = info[3].As<Napi::Boolean>().Value();
+  const std::wstring exePath(path_util::to_wstring(info[4].As<Napi::String>()));
 
   const pty_baton* handle = get_pty_baton(id);
 
   if (handle != nullptr) {
-    HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
+    HANDLE hLibrary = LoadConptyDll(info, useConptyDll,exePath.c_str());
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
     {
@@ -497,15 +506,16 @@ static Napi::Value PtyClear(const Napi::CallbackInfo& info) {
   Napi::Env env(info.Env());
   Napi::HandleScope scope(env);
 
-  if (info.Length() != 2 ||
+  if (info.Length() != 3 ||
       !info[0].IsNumber() ||
-      !info[1].IsBoolean()) {
+      !info[1].IsBoolean() ||
+      !info[2].IsString()) {
     throw Napi::Error::New(env, "Usage: pty.clear(id, useConptyDll)");
   }
 
   int id = info[0].As<Napi::Number>().Int32Value();
   const bool useConptyDll = info[1].As<Napi::Boolean>().Value();
-
+  const std::wstring exePath(path_util::to_wstring(info[2].As<Napi::String>()));
   // This API is only supported for conpty.dll as it was introduced in a later version of Windows.
   // We could hook it up to point at >= a version of Windows only, but the future is conpty.dll
   // anyway.
@@ -516,7 +526,7 @@ static Napi::Value PtyClear(const Napi::CallbackInfo& info) {
   const pty_baton* handle = get_pty_baton(id);
 
   if (handle != nullptr) {
-    HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
+    HANDLE hLibrary = LoadConptyDll(info, useConptyDll,exePath.c_str());
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
     {
@@ -535,19 +545,21 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
   Napi::Env env(info.Env());
   Napi::HandleScope scope(env);
 
-  if (info.Length() != 2 ||
+  if (info.Length() != 3 ||
       !info[0].IsNumber() ||
-      !info[1].IsBoolean()) {
+      !info[1].IsBoolean() ||
+      !info[2].IsString()) {
     throw Napi::Error::New(env, "Usage: pty.kill(id, useConptyDll)");
   }
 
   int id = info[0].As<Napi::Number>().Int32Value();
   const bool useConptyDll = info[1].As<Napi::Boolean>().Value();
+  const std::wstring exePath(path_util::to_wstring(info[2].As<Napi::String>()));
 
   const pty_baton* handle = get_pty_baton(id);
 
   if (handle != nullptr) {
-    HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
+    HANDLE hLibrary = LoadConptyDll(info, useConptyDll,exePath.c_str());
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
     {
