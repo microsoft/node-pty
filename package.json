@@ -49,10 +49,10 @@
   "devDependencies": {
     "@types/mocha": "^7.0.2",
     "@types/node": "12",
-    "@typescript-eslint/eslint-plugin": "^2.27.0",
-    "@typescript-eslint/parser": "^2.27.0",
+    "@typescript-eslint/eslint-plugin": "^8.39.0",
+    "@typescript-eslint/parser": "^8.39.0",
     "cross-env": "^5.1.4",
-    "eslint": "^6.8.0",
+    "eslint": "^9.32.0",
     "mocha": "10",
     "node-gyp": "^10.0.1",
     "ps-list": "^6.0.0",
