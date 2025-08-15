@@ -18,6 +18,7 @@
     "scripts/",
     "src/",
     "deps/",
+    "prebuilds/",
     "third_party/",
     "typings/"
   ],
