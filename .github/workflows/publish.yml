@@ -1,0 +1,65 @@
+name: Test deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+          - os: ubuntu-latest
+          - os: ubuntu-22.04-arm
+          - os: windows-latest
+          - os: windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Copy prebuild artifacts
+        run: node scripts/prebuild.js --populate
+
+      - name: Tar prebuild artifacts
+        run: tar -czf prebuilds-${{ matrix.os }}.tar.gz prebuilds
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ matrix.os }}
+          path: prebuilds-${{ matrix.os }}.tar.gz
+          if-no-files-found: error
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          registry-url: 'https://registry.npmjs.org'
+
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      
+      - name: Extract prebuild artifacts
+        run: |
+          for file in prebuilds-*.tar.gz; do
+            tar -xzf "$file";
+            rm $file;
+          done
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Publish package
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
