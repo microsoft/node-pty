@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+const PREBUILD_DIR = path.join(__dirname, '..', 'prebuilds', `${process.platform}-${process.arch}`);
 const RELEASE_DIR = path.join(__dirname, '../build/Release');
 const BUILD_FILES = [
   path.join(RELEASE_DIR, 'conpty.node'),
@@ -24,6 +25,7 @@ const CONPTY_SUPPORTED_ARCH = ['x64', 'arm64'];
 
 console.log('\x1b[32m> Cleaning release folder...\x1b[0m');
 
+/** @param {string} folder */
 function cleanFolderRecursive(folder) {
   var files = [];
   if (fs.existsSync(folder)) {
@@ -78,6 +80,10 @@ if (os.platform() !== 'win32') {
 }
 
 console.log(`\x1b[32m> Generating compile_commands.json...\x1b[0m`);
+if (fs.existsSync(PREBUILD_DIR)) {
+  console.log(`  SKIPPED compile_commands since prebuild directory ${PREBUILD_DIR} exists`);
+  process.exit(0);
+}
 execSync('npx node-gyp configure -- -f compile_commands_json');
 
 process.exit(0);
