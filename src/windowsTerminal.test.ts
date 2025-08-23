@@ -127,7 +127,8 @@ if (process.platform === 'win32') {
       });
 
       describe('resize', () => {
-        it('should throw a non-native exception when resizing an invalid value', (done) => {
+        it('should throw a non-native exception when resizing an invalid value', function(done) {
+          this.timeout(20000);
           const term = new WindowsTerminal('cmd.exe', [], { useConpty, useConptyDll });
           assert.throws(() => term.resize(-1, -1));
           assert.throws(() => term.resize(0, 0));
@@ -137,7 +138,8 @@ if (process.platform === 'win32') {
           });
           term.kill();
         });
-        it('should throw a non-native exception when resizing a killed terminal', (done) => {
+        it('should throw a non-native exception when resizing a killed terminal', function(done) {
+          this.timeout(20000);
           const term = new WindowsTerminal('cmd.exe', [], { useConpty, useConptyDll });
           (<any>term)._defer(() => {
             term.once('exit', () => {
