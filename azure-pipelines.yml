@@ -31,6 +31,8 @@ extends:
             displayName: 'Install Node.js'
           - script: npm ci
             displayName: 'Install dependencies and build'
+          - script: node scripts/prebuild.js --populate
+            displayName: 'Copy prebuild artifacts'
           - script: npm test
             displayName: 'Test'
           - script: npm run lint
@@ -50,6 +52,8 @@ extends:
             displayName: Install setuptools (macOS)
           - script: npm ci
             displayName: 'Install dependencies and build'
+          - script: node scripts/prebuild.js --populate
+            displayName: 'Copy prebuild artifacts'
           - script: npm test
             displayName: 'Test'
           - script: npm run lint
@@ -66,6 +70,8 @@ extends:
             displayName: 'Install Node.js'
           - script: npm ci
             displayName: 'Install dependencies and build'
+          - script: node scripts/prebuild.js --populate
+            displayName: 'Copy prebuild artifacts'
           - script: npm test
             displayName: 'Test'
           - script: npm run lint
