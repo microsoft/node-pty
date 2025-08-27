@@ -3,6 +3,13 @@
 # Add steps that analyze code, save build artifacts, deploy, and more:
 # https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
 
+trigger:
+  branches:
+    include:
+      - main
+
+pr: none
+
 resources:
   repositories:
     - repository: 1esPipelines
@@ -27,7 +34,7 @@ extends:
           steps:
           - task: NodeTool@0
             inputs:
-              versionSpec: 20.x
+              versionSpec: 22.x
             displayName: 'Install Node.js'
           - script: npm ci
             displayName: 'Install dependencies and build'
@@ -44,10 +51,8 @@ extends:
           steps:
           - task: NodeTool@0
             inputs:
-              versionSpec: 20.x
+              versionSpec: 22.x
             displayName: 'Install Node.js'
-          - script: python3 -m pip install setuptools
-            displayName: Install setuptools (macOS)
           - script: npm ci
             displayName: 'Install dependencies and build'
           - script: npm test
@@ -62,7 +67,7 @@ extends:
           steps:
           - task: NodeTool@0
             inputs:
-              versionSpec: 20.x
+              versionSpec: 22.x
             displayName: 'Install Node.js'
           - script: npm ci
             displayName: 'Install dependencies and build'
