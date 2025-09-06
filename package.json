@@ -4,7 +4,7 @@
   "author": {
     "name": "xiaobaidadada"
   },
-  "version": "1.0.4",
+  "version": "1.0.5",
   "license": "MIT",
   "main": "./lib/index.js",
   "types": "./typings/node-pty.d.ts",
@@ -47,7 +47,8 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "prebuild-install": "^7.1.2"
+    "prebuild-install": "^7.1.2",
+    "node-addon-api": "^7.1.1"
   },
   "devDependencies": {
     "@types/mocha": "^7.0.2",
@@ -57,7 +58,6 @@
     "cross-env": "^5.1.4",
     "eslint": "^6.8.0",
     "mocha": "10",
-    "node-addon-api": "^7.1.1",
     "node-gyp": "^10.2.0",
     "prebuild": "^13.0.1",
     "ps-list": "^6.0.0",
