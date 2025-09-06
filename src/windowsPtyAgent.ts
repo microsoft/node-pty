@@ -196,7 +196,7 @@ export class WindowsPtyAgent {
       } else {
         // Close the input write handle to signal the end of session.
         this._inSocket.destroy();
-       (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll, exePath);
+        (this._ptyNative as IConptyNative).kill(this._pty, this._useConptyDll, exePath);
         this._outSocket.on('data', () => {
           this._conoutSocketWorker.dispose();
         });
