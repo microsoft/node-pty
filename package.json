@@ -38,6 +38,7 @@
     "watch": "tsc -b -w ./src/tsconfig.json",
     "lint": "eslint -c .eslintrc.js --ext .ts src/",
     "postinstall": "node scripts/post-install.js",
+    "compileCommands": "node scripts/gen-compile-commands.js",
     "test": "cross-env NODE_ENV=test mocha -R spec --exit lib/*.test.js",
     "posttest": "npm run lint",
     "prepare": "npm run build",
@@ -54,7 +55,6 @@
     "cross-env": "^5.1.4",
     "eslint": "^6.8.0",
     "mocha": "10",
-    "node-gyp": "^10.0.1",
     "ps-list": "^6.0.0",
     "typescript": "^3.8.3"
   }
