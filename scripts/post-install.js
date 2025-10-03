@@ -6,8 +6,8 @@ const path = require('path');
 
 const RELEASE_DIR = path.join(__dirname, '../build/Release');
 const BUILD_FILES = [
-  path.join(RELEASE_DIR, 'conpty.node'),
-  path.join(RELEASE_DIR, 'conpty.pdb'),
+  path.join(RELEASE_DIR, 'conpty_backend.node'),
+  path.join(RELEASE_DIR, 'conpty_backend.pdb'),
   path.join(RELEASE_DIR, 'conpty_console_list.node'),
   path.join(RELEASE_DIR, 'conpty_console_list.pdb'),
   path.join(RELEASE_DIR, 'pty.node'),
