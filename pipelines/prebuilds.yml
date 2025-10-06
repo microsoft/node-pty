@@ -89,7 +89,7 @@ extends:
                 arch: x64
           - job: linux_arm64
             pool:
-              name: 1es-mariner-2.0-arm64
+              name: 1es-ubuntu-22.04-x64
               os: linux
             templateContext:
               outputs:
