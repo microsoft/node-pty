@@ -20,7 +20,7 @@ extends:
     stages:
       - stage: Build
         jobs:
-          - job: windows-x64
+          - job: win32_x64
             pool:
               name: 1es-windows-2022-x64
               os: windows
@@ -33,7 +33,7 @@ extends:
             - template: pipelines/build.yml@self
               parameters:
                 arch: x64
-          - job: windows-arm64
+          - job: win32_arm64
             pool:
               name: 1es-windows-2022-x64
               os: windows
@@ -46,7 +46,7 @@ extends:
             - template: pipelines/build.yml@self
               parameters:
                 arch: arm64
-          - job: macOS-x64
+          - job: macOS_x64
             pool:
               name: Azure Pipelines
               vmImage: macOS-latest
@@ -60,7 +60,7 @@ extends:
             - template: pipelines/build.yml@self
               parameters:
                 arch: x64
-          - job: macOS-arm64
+          - job: macOS_arm64
             pool:
               name: Azure Pipelines
               vmImage: macOS-latest
@@ -74,7 +74,7 @@ extends:
             - template: pipelines/build.yml@self
               parameters:
                 arch: arm64
-          - job: linux-x64
+          - job: linux_x64
             pool:
               name: 1es-ubuntu-22.04-x64
               os: linux
@@ -87,7 +87,7 @@ extends:
             - template: pipelines/build.yml@self
               parameters:
                 arch: x64
-          - job: linux-arm64
+          - job: linux_arm64
             pool:
               name: 1es-mariner-2.0-arm64
               os: linux
