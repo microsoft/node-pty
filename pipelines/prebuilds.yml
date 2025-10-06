@@ -31,7 +31,8 @@ extends:
                   artifactName: 'win32-x64'
             steps:
             - template: pipelines/build.yml@self
-              arch: x64
+              parameters:
+                arch: x64
           - job: windows-arm64
             pool:
               name: 1es-windows-2022-x64
@@ -43,7 +44,8 @@ extends:
                   artifactName: 'win32-arm64'
             steps:
             - template: pipelines/build.yml@self
-              arch: arm64
+              parameters:
+                arch: arm64
           - job: macOS-x64
             pool:
               name: Azure Pipelines
@@ -56,7 +58,8 @@ extends:
                   artifactName: 'macOS-x64'
             steps:
             - template: pipelines/build.yml@self
-              arch: x64
+              parameters:
+                arch: x64
           - job: macOS-arm64
             pool:
               name: Azure Pipelines
@@ -69,7 +72,8 @@ extends:
                   artifactName: 'macOS-arm64'
             steps:
             - template: pipelines/build.yml@self
-              arch: arm64
+              parameters:
+                arch: arm64
           - job: linux-x64
             pool:
               name: 1es-ubuntu-22.04-x64
@@ -81,7 +85,8 @@ extends:
                   artifactName: 'linux-x64'
             steps:
             - template: pipelines/build.yml@self
-              arch: x64
+              parameters:
+                arch: x64
           - job: linux-arm64
             pool:
               name: 1es-mariner-2.0-arm64
@@ -93,4 +98,5 @@ extends:
                   artifactName: 'linux-arm64'
             steps:
             - template: pipelines/build.yml@self
-              arch: arm64
+              parameters:
+                arch: arm64
