@@ -100,3 +100,44 @@ extends:
             - template: pipelines/build.yml@self
               parameters:
                 arch: arm64
+
+      - stage: Archive
+        jobs:
+          - job: archive
+            pool:
+              name: 1es-ubuntu-22.04-x64
+              os: linux
+            templateContext:
+              inputs:
+                - input: pipelineArtifact
+                  artifactName: win32-x64
+                  targetPath: $(Build.ArtifactStagingDirectory)/win32-x64
+                - input: pipelineArtifact
+                  artifactName: win32-arm64
+                  targetPath: $(Build.ArtifactStagingDirectory)/win32-arm64
+                - input: pipelineArtifact
+                  artifactName: macOS-x64
+                  targetPath: $(Build.ArtifactStagingDirectory)/macOS-x64
+                - input: pipelineArtifact
+                  artifactName: macOS-arm64
+                  targetPath: $(Build.ArtifactStagingDirectory)/macOS-arm64
+                - input: pipelineArtifact
+                  artifactName: linux-x64
+                  targetPath: $(Build.ArtifactStagingDirectory)/linux-x64
+                - input: pipelineArtifact
+                  artifactName: linux-arm64
+                  targetPath: $(Build.ArtifactStagingDirectory)/linux-arm64
+              outputs:
+                - output: pipelineArtifact
+                  targetPath: $(Build.ArtifactStagingDirectory)/prebuilds
+                  artifactName: 'prebuilds'
+            steps:
+              - script: |
+                  mkdir -p $(Build.ArtifactStagingDirectory)/prebuilds
+                  cp -r $(Build.ArtifactStagingDirectory)/win32-x64 $(Build.ArtifactStagingDirectory)/prebuilds/
+                  cp -r $(Build.ArtifactStagingDirectory)/win32-arm64 $(Build.ArtifactStagingDirectory)/prebuilds/
+                  cp -r $(Build.ArtifactStagingDirectory)/macOS-x64 $(Build.ArtifactStagingDirectory)/prebuilds/
+                  cp -r $(Build.ArtifactStagingDirectory)/macOS-arm64 $(Build.ArtifactStagingDirectory)/prebuilds/
+                  cp -r $(Build.ArtifactStagingDirectory)/linux-x64 $(Build.ArtifactStagingDirectory)/prebuilds/
+                  cp -r $(Build.ArtifactStagingDirectory)/linux-arm64 $(Build.ArtifactStagingDirectory)/prebuilds/
+                displayName: 'Create prebuilds archive'
