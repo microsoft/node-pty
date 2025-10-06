@@ -11,6 +11,16 @@ const path = require('path');
  *     node scripts/prebuild.js
  */
 
+// Skip copying prebuilds when npm_config_build_from_source is set
+const buildFromSource = process.env.npm_config_build_from_source;
+if (buildFromSource) {
+  const val = buildFromSource.toLowerCase();
+  if (val !== 'false' && val !== '0' && val !== '') {
+    console.log('\x1b[33m> Skipping prebuild copy because npm_config_build_from_source is set\x1b[0m');
+    process.exit(1);
+  }
+}
+
 const PREBUILD_DIR = path.join(__dirname, '..', 'prebuilds', `${process.platform}-${process.arch}`);
 const RELEASE_DIR = path.join(__dirname, '../build/Release');
 
