@@ -39,6 +39,14 @@ extends:
       - name: node-pty
 
         buildSteps:
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download prebuilds'
+            inputs:
+              pipeline: '647'
+              runVersion: 'latestFromBranch'
+              runBranch: 'main'
+              artifact: 'prebuilds'
+              targetPath: 'prebuilds'
           - script: npm ci
             displayName: 'Install dependencies and build'
           # The following script leaves the version unchanged for
@@ -47,6 +55,14 @@ extends:
             displayName: 'Increment version'
 
         testSteps:
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download prebuilds'
+            inputs:
+              pipeline: '647'
+              runVersion: 'latestFromBranch'
+              runBranch: 'main'
+              artifact: 'prebuilds'
+              targetPath: 'prebuilds'
           - script: npm ci
             displayName: 'Install dependencies and build'
           - script: npm test
