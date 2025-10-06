@@ -23,6 +23,7 @@ const CONPTY_SUPPORTED_ARCH = ['x64', 'arm64'];
 
 console.log('\x1b[32m> Cleaning release folder...\x1b[0m');
 
+/** @param {string} folder  */
 function cleanFolderRecursive(folder) {
   var files = [];
   if (fs.existsSync(folder)) {
