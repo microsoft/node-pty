@@ -1,0 +1,20 @@
+parameters:
+  arch: 'x64'
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '22.x'
+  displayName: 'Install Node.js 22.x'
+
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.x'
+    addToPath: true
+  displayName: 'Use latest Python 3.x'
+
+- script: npm ci
+  displayName: 'Install dependencies'
+  env:
+    ARCH: ${{ parameters.arch }}
+    npm_config_arch: ${{ parameters.arch }} 
