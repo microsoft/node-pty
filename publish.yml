@@ -42,10 +42,11 @@ extends:
           - task: DownloadPipelineArtifact@2
             displayName: 'Download prebuilds'
             inputs:
-              pipeline: '647'
-              runVersion: 'latestFromBranch'
-              runBranch: 'main'
-              artifact: 'prebuilds'
+              buildType: 'specific'
+              buildVersionToDownload: 'latestFromBranch'
+              branchName: 'main'
+              pipelineId: '647'
+              artifactName: 'prebuilds'
               targetPath: 'prebuilds'
           - script: npm ci
             displayName: 'Install dependencies and build'
@@ -58,10 +59,11 @@ extends:
           - task: DownloadPipelineArtifact@2
             displayName: 'Download prebuilds'
             inputs:
-              pipeline: '647'
-              runVersion: 'latestFromBranch'
-              runBranch: 'main'
-              artifact: 'prebuilds'
+              buildType: 'specific'
+              buildVersionToDownload: 'latestFromBranch'
+              branchName: 'main'
+              pipelineId: '647'
+              artifactName: 'prebuilds'
               targetPath: 'prebuilds'
           - script: npm ci
             displayName: 'Install dependencies and build'

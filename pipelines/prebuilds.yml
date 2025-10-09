@@ -138,6 +138,8 @@ extends:
                   cp -r $(Build.ArtifactStagingDirectory)/win32-arm64 $(Build.ArtifactStagingDirectory)/prebuilds/
                   cp -r $(Build.ArtifactStagingDirectory)/darwin-x64 $(Build.ArtifactStagingDirectory)/prebuilds/
                   cp -r $(Build.ArtifactStagingDirectory)/darwin-arm64 $(Build.ArtifactStagingDirectory)/prebuilds/
-                  cp -r $(Build.ArtifactStagingDirectory)/linux-x64 $(Build.ArtifactStagingDirectory)/prebuilds/
-                  cp -r $(Build.ArtifactStagingDirectory)/linux-arm64 $(Build.ArtifactStagingDirectory)/prebuilds/
+
+                  # Exclude Linux prebuilds for now
+                  # cp -r $(Build.ArtifactStagingDirectory)/linux-x64 $(Build.ArtifactStagingDirectory)/prebuilds/
+                  # cp -r $(Build.ArtifactStagingDirectory)/linux-arm64 $(Build.ArtifactStagingDirectory)/prebuilds/
                 displayName: 'Create prebuilds archive'
