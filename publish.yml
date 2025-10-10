@@ -49,7 +49,7 @@ extends:
               branchName: 'refs/heads/main'
               artifactName: 'prebuilds'
               targetPath: 'prebuilds'
-          - script: |
+          - pwsh: |
               Get-ChildItem -Path . -Recurse -Directory -Name "_manifest" | Remove-Item -Recurse -Force
             displayName: 'Delete _manifest folders'
           - script: npm ci
