@@ -43,9 +43,10 @@ extends:
             displayName: 'Download prebuilds'
             inputs:
               buildType: 'specific'
+              project: 'Monaco'
+              definition: '647'
               buildVersionToDownload: 'latestFromBranch'
-              branchName: 'main'
-              pipelineId: '647'
+              branchName: 'refs/heads/main'
               artifactName: 'prebuilds'
               targetPath: 'prebuilds'
           - script: npm ci
@@ -60,9 +61,10 @@ extends:
             displayName: 'Download prebuilds'
             inputs:
               buildType: 'specific'
+              project: 'Monaco'
+              definition: '647'
               buildVersionToDownload: 'latestFromBranch'
-              branchName: 'main'
-              pipelineId: '647'
+              branchName: 'refs/heads/main'
               artifactName: 'prebuilds'
               targetPath: 'prebuilds'
           - script: npm ci
