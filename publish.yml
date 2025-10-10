@@ -43,11 +43,15 @@ extends:
             displayName: 'Download prebuilds'
             inputs:
               buildType: 'specific'
+              project: 'Monaco'
+              definition: '647'
               buildVersionToDownload: 'latestFromBranch'
-              branchName: 'main'
-              pipelineId: '647'
+              branchName: 'refs/heads/main'
               artifactName: 'prebuilds'
               targetPath: 'prebuilds'
+          - script: |
+              Get-ChildItem -Path . -Recurse -Directory -Name "_manifest" | Remove-Item -Recurse -Force
+            displayName: 'Delete _manifest folders'
           - script: npm ci
             displayName: 'Install dependencies and build'
           # The following script leaves the version unchanged for
@@ -60,9 +64,10 @@ extends:
             displayName: 'Download prebuilds'
             inputs:
               buildType: 'specific'
+              project: 'Monaco'
+              definition: '647'
               buildVersionToDownload: 'latestFromBranch'
-              branchName: 'main'
-              pipelineId: '647'
+              branchName: 'refs/heads/main'
               artifactName: 'prebuilds'
               targetPath: 'prebuilds'
           - script: npm ci
