@@ -63,10 +63,10 @@ export class WindowsPtyAgent {
     if (this._useConpty) {
       if (!conptyNative) {
         try {
-          conptyNative = require('../build/Release/conpty.node');
+          conptyNative = require('../build/Release/conpty_backend.node');
         } catch (outerError) {
           try {
-            conptyNative = require('../build/Debug/conpty.node');
+            conptyNative = require('../build/Debug/conpty_backend.node');
           } catch (innerError) {
             console.error('innerError', innerError);
             // Re-throw the exception from the Release require if the Debug require fails as well
