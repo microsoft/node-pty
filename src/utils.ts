@@ -10,10 +10,10 @@ export function assign(target: any, ...sources: any[]): any {
 
 
 export function loadNativeModule(name: string): {dir: string, module: any} {
-  // Check prebuild, build, and then debug build.
-  const dirs = [`prebuilds/${process.platform}-${process.arch}`, 'build/Release', 'build/Debug'];
-  // Check relative to the current dir for bundled and to the parent dir for unbundled.
-  const relative = ['.', '..'];
+  // Check build, debug, and then prebuilds.
+  const dirs = ['build/Release', 'build/Debug', `prebuilds/${process.platform}-${process.arch}`];
+  // Check relative to the parent dir for unbundled and then the current dir for bundled
+  const relative = ['..', '.'];
   let lastError: unknown;
   for (const d of dirs) {
     for (const r of relative) {
