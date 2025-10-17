@@ -4,15 +4,17 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * This script copies the prebuilt binaries from the prebuild directory
- * for the current platform and architecture to the build/Release directory.
+ * This script checks for the prebuilt binaries for the current platform and
+ * architecture. It exits with 0 if prebuilds are found and 1 if not.
+ *
+ * If npm_config_build_from_source is set then it removes the prebuilds for the
+ * current platform so they are not loaded at runtime.
  *
  * Usage:
  *     node scripts/prebuild.js
  */
 
 const PREBUILD_DIR = path.join(__dirname, '..', 'prebuilds', `${process.platform}-${process.arch}`);
-const RELEASE_DIR = path.join(__dirname, '../build/Release');
 
 // Skip copying prebuilds when npm_config_build_from_source is set
 if (process.env.npm_config_build_from_source === 'true') {
@@ -28,4 +30,5 @@ if (!fs.existsSync(PREBUILD_DIR)) {
   // Exit with 1 to fall back on node-gyp building the native modules
   process.exit(1);
 }
-fs.cpSync(PREBUILD_DIR, RELEASE_DIR, { recursive: true });
+// Exit with 0 to skip node-gyp building from source
+process.exit(0);
