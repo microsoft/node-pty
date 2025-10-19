@@ -9,24 +9,11 @@ import * as tty from 'tty';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
-import { assign } from './utils';
+import { assign, loadNativeModule } from './utils';
 
-let pty: IUnixNative;
-let helperPath: string;
-try {
-  pty = require('../build/Release/pty.node');
-  helperPath = '../build/Release/spawn-helper';
-} catch (outerError) {
-  try {
-    pty = require('../build/Debug/pty.node');
-    helperPath = '../build/Debug/spawn-helper';
-  } catch (innerError) {
-    console.error('innerError', innerError);
-    // Re-throw the exception from the Release require if the Debug require fails as well
-    throw outerError;
-  }
-}
-
+const native = loadNativeModule('pty');
+const pty: IUnixNative = native.module;
+let helperPath = native.dir + '/spawn-helper';
 helperPath = path.resolve(__dirname, helperPath);
 helperPath = helperPath.replace('app.asar', 'app.asar.unpacked');
 helperPath = helperPath.replace('node_modules.asar', 'node_modules.asar.unpacked');
