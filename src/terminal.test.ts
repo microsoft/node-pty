@@ -23,7 +23,7 @@ class TestTerminal extends Terminal {
   public checkType<T>(name: string, value: T, type: string, allowArray: boolean = false): void {
     this._checkType(name, value, type, allowArray);
   }
-  protected _write(data: string): void {
+  protected _write(data: string | Buffer): void {
     throw new Error('Method not implemented.');
   }
   public resize(cols: number, rows: number): void {

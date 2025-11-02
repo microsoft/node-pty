@@ -161,7 +161,7 @@ export class UnixTerminal extends Terminal {
     this._forwardEvents();
   }
 
-  protected _write(data: string): void {
+  protected _write(data: string | Buffer): void {
     this._socket.write(data);
   }
 

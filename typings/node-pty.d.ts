@@ -173,7 +173,7 @@ declare module 'node-pty' {
      * Writes data to the pty.
      * @param data The data to write.
      */
-    write(data: string): void;
+    write(data: string | Buffer): void;
 
     /**
      * Kills the pty.

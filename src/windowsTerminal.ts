@@ -123,11 +123,11 @@ export class WindowsTerminal extends Terminal {
     this._forwardEvents();
   }
 
-  protected _write(data: string): void {
+  protected _write(data: string | Buffer): void {
     this._defer(this._doWrite, data);
   }
 
-  private _doWrite(data: string): void {
+  private _doWrite(data: string | Buffer): void {
     this._agent.inSocket.write(data);
   }
 
