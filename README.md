@@ -2,6 +2,9 @@
 
 [![Build Status](https://dev.azure.com/vscode/node-pty/_apis/build/status/Microsoft.node-pty?branchName=main)](https://dev.azure.com/vscode/node-pty/_build/latest?definitionId=11&branchName=main)
 
+To install use `npm install node-pty` 
+If you want to use a modern version of node you can try the beta version `npm install node-pty@beta`
+
 `forkpty(3)` bindings for node.js. This allows you to fork processes with pseudoterminal file descriptors. It returns a terminal object which allows reads and writes.
 
 This is useful for:
