@@ -86,8 +86,8 @@ extends:
           publishRequiresApproval: false
 
         apiScanExcludes: |
-          'package/third_party/conpty/**/win10-arm64/*.*'
-          'package/prebuilds/win32-arm64/conpty/*.*'
-          'package/prebuilds/win32-arm64/*.*'
+          package/third_party/conpty/**/win10-arm64/*.*
+          package/prebuilds/win32-arm64/conpty/*.*
+          package/prebuilds/win32-arm64/*.*
         apiScanSoftwareName: 'vscode-node-pty'
         apiScanSoftwareVersion: '1'
