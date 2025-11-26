@@ -32,9 +32,9 @@ extends:
             name: 1es-oss-ubuntu-22.04-x64
             os: Linux
           steps:
-          - task: NodeTool@0
+          - task: UseNode@1
             inputs:
-              versionSpec: 22.x
+              version: 22.x
             displayName: 'Install Node.js'
           - script: npm ci
             displayName: 'Install dependencies and build'
@@ -49,9 +49,9 @@ extends:
             vmImage: 'macOS-14'
             os: macOS
           steps:
-          - task: NodeTool@0
+          - task: UseNode@1
             inputs:
-              versionSpec: 22.x
+              version: 22.x
             displayName: 'Install Node.js'
           - script: npm ci
             displayName: 'Install dependencies and build'
@@ -65,9 +65,9 @@ extends:
             name: 1es-oss-windows-2022-x64
             os: Windows
           steps:
-          - task: NodeTool@0
+          - task: UseNode@1
             inputs:
-              versionSpec: 22.x
+              version: 22.x
             displayName: 'Install Node.js'
           - script: npm ci
             displayName: 'Install dependencies and build'
