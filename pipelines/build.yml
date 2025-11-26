@@ -2,9 +2,9 @@ parameters:
   arch: 'x64'
 
 steps:
-- task: NodeTool@0
+- task: UseNode@1
   inputs:
-    versionSpec: '22.x'
+    version: '22.x'
   displayName: 'Install Node.js 22.x'
 
 - task: UsePythonVersion@0
@@ -17,4 +17,4 @@ steps:
   displayName: 'Install dependencies'
   env:
     ARCH: ${{ parameters.arch }}
-    npm_config_arch: ${{ parameters.arch }} 
+    npm_config_arch: ${{ parameters.arch }}
