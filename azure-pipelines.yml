@@ -69,7 +69,7 @@ extends:
             inputs:
               version: 22.20.0
             displayName: 'Install Node.js'
-          - pwsh: npm ci
+          - pwsh: npm ci --silly
             displayName: 'Install dependencies and build'
           - pwsh: npm test
             displayName: 'Test'
