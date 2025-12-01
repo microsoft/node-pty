@@ -34,7 +34,7 @@ extends:
           steps:
           - task: UseNode@1
             inputs:
-              version: 22.x
+              version: 22.20.0
             displayName: 'Install Node.js'
           - script: npm ci
             displayName: 'Install dependencies and build'
@@ -51,7 +51,7 @@ extends:
           steps:
           - task: UseNode@1
             inputs:
-              version: 22.x
+              version: 22.20.0
             displayName: 'Install Node.js'
           - script: npm ci
             displayName: 'Install dependencies and build'
@@ -67,11 +67,11 @@ extends:
           steps:
           - task: UseNode@1
             inputs:
-              version: 22.20.x
+              version: 22.20.0
             displayName: 'Install Node.js'
-          - script: npm ci
+          - pwsh: npm ci
             displayName: 'Install dependencies and build'
-          - script: npm test
+          - pwsh: npm test
             displayName: 'Test'
-          - script: npm run lint
+          - pwsh: npm run lint
             displayName: 'Lint'
