@@ -67,7 +67,7 @@ extends:
           steps:
           - task: UseNode@1
             inputs:
-              version: 22.x
+              version: 22.20.x
             displayName: 'Install Node.js'
           - script: npm ci
             displayName: 'Install dependencies and build'
