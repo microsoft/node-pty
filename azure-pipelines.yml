@@ -69,8 +69,15 @@ extends:
             inputs:
               version: 22.20.0
             displayName: 'Install Node.js'
-          - pwsh: npm ci --silly
+          - pwsh: npm ci
             displayName: 'Install dependencies and build'
+            continueOnError: true
+          - task: 1ES.PublishPipelineArtifact@1
+            inputs:
+              targetPath: 'C:\npm\cache\_logs'
+              artifactName: npm-cache-logs
+            displayName: 'Upload npm cache logs'
+            condition: always()
           - pwsh: npm test
             displayName: 'Test'
           - pwsh: npm run lint
