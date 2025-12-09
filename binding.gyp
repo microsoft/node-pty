@@ -37,7 +37,7 @@
             'src/win/path_util.cc'
           ],
           'libraries': [
-            'shlwapi.lib'
+            '-lshlwapi'
           ],
         },
         {
@@ -63,7 +63,7 @@
             'src/win/path_util.cc'
           ],
           'libraries': [
-            'shlwapi.lib'
+            '-lshlwapi'
           ],
         }
       ]
