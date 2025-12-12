@@ -26,6 +26,7 @@ const DESTROY_SOCKET_TIMEOUT_MS = 200;
 export class UnixTerminal extends Terminal {
   protected _fd: number;
   protected _pty: string;
+  private _writeSocket!: net.Socket; // HACK: This is unsafe
 
   protected _file: string;
   protected _name: string;
@@ -103,6 +104,8 @@ export class UnixTerminal extends Terminal {
     const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), helperPath, onexit);
 
     this._socket = new tty.ReadStream(term.fd);
+    // HACK: This needs to be created or all some data may get lost
+    this._writeSocket = new tty.WriteStream(term.fd);
     if (encoding !== null) {
       this._socket.setEncoding(encoding);
     }
@@ -171,7 +174,12 @@ export class UnixTerminal extends Terminal {
       if (err) {
         console.log('pty write error', err);
       }
+      console.log('written', written);
     });
+    // TODO: Understand why this hangs the process
+    // this._writeSocket.write(data, (err) => {
+    //   console.log('err', err);
+    // });
   }
 
   /* Accessors */
