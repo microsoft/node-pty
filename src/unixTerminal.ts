@@ -3,6 +3,7 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
+import * as fs from 'fs';
 import * as net from 'net';
 import * as path from 'path';
 import * as tty from 'tty';
@@ -162,7 +163,15 @@ export class UnixTerminal extends Terminal {
   }
 
   protected _write(data: string | Buffer): void {
-    this._socket.write(data);
+    // Use the underlying file descriptor to avoid issues with backpressure
+    // handling in net.Socket/tty.*Stream which can result in data loss with
+    // ~1-4kb of data.
+    // Context: https://github.com/microsoft/vscode/issues/283056
+    fs.write(this.fd, data, (err, written) => {
+      if (err) {
+        console.log('pty write error', err);
+      }
+    });
   }
 
   /* Accessors */
