@@ -26,7 +26,6 @@ const DESTROY_SOCKET_TIMEOUT_MS = 200;
 export class UnixTerminal extends Terminal {
   protected _fd: number;
   protected _pty: string;
-  private _writeSocket!: net.Socket; // HACK: This is unsafe
 
   protected _file: string;
   protected _name: string;
@@ -36,6 +35,8 @@ export class UnixTerminal extends Terminal {
 
   private _boundClose: boolean = false;
   private _emittedClose: boolean = false;
+
+  private readonly _writeStream: fs.WriteStream;
   private _master: net.Socket | undefined;
   private _slave: net.Socket | undefined;
 
@@ -104,11 +105,11 @@ export class UnixTerminal extends Terminal {
     const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), helperPath, onexit);
 
     this._socket = new tty.ReadStream(term.fd);
-    // HACK: This needs to be created or all some data may get lost
-    this._writeSocket = new tty.WriteStream(term.fd);
-    if (encoding !== null) {
-      this._socket.setEncoding(encoding);
-    }
+    this._writeStream = fs.createWriteStream('', {
+      fd: term.fd,
+      encoding: encoding ?? undefined,
+      autoClose: false
+    });
 
     // setup
     this._socket.on('error', (err: any) => {
@@ -165,21 +166,77 @@ export class UnixTerminal extends Terminal {
     this._forwardEvents();
   }
 
+  private _writeQueue: (string | Buffer)[] = [];
+
   protected _write(data: string | Buffer): void {
-    // Use the underlying file descriptor to avoid issues with backpressure
-    // handling in net.Socket/tty.*Stream which can result in data loss with
-    // ~1-4kb of data.
-    // Context: https://github.com/microsoft/vscode/issues/283056
-    fs.write(this.fd, data, (err, written) => {
-      if (err) {
-        console.log('pty write error', err);
-      }
+    // Writes are put in a queue and processed asynchronously in order to handle
+    // backpressure from the kernel buffer.
+    this._writeQueue.push(data);
+    if (this._writeInProgress) {
+      return;
+    }
+    this._writeInProgress = true;
+    this._processWriteQueue();
+  }
+
+  private _writeInProgress: boolean = false;
+  private _writeTimeout: NodeJS.Timeout | undefined;
+
+  private async _processWriteQueue(): Promise<void> {
+    const data = this._writeQueue.shift();
+    if (!data) {
+      this._writeInProgress = false;
+      return;
+    }
+
+    // Write to the underlying file descriptor and handle it directly, rather
+    // than using the `net.Socket`/`tty.WriteStream` wrappers which swallow the
+    // errors and cause the thread to block indefinitely.
+    fs.write(this._fd, data, (err, written) => {
       console.log('written', written);
+      if (err) {
+        const errno = (err as any).errno;
+        switch (errno) {
+          case -35: // EAGAIN (macOS)
+          case -11: // EAGAIN (Linux(
+            // This error appears to get swallowed and translated into
+            // `ERR_SYSTEM_ERROR` when using tty.WriteStream and not fs.write
+            // directly.
+            // This can happen during a regular partial write, but the most
+            // reliable way to test this is to run `sleep 10` in the shell and
+            // paste enough data to fill the kernel-level buffer. Once the sleep
+            // ends, the pty should accept the data again. Re-process after a
+            // short break.
+            this._writeTimeout = setTimeout(() => this._processWriteQueue(), 5);
+            return;
+          case -5:  // macOS+Linux EIO
+          case -32: // EPIPE
+            // Stop processing writes immediately as the pty is closed.
+            this._writeInProgress = false;
+            return;
+          default:
+            console.error('Unhandled pty write error', errno, err);
+            // Fall through as it's important to finish processing the queue
+            break;
+        }
+      }
+
+      // Requeue any partial writes
+      if (written < data.length) {
+        console.log('requeueing unwritten', data.slice(written).length);
+        this._writeQueue.unshift(data.slice(written));
+      }
+
+      // Using `setImmediate` here appears to corrupt the data, this may be what
+      // the interleaving/dropped data comment is about in Node.js' tty module:
+      // https://github.com/nodejs/node/blob/4cac2b94bed4bf02810be054e8f63c0048c66564/lib/tty.js#L106C1-L111C34
+      //
+      // Yielding via `setImmediate` also doesn't seem to drain the buffer much
+      // anyway, so use a short timeout when this happens instead. Note that the `drain`
+      // event does not appear to happen on `net.Socket`/`tty.WriteStream` when
+      // writing to ptys.
+      this._writeTimeout = setTimeout(() => this._processWriteQueue(), 5);
     });
-    // TODO: Understand why this hangs the process
-    // this._writeSocket.write(data, (err) => {
-    //   console.log('err', err);
-    // });
   }
 
   /* Accessors */
@@ -255,6 +312,9 @@ export class UnixTerminal extends Terminal {
     });
 
     this._socket.destroy();
+
+    this._writeStream?.destroy();
+    clearTimeout(this._writeTimeout);
   }
 
   public kill(signal?: string): void {
