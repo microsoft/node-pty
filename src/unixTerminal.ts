@@ -189,6 +189,11 @@ export class UnixTerminal extends Terminal {
     // than using the `net.Socket`/`tty.WriteStream` wrappers which swallow the
     // errors and cause the thread to block indefinitely.
     fs.write(this._fd, data, (err, written) => {
+      // Requeue any partial writes
+      if (written < data.length) {
+        this._writeQueue.unshift(data.slice(written));
+      }
+
       if (err) {
         const errno = (err as any).errno;
         switch (errno) {
@@ -214,11 +219,6 @@ export class UnixTerminal extends Terminal {
             // Fall through as it's important to finish processing the queue
             break;
         }
-      }
-
-      // Requeue any partial writes
-      if (written < data.length) {
-        this._writeQueue.unshift(data.slice(written));
       }
 
       // Using `setImmediate` here appears to corrupt the data, this may be what
