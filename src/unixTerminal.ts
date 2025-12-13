@@ -191,7 +191,7 @@ export class UnixTerminal extends Terminal {
         const errno = (err as any).errno;
         switch (errno) {
           case -35: // EAGAIN (macOS)
-          case -11: // EAGAIN (Linux(
+          case -11: // EAGAIN (Linux)
             // This error appears to get swallowed and translated into
             // `ERR_SYSTEM_ERROR` when using tty.WriteStream and not fs.write
             // directly.
@@ -202,7 +202,7 @@ export class UnixTerminal extends Terminal {
             // short break.
             this._writeTimeout = setTimeout(() => this._processWriteQueue(), 5);
             return;
-          case -5:  // macOS+Linux EIO
+          case -5:  // EIO
           case -32: // EPIPE
             // Stop processing writes immediately as the pty is closed.
             this._writeInProgress = false;
