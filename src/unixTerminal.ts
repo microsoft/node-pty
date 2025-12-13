@@ -36,7 +36,6 @@ export class UnixTerminal extends Terminal {
   private _boundClose: boolean = false;
   private _emittedClose: boolean = false;
 
-  private readonly _writeStream: fs.WriteStream;
   private _master: net.Socket | undefined;
   private _slave: net.Socket | undefined;
 
@@ -105,11 +104,6 @@ export class UnixTerminal extends Terminal {
     const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), helperPath, onexit);
 
     this._socket = new tty.ReadStream(term.fd);
-    this._writeStream = fs.createWriteStream('', {
-      fd: term.fd,
-      encoding: encoding ?? undefined,
-      autoClose: false
-    });
 
     // setup
     this._socket.on('error', (err: any) => {
@@ -313,7 +307,6 @@ export class UnixTerminal extends Terminal {
 
     this._socket.destroy();
 
-    this._writeStream?.destroy();
     clearTimeout(this._writeTimeout);
   }
 
