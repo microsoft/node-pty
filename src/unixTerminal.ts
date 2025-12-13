@@ -36,6 +36,10 @@ export class UnixTerminal extends Terminal {
   private _boundClose: boolean = false;
   private _emittedClose: boolean = false;
 
+  private readonly _writeQueue: (string | Buffer)[] = [];
+  private _writeInProgress: boolean = false;
+  private _writeTimeout: NodeJS.Timeout | undefined;
+
   private _master: net.Socket | undefined;
   private _slave: net.Socket | undefined;
 
@@ -163,8 +167,6 @@ export class UnixTerminal extends Terminal {
     this._forwardEvents();
   }
 
-  private _writeQueue: (string | Buffer)[] = [];
-
   protected _write(data: string | Buffer): void {
     // Writes are put in a queue and processed asynchronously in order to handle
     // backpressure from the kernel buffer.
@@ -175,9 +177,6 @@ export class UnixTerminal extends Terminal {
     this._writeInProgress = true;
     this._processWriteQueue();
   }
-
-  private _writeInProgress: boolean = false;
-  private _writeTimeout: NodeJS.Timeout | undefined;
 
   private async _processWriteQueue(): Promise<void> {
     const data = this._writeQueue.shift();
