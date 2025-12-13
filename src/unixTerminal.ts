@@ -187,7 +187,6 @@ export class UnixTerminal extends Terminal {
     // than using the `net.Socket`/`tty.WriteStream` wrappers which swallow the
     // errors and cause the thread to block indefinitely.
     fs.write(this._fd, data, (err, written) => {
-      console.log('written', written);
       if (err) {
         const errno = (err as any).errno;
         switch (errno) {
@@ -217,7 +216,6 @@ export class UnixTerminal extends Terminal {
 
       // Requeue any partial writes
       if (written < data.length) {
-        console.log('requeueing unwritten', data.slice(written).length);
         this._writeQueue.unshift(data.slice(written));
       }
 
