@@ -4,7 +4,6 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 import * as fs from 'fs';
-import * as os from 'os';
 import * as net from 'net';
 import * as path from 'path';
 import * as tty from 'tty';
@@ -193,7 +192,8 @@ export class UnixTerminal extends Terminal {
       if (err) {
         const errno = (err as any).errno;
         switch (errno) {
-          case os.constants.errno.EAGAIN:
+          case -35: // EAGAIN (macOS)
+          case -11: // EAGAIN (Linux)
             // This error appears to get swallowed and translated into
             // `ERR_SYSTEM_ERROR` when using tty.WriteStream and not fs.write
             // directly.
@@ -204,8 +204,8 @@ export class UnixTerminal extends Terminal {
             // short break.
             this._writeTimeout = setTimeout(() => this._processWriteQueue(), 5);
             return;
-          case os.constants.errno.EIO:
-          case os.constants.errno.EPIPE:
+          case -5:  // EIO
+          case -32: // EPIPE
             // Stop processing writes immediately as the pty is closed.
             this._writeInProgress = false;
             return;
