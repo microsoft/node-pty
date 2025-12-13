@@ -104,6 +104,9 @@ export class UnixTerminal extends Terminal {
     const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), helperPath, onexit);
 
     this._socket = new tty.ReadStream(term.fd);
+    if (encoding !== null) {
+      this._socket.setEncoding(encoding);
+    }
 
     // setup
     this._socket.on('error', (err: any) => {
