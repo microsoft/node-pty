@@ -12,7 +12,7 @@ int main (int argc, char** argv) {
 
   char *cwd = argv[1];
   char *file = argv[2];
-  argv = &argv[2];
+  argv = &argv[3];
 
   if (strlen(cwd) && chdir(cwd) == -1) {
     _exit(1);
