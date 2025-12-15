@@ -3,10 +3,8 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
-import * as fs from 'fs';
 import * as net from 'net';
 import * as path from 'path';
-import * as tty from 'tty';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
@@ -23,6 +21,118 @@ const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
 const DESTROY_SOCKET_TIMEOUT_MS = 200;
 
+// libuv (and by extension node.js) have a limitation where they check the type
+// handle and if it's a TTY one assume that it must be a TTY client (not host).
+// Because of this, they set UV_HANDLE_BLOCKING_WRITES on the libuv stream.
+// This in turn means that on EAGAIN, it'll retry the write synchronously.
+// This can cause deadlocks under macOS when its PTY pipe is full.
+//
+// To fix this, we use a hack to create a custom uv_pipe_t handle using pipe_wrap.
+// If that fails, we fall back to tty.ReadStream but with a custom write function.
+// The fallback is not ideal, because without poll() we can only use setTimeout.
+type SocketConstructor = new (fd: number) => net.Socket;
+const Socket: SocketConstructor = (() => {
+  try {
+    const { Pipe, constants: PipeConstants } = (process as any).binding('pipe_wrap');
+    const SOCKET = PipeConstants.SOCKET;
+
+    if (typeof Pipe === 'function' && typeof SOCKET === 'number') {
+      return class PipeSocket extends net.Socket {
+        constructor(fd: number) {
+          if (fd >> 0 !== fd || fd < 0) {
+            throw new Error(`Invalid file descriptor: ${fd}`);
+          }
+
+          const handle = new Pipe(SOCKET);
+          handle.open(fd);
+
+          super(<any>{
+            handle,
+            manualStart: true,
+          });
+        }
+      };
+    }
+  } catch (e) {
+  }
+
+  console.warn('node-pty: falling back to tty.ReadStream');
+
+  const fs: typeof import('fs') = require('fs');
+  const tty: typeof import('tty') = require('tty');
+
+  interface WriteTask {
+    data: Buffer;
+    offset: number;
+  }
+
+  return class TtySocket extends tty.ReadStream {
+    private readonly _fd: number;
+    private _encoding?: BufferEncoding = undefined;
+    private _writeQueue: WriteTask[] = [];
+    private _timeout: NodeJS.Timeout | undefined;
+
+    constructor(fd: number) {
+      super(fd);
+      this._fd = fd;
+    }
+
+    public _destroy(error: Error | null, callback: (error: Error | null) => void): void {
+      if (this._timeout !== undefined) {
+        clearTimeout(this._timeout);
+        this._timeout = undefined;
+      }
+      return super._destroy(error, callback);
+    }
+
+    public setEncoding(encoding: BufferEncoding): this {
+      this._encoding = encoding;
+      return super.setEncoding(encoding);
+    }
+
+    public write(str: string | Buffer) {
+      const data = typeof str === 'string'
+        ? Buffer.from(str, this._encoding)
+        : Buffer.from(str);
+
+      if (data.byteLength !== 0) {
+        this._writeQueue.push({ data, offset: 0 });
+        if (this._writeQueue.length === 1) {
+          this._processQueue();
+        }
+      }
+
+      return true;
+    }
+
+    private _processQueue() {
+      if (this._writeQueue.length === 0) {
+        return;
+      }
+
+      const task = this._writeQueue[0];
+      fs.write(this._fd, task.data, task.offset, (err, written) => {
+        if (err) {
+          if ((err as any).code === 'EAGAIN') {
+            this._timeout = setTimeout(() => this._processQueue(), 5);
+          } else {
+            this._writeQueue = [];
+            this.emit('error', err);
+          }
+          return;
+        }
+
+        task.offset += written;
+        if (task.offset >= task.data.byteLength) {
+          this._writeQueue.shift();
+        }
+
+        this._processQueue();
+      });
+    }
+  }
+})();
+
 export class UnixTerminal extends Terminal {
   protected _fd: number;
   protected _pty: string;
@@ -35,11 +145,6 @@ export class UnixTerminal extends Terminal {
 
   private _boundClose: boolean = false;
   private _emittedClose: boolean = false;
-
-  private readonly _writeQueue: (string | Buffer)[] = [];
-  private _writeInProgress: boolean = false;
-  private _writeTimeout: NodeJS.Timeout | undefined;
-
   private _master: net.Socket | undefined;
   private _slave: net.Socket | undefined;
 
@@ -107,7 +212,7 @@ export class UnixTerminal extends Terminal {
     // fork
     const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), helperPath, onexit);
 
-    this._socket = new tty.ReadStream(term.fd);
+    this._socket = new Socket(term.fd);
     if (encoding !== null) {
       this._socket.setEncoding(encoding);
     }
@@ -168,69 +273,7 @@ export class UnixTerminal extends Terminal {
   }
 
   protected _write(data: string | Buffer): void {
-    // Writes are put in a queue and processed asynchronously in order to handle
-    // backpressure from the kernel buffer.
-    this._writeQueue.push(data);
-    if (this._writeInProgress) {
-      return;
-    }
-    this._writeInProgress = true;
-    this._processWriteQueue();
-  }
-
-  private async _processWriteQueue(): Promise<void> {
-    const data = this._writeQueue.shift();
-    if (!data) {
-      this._writeInProgress = false;
-      return;
-    }
-
-    // Write to the underlying file descriptor and handle it directly, rather
-    // than using the `net.Socket`/`tty.WriteStream` wrappers which swallow the
-    // errors and cause the thread to block indefinitely.
-    fs.write(this._fd, data, (err, written) => {
-      // Requeue any partial writes
-      if (written < data.length) {
-        this._writeQueue.unshift(data.slice(written));
-      }
-
-      if (err) {
-        const errno = (err as any).errno;
-        switch (errno) {
-          case -35: // EAGAIN (macOS)
-          case -11: // EAGAIN (Linux)
-            // This error appears to get swallowed and translated into
-            // `ERR_SYSTEM_ERROR` when using tty.WriteStream and not fs.write
-            // directly.
-            // This can happen during a regular partial write, but the most
-            // reliable way to test this is to run `sleep 10` in the shell and
-            // paste enough data to fill the kernel-level buffer. Once the sleep
-            // ends, the pty should accept the data again. Re-process after a
-            // short break.
-            this._writeTimeout = setTimeout(() => this._processWriteQueue(), 5);
-            return;
-          case -5:  // EIO
-          case -32: // EPIPE
-            // Stop processing writes immediately as the pty is closed.
-            this._writeInProgress = false;
-            return;
-          default:
-            console.error('Unhandled pty write error', errno, err);
-            // Fall through as it's important to finish processing the queue
-            break;
-        }
-      }
-
-      // Using `setImmediate` here appears to corrupt the data, this may be what
-      // the interleaving/dropped data comment is about in Node.js' tty module:
-      // https://github.com/nodejs/node/blob/4cac2b94bed4bf02810be054e8f63c0048c66564/lib/tty.js#L106C1-L111C34
-      //
-      // Yielding via `setImmediate` also doesn't seem to drain the buffer much
-      // anyway, so use a short timeout when this happens instead. Note that the `drain`
-      // event does not appear to happen on `net.Socket`/`tty.WriteStream` when
-      // writing to ptys.
-      this._writeTimeout = setTimeout(() => this._processWriteQueue(), 5);
-    });
+    this._socket.write(data);
   }
 
   /* Accessors */
@@ -259,13 +302,13 @@ export class UnixTerminal extends Terminal {
     // open
     const term: IUnixOpenProcess = pty.open(cols, rows);
 
-    self._master = new tty.ReadStream(term.master);
+    self._master = new Socket(term.master);
     if (encoding !== null) {
       self._master.setEncoding(encoding);
     }
     self._master.resume();
 
-    self._slave = new tty.ReadStream(term.slave);
+    self._slave = new Socket(term.slave);
     if (encoding !== null) {
       self._slave.setEncoding(encoding);
     }
@@ -306,8 +349,6 @@ export class UnixTerminal extends Terminal {
     });
 
     this._socket.destroy();
-
-    clearTimeout(this._writeTimeout);
   }
 
   public kill(signal?: string): void {
@@ -322,7 +363,7 @@ export class UnixTerminal extends Terminal {
   public get process(): string {
     if (process.platform === 'darwin') {
       const title = pty.process(this._fd);
-      return (title !== 'kernel_task' ) ? title : this._file;
+      return (title !== 'kernel_task') ? title : this._file;
     }
 
     return pty.process(this._fd, this._pty) || this._file;
