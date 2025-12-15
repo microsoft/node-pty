@@ -21,6 +21,8 @@ const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
 const DESTROY_SOCKET_TIMEOUT_MS = 200;
 
+type SocketConstructor = new (fd: number) => net.Socket;
+
 // libuv (and by extension node.js) have a limitation where they check the type
 // handle and if it's a TTY one assume that it must be a TTY client (not host).
 // Because of this, they set UV_HANDLE_BLOCKING_WRITES on the libuv stream.
@@ -30,9 +32,11 @@ const DESTROY_SOCKET_TIMEOUT_MS = 200;
 // To fix this, we use a hack to create a custom uv_pipe_t handle using pipe_wrap.
 // If that fails, we fall back to tty.ReadStream but with a custom write function.
 // The fallback is not ideal, because without poll() we can only use setTimeout.
-type SocketConstructor = new (fd: number) => net.Socket;
+//
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const Socket: SocketConstructor = (() => {
   try {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     const { Pipe, constants: PipeConstants } = (process as any).binding('pipe_wrap');
     const SOCKET = PipeConstants.SOCKET;
 
@@ -48,7 +52,7 @@ const Socket: SocketConstructor = (() => {
 
           super(<any>{
             handle,
-            manualStart: true,
+            manualStart: true
           });
         }
       };
@@ -61,7 +65,7 @@ const Socket: SocketConstructor = (() => {
   const fs: typeof import('fs') = require('fs');
   const tty: typeof import('tty') = require('tty');
 
-  interface WriteTask {
+  interface IWriteTask {
     data: Buffer;
     offset: number;
   }
@@ -69,7 +73,7 @@ const Socket: SocketConstructor = (() => {
   return class TtySocket extends tty.ReadStream {
     private readonly _fd: number;
     private _encoding?: BufferEncoding = undefined;
-    private _writeQueue: WriteTask[] = [];
+    private _writeQueue: IWriteTask[] = [];
     private _timeout: NodeJS.Timeout | undefined;
 
     constructor(fd: number) {
@@ -77,6 +81,7 @@ const Socket: SocketConstructor = (() => {
       this._fd = fd;
     }
 
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     public _destroy(error: Error | null, callback: (error: Error | null) => void): void {
       if (this._timeout !== undefined) {
         clearTimeout(this._timeout);
@@ -90,7 +95,7 @@ const Socket: SocketConstructor = (() => {
       return super.setEncoding(encoding);
     }
 
-    public write(str: string | Buffer) {
+    public write(str: string | Buffer): boolean {
       const data = typeof str === 'string'
         ? Buffer.from(str, this._encoding)
         : Buffer.from(str);
@@ -105,7 +110,7 @@ const Socket: SocketConstructor = (() => {
       return true;
     }
 
-    private _processQueue() {
+    private _processQueue(): void {
       if (this._writeQueue.length === 0) {
         return;
       }
@@ -130,7 +135,7 @@ const Socket: SocketConstructor = (() => {
         this._processQueue();
       });
     }
-  }
+  };
 })();
 
 export class UnixTerminal extends Terminal {
