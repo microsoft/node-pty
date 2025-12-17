@@ -202,7 +202,7 @@ export class UnixTerminal extends Terminal {
     // errors and cause the thread to block indefinitely.
     fs.write(this._fd, task.data, task.offset, (err, written) => {
       if (err) {
-        if ((err as any).code === 'EAGAIN') {
+        if ('code' in err && err.code === 'EAGAIN') {
           // This error appears to get swallowed and translated into
           // `ERR_SYSTEM_ERROR` when using tty.WriteStream and not fs.write
           // directly.
