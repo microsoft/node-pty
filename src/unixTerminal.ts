@@ -12,11 +12,6 @@ import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
 import { ArgvOrCommandLine } from './types';
 import { assign, loadNativeModule } from './utils';
 
-interface IWriteTask {
-  data: Buffer;
-  offset: number;
-}
-
 const native = loadNativeModule('pty');
 const pty: IUnixNative = native.module;
 let helperPath = native.dir + '/spawn-helper';
@@ -27,6 +22,13 @@ helperPath = helperPath.replace('node_modules.asar', 'node_modules.asar.unpacked
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
 const DESTROY_SOCKET_TIMEOUT_MS = 200;
+
+interface IWriteTask {
+  /** The buffer being written. */
+  data: Buffer;
+  /** The current offset of not yet written data. */
+  offset: number;
+}
 
 export class UnixTerminal extends Terminal {
   protected _fd: number;
@@ -41,7 +43,7 @@ export class UnixTerminal extends Terminal {
   private _boundClose: boolean = false;
   private _emittedClose: boolean = false;
 
-  private _writeQueue: IWriteTask[] = [];
+  private readonly _writeQueue: IWriteTask[] = [];
   private _writeTimeout: NodeJS.Timeout | undefined;
   private _encoding?: BufferEncoding = undefined;
 
@@ -174,6 +176,8 @@ export class UnixTerminal extends Terminal {
   }
 
   protected _write(str: string | Buffer): void {
+    // Writes are put in a queue and processed asynchronously in order to handle
+    // backpressure from the kernel buffer.
     const data = typeof str === 'string'
       ? Buffer.from(str, this._encoding)
       : Buffer.from(str);
@@ -199,10 +203,19 @@ export class UnixTerminal extends Terminal {
     fs.write(this._fd, task.data, task.offset, (err, written) => {
       if (err) {
         if ((err as any).code === 'EAGAIN') {
+          // This error appears to get swallowed and translated into
+          // `ERR_SYSTEM_ERROR` when using tty.WriteStream and not fs.write
+          // directly.
+          // The most reliable way to test this is to run `sleep 10` in the
+          // shell and paste enough data to fill the kernel-level buffer. Once
+          // the sleep ends, the pty should accept the data again. Re-process
+          // after a short break.
+          // TODO: https://github.com/microsoft/node-pty/issues/833#issuecomment-3665099159
           this._writeTimeout = setTimeout(() => this._processWriteQueue(), 5);
         } else {
-          this._writeQueue = [];
-          this.emit('error', err);
+          // Stop processing immediately on unexpected error and log
+          this._writeQueue.length = 0;
+          console.error('Unhandled pty write error', err);
         }
         return;
       }
@@ -212,7 +225,16 @@ export class UnixTerminal extends Terminal {
         this._writeQueue.shift();
       }
 
-      this._processWriteQueue();
+      // Using `setImmediate` here appears to corrupt the data, this may be what
+      // the interleaving/dropped data comment is about in Node.js' tty module:
+      // https://github.com/nodejs/node/blob/4cac2b94bed4bf02810be054e8f63c0048c66564/lib/tty.js#L106C1-L111C34
+      //
+      // Yielding via `setImmediate` also doesn't seem to drain the buffer much
+      // anyway, so use a short timeout when this happens instead. Note that the `drain`
+      // event does not appear to happen on `net.Socket`/`tty.WriteStream` when
+      // writing to ptys.
+      // TODO: https://github.com/microsoft/node-pty/issues/833#issuecomment-3665099159
+      this._writeTimeout = setTimeout(() => this._processWriteQueue(), 5);
     });
   }
 
