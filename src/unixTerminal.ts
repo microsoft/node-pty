@@ -23,6 +23,13 @@ const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
 const DESTROY_SOCKET_TIMEOUT_MS = 200;
 
+interface IWriteTask {
+  /** The buffer being written. */
+  data: Buffer;
+  /** The current offset of not yet written data. */
+  offset: number;
+}
+
 export class UnixTerminal extends Terminal {
   protected _fd: number;
   protected _pty: string;
@@ -36,9 +43,9 @@ export class UnixTerminal extends Terminal {
   private _boundClose: boolean = false;
   private _emittedClose: boolean = false;
 
-  private readonly _writeQueue: (string | Buffer)[] = [];
-  private _writeInProgress: boolean = false;
+  private readonly _writeQueue: IWriteTask[] = [];
   private _writeTimeout: NodeJS.Timeout | undefined;
+  private _encoding?: BufferEncoding = undefined;
 
   private _master: net.Socket | undefined;
   private _slave: net.Socket | undefined;
@@ -76,6 +83,7 @@ export class UnixTerminal extends Terminal {
     const parsedEnv = this._parseEnv(env);
 
     const encoding = (opt.encoding === undefined ? 'utf8' : opt.encoding);
+    this._encoding = (encoding || undefined) as BufferEncoding;
 
     const onexit = (code: number, signal: number): void => {
       // XXX Sometimes a data event is emitted after exit. Wait til socket is
@@ -167,58 +175,54 @@ export class UnixTerminal extends Terminal {
     this._forwardEvents();
   }
 
-  protected _write(data: string | Buffer): void {
+  protected _write(str: string | Buffer): void {
     // Writes are put in a queue and processed asynchronously in order to handle
     // backpressure from the kernel buffer.
-    this._writeQueue.push(data);
-    if (this._writeInProgress) {
-      return;
+    const data = typeof str === 'string'
+      ? Buffer.from(str, this._encoding)
+      : Buffer.from(str);
+
+    if (data.byteLength !== 0) {
+      this._writeQueue.push({ data, offset: 0 });
+      if (this._writeQueue.length === 1) {
+        this._processWriteQueue();
+      }
     }
-    this._writeInProgress = true;
-    this._processWriteQueue();
   }
 
-  private async _processWriteQueue(): Promise<void> {
-    const data = this._writeQueue.shift();
-    if (!data) {
-      this._writeInProgress = false;
+  private _processWriteQueue(): void {
+    if (this._writeQueue.length === 0) {
       return;
     }
+
+    const task = this._writeQueue[0];
 
     // Write to the underlying file descriptor and handle it directly, rather
     // than using the `net.Socket`/`tty.WriteStream` wrappers which swallow the
     // errors and cause the thread to block indefinitely.
-    fs.write(this._fd, data, (err, written) => {
-      // Requeue any partial writes
-      if (written < data.length) {
-        this._writeQueue.unshift(data.slice(written));
+    fs.write(this._fd, task.data, task.offset, (err, written) => {
+      if (err) {
+        if ((err as any).code === 'EAGAIN') {
+          // This error appears to get swallowed and translated into
+          // `ERR_SYSTEM_ERROR` when using tty.WriteStream and not fs.write
+          // directly.
+          // The most reliable way to test this is to run `sleep 10` in the
+          // shell and paste enough data to fill the kernel-level buffer. Once
+          // the sleep ends, the pty should accept the data again. Re-process
+          // after a short break.
+          // TODO: https://github.com/microsoft/node-pty/issues/833#issuecomment-3665099159
+          this._writeTimeout = setTimeout(() => this._processWriteQueue(), 5);
+        } else {
+          // Stop processing immediately on unexpected error and log
+          this._writeQueue.length = 0;
+          console.error('Unhandled pty write error', err);
+        }
+        return;
       }
 
-      if (err) {
-        const errno = (err as any).errno;
-        switch (errno) {
-          case -35: // EAGAIN (macOS)
-          case -11: // EAGAIN (Linux)
-            // This error appears to get swallowed and translated into
-            // `ERR_SYSTEM_ERROR` when using tty.WriteStream and not fs.write
-            // directly.
-            // This can happen during a regular partial write, but the most
-            // reliable way to test this is to run `sleep 10` in the shell and
-            // paste enough data to fill the kernel-level buffer. Once the sleep
-            // ends, the pty should accept the data again. Re-process after a
-            // short break.
-            this._writeTimeout = setTimeout(() => this._processWriteQueue(), 5);
-            return;
-          case -5:  // EIO
-          case -32: // EPIPE
-            // Stop processing writes immediately as the pty is closed.
-            this._writeInProgress = false;
-            return;
-          default:
-            console.error('Unhandled pty write error', errno, err);
-            // Fall through as it's important to finish processing the queue
-            break;
-        }
+      task.offset += written;
+      if (task.offset >= task.data.byteLength) {
+        this._writeQueue.shift();
       }
 
       // Using `setImmediate` here appears to corrupt the data, this may be what
@@ -229,6 +233,7 @@ export class UnixTerminal extends Terminal {
       // anyway, so use a short timeout when this happens instead. Note that the `drain`
       // event does not appear to happen on `net.Socket`/`tty.WriteStream` when
       // writing to ptys.
+      // TODO: https://github.com/microsoft/node-pty/issues/833#issuecomment-3665099159
       this._writeTimeout = setTimeout(() => this._processWriteQueue(), 5);
     });
   }
@@ -322,7 +327,7 @@ export class UnixTerminal extends Terminal {
   public get process(): string {
     if (process.platform === 'darwin') {
       const title = pty.process(this._fd);
-      return (title !== 'kernel_task' ) ? title : this._file;
+      return (title !== 'kernel_task') ? title : this._file;
     }
 
     return pty.process(this._fd, this._pty) || this._file;
