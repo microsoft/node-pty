@@ -44,7 +44,7 @@ export class UnixTerminal extends Terminal {
   private _emittedClose: boolean = false;
 
   private readonly _writeQueue: IWriteTask[] = [];
-  private _writeTimeout: NodeJS.Timeout | undefined;
+  private _writeImmediate: NodeJS.Immediate | undefined;
   private _encoding?: BufferEncoding = undefined;
 
   private _master: net.Socket | undefined;
@@ -191,6 +191,8 @@ export class UnixTerminal extends Terminal {
   }
 
   private _processWriteQueue(): void {
+    this._writeImmediate = undefined;
+
     if (this._writeQueue.length === 0) {
       return;
     }
@@ -198,20 +200,14 @@ export class UnixTerminal extends Terminal {
     const task = this._writeQueue[0];
 
     // Write to the underlying file descriptor and handle it directly, rather
-    // than using the `net.Socket`/`tty.WriteStream` wrappers which swallow the
-    // errors and cause the thread to block indefinitely.
+    // than using the `net.Socket`/`tty.WriteStream` wrappers which swallow and
+    // mask errors like EAGAIN and can cause the thread to block indefinitely.
     fs.write(this._fd, task.data, task.offset, (err, written) => {
       if (err) {
-        if ((err as any).code === 'EAGAIN') {
-          // This error appears to get swallowed and translated into
-          // `ERR_SYSTEM_ERROR` when using tty.WriteStream and not fs.write
-          // directly.
-          // The most reliable way to test this is to run `sleep 10` in the
-          // shell and paste enough data to fill the kernel-level buffer. Once
-          // the sleep ends, the pty should accept the data again. Re-process
-          // after a short break.
-          // TODO: https://github.com/microsoft/node-pty/issues/833#issuecomment-3665099159
-          this._writeTimeout = setTimeout(() => this._processWriteQueue(), 5);
+        if ('code' in err && err.code === 'EAGAIN') {
+          // `setImmediate` is used to yield to the event loop and re-attempt
+          // the write later.
+          this._writeImmediate = setImmediate(() => this._processWriteQueue());
         } else {
           // Stop processing immediately on unexpected error and log
           this._writeQueue.length = 0;
@@ -225,16 +221,16 @@ export class UnixTerminal extends Terminal {
         this._writeQueue.shift();
       }
 
-      // Using `setImmediate` here appears to corrupt the data, this may be what
-      // the interleaving/dropped data comment is about in Node.js' tty module:
-      // https://github.com/nodejs/node/blob/4cac2b94bed4bf02810be054e8f63c0048c66564/lib/tty.js#L106C1-L111C34
+      // Since there is more room in the kernel buffer, we can continue to write
+      // until we hit EAGAIN or exhaust the queue.
       //
-      // Yielding via `setImmediate` also doesn't seem to drain the buffer much
-      // anyway, so use a short timeout when this happens instead. Note that the `drain`
-      // event does not appear to happen on `net.Socket`/`tty.WriteStream` when
-      // writing to ptys.
-      // TODO: https://github.com/microsoft/node-pty/issues/833#issuecomment-3665099159
-      this._writeTimeout = setTimeout(() => this._processWriteQueue(), 5);
+      // Note that old versions of bash, like v3.2 which ships in macOS, appears
+      // to have a bug in its readline implementation that causes data
+      // corruption when writes to the pty happens too quickly. Instead of
+      // trying to workaround that we just accept it so that large pastes are as
+      // fast as possible.
+      // Context: https://github.com/microsoft/node-pty/issues/833
+      this._processWriteQueue();
     });
   }
 
@@ -312,7 +308,8 @@ export class UnixTerminal extends Terminal {
 
     this._socket.destroy();
 
-    clearTimeout(this._writeTimeout);
+    clearImmediate(this._writeImmediate);
+    this._writeImmediate = undefined;
   }
 
   public kill(signal?: string): void {
