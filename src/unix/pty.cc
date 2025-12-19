@@ -42,6 +42,9 @@
 #elif defined(__FreeBSD__)
 #include <libutil.h>
 #include <termios.h>
+#elif defined(__OpenBSD__)
+#include <util.h>
+#include <termios.h>
 #endif
 
 /* Some platforms name VWERASE and VDISCARD differently */
@@ -451,10 +454,10 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
   }
 #endif
 
-  Napi::Object obj = Napi::Object::New(napiEnv);  
-  obj.Set("fd", Napi::Number::New(napiEnv, master));  
-  obj.Set("pid", Napi::Number::New(napiEnv, pid));  
-  obj.Set("pty", Napi::String::New(napiEnv, ptsname(master)));  
+  Napi::Object obj = Napi::Object::New(napiEnv);
+  obj.Set("fd", Napi::Number::New(napiEnv, master));
+  obj.Set("pid", Napi::Number::New(napiEnv, pid));
+  obj.Set("pty", Napi::String::New(napiEnv, ptsname(master)));
 
   // Set up process exit callback.
   Napi::Function cb = info[10].As<Napi::Function>();
@@ -495,10 +498,10 @@ Napi::Value PtyOpen(const Napi::CallbackInfo& info) {
     throw Napi::Error::New(env, "Could not set slave fd to nonblocking.");
   }
 
-  Napi::Object obj = Napi::Object::New(env);  
-  obj.Set("master", Napi::Number::New(env, master));  
-  obj.Set("slave", Napi::Number::New(env, slave));  
-  obj.Set("pty", Napi::String::New(env, ptsname(master)));  
+  Napi::Object obj = Napi::Object::New(env);
+  obj.Set("master", Napi::Number::New(env, master));
+  obj.Set("slave", Napi::Number::New(env, slave));
+  obj.Set("pty", Napi::String::New(env, ptsname(master)));
 
   return obj;
 }

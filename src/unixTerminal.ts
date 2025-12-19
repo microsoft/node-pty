@@ -3,30 +3,18 @@
  * Copyright (c) 2016, Daniel Imms (MIT License).
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
+import * as fs from 'fs';
 import * as net from 'net';
 import * as path from 'path';
 import * as tty from 'tty';
 import { Terminal, DEFAULT_COLS, DEFAULT_ROWS } from './terminal';
 import { IProcessEnv, IPtyForkOptions, IPtyOpenOptions } from './interfaces';
-import { ArgvOrCommandLine } from './types';
-import { assign } from './utils';
+import { ArgvOrCommandLine, IDisposable } from './types';
+import { assign, loadNativeModule } from './utils';
 
-let pty: IUnixNative;
-let helperPath: string;
-try {
-  pty = require('../build/Release/pty.node');
-  helperPath = '../build/Release/spawn-helper';
-} catch (outerError) {
-  try {
-    pty = require('../build/Debug/pty.node');
-    helperPath = '../build/Debug/spawn-helper';
-  } catch (innerError) {
-    console.error('innerError', innerError);
-    // Re-throw the exception from the Release require if the Debug require fails as well
-    throw outerError;
-  }
-}
-
+const native = loadNativeModule('pty');
+const pty: IUnixNative = native.module;
+let helperPath = native.dir + '/spawn-helper';
 helperPath = path.resolve(__dirname, helperPath);
 helperPath = helperPath.replace('app.asar', 'app.asar.unpacked');
 helperPath = helperPath.replace('node_modules.asar', 'node_modules.asar.unpacked');
@@ -47,6 +35,9 @@ export class UnixTerminal extends Terminal {
 
   private _boundClose: boolean = false;
   private _emittedClose: boolean = false;
+
+  private _writeStream: CustomWriteStream;
+
   private _master: net.Socket | undefined;
   private _slave: net.Socket | undefined;
 
@@ -120,6 +111,7 @@ export class UnixTerminal extends Terminal {
     if (encoding !== null) {
       this._socket.setEncoding(encoding);
     }
+    this._writeStream = new CustomWriteStream(term.fd, (encoding || undefined) as BufferEncoding);
 
     // setup
     this._socket.on('error', (err: any) => {
@@ -176,8 +168,8 @@ export class UnixTerminal extends Terminal {
     this._forwardEvents();
   }
 
-  protected _write(data: string): void {
-    this._socket.write(data);
+  protected _write(data: string | Buffer): void {
+    this._writeStream.write(data);
   }
 
   /* Accessors */
@@ -253,6 +245,7 @@ export class UnixTerminal extends Terminal {
     });
 
     this._socket.destroy();
+    this._writeStream.dispose();
   }
 
   public kill(signal?: string): void {
@@ -267,7 +260,7 @@ export class UnixTerminal extends Terminal {
   public get process(): string {
     if (process.platform === 'darwin') {
       const title = pty.process(this._fd);
-      return (title !== 'kernel_task' ) ? title : this._file;
+      return (title !== 'kernel_task') ? title : this._file;
     }
 
     return pty.process(this._fd, this._pty) || this._file;
@@ -305,5 +298,93 @@ export class UnixTerminal extends Terminal {
     delete env['TERMCAP'];
     delete env['COLUMNS'];
     delete env['LINES'];
+  }
+}
+
+interface IWriteTask {
+  /** The buffer being written. */
+  buffer: Buffer;
+  /** The current offset of not yet written data. */
+  offset: number;
+}
+
+/**
+ * A custom write stream that writes directly to a file descriptor with proper
+ * handling of backpressure and errors. This avoids some event loop exhaustion
+ * issues that can occur when using the standard APIs in Node.
+ */
+class CustomWriteStream implements IDisposable {
+
+  private readonly _writeQueue: IWriteTask[] = [];
+  private _writeImmediate: NodeJS.Immediate | undefined;
+
+  constructor(
+    private readonly _fd: number,
+    private readonly _encoding: BufferEncoding
+  ) {
+  }
+
+  dispose(): void {
+    clearImmediate(this._writeImmediate);
+    this._writeImmediate = undefined;
+  }
+
+  write(data: string | Buffer): void {
+    // Writes are put in a queue and processed asynchronously in order to handle
+    // backpressure from the kernel buffer.
+    const buffer = typeof data === 'string'
+      ? Buffer.from(data, this._encoding)
+      : Buffer.from(data);
+
+    if (buffer.byteLength !== 0) {
+      this._writeQueue.push({ buffer, offset: 0 });
+      if (this._writeQueue.length === 1) {
+        this._processWriteQueue();
+      }
+    }
+  }
+
+  private _processWriteQueue(): void {
+    this._writeImmediate = undefined;
+
+    if (this._writeQueue.length === 0) {
+      return;
+    }
+
+    const task = this._writeQueue[0];
+
+    // Write to the underlying file descriptor and handle it directly, rather
+    // than using the `net.Socket`/`tty.WriteStream` wrappers which swallow and
+    // mask errors like EAGAIN and can cause the thread to block indefinitely.
+    fs.write(this._fd, task.buffer, task.offset, (err, written) => {
+      if (err) {
+        if ('code' in err && err.code === 'EAGAIN') {
+          // `setImmediate` is used to yield to the event loop and re-attempt
+          // the write later.
+          this._writeImmediate = setImmediate(() => this._processWriteQueue());
+        } else {
+          // Stop processing immediately on unexpected error and log
+          this._writeQueue.length = 0;
+          console.error('Unhandled pty write error', err);
+        }
+        return;
+      }
+
+      task.offset += written;
+      if (task.offset >= task.buffer.byteLength) {
+        this._writeQueue.shift();
+      }
+
+      // Since there is more room in the kernel buffer, we can continue to write
+      // until we hit EAGAIN or exhaust the queue.
+      //
+      // Note that old versions of bash, like v3.2 which ships in macOS, appears
+      // to have a bug in its readline implementation that causes data
+      // corruption when writes to the pty happens too quickly. Instead of
+      // trying to workaround that we just accept it so that large pastes are as
+      // fast as possible.
+      // Context: https://github.com/microsoft/node-pty/issues/833
+      this._processWriteQueue();
+    });
   }
 }

@@ -74,9 +74,9 @@ export abstract class Terminal implements ITerminal {
     this._checkType('encoding', opt.encoding ? opt.encoding : undefined, 'string');
   }
 
-  protected abstract _write(data: string): void;
+  protected abstract _write(data: string | Buffer): void;
 
-  public write(data: string): void {
+  public write(data: string | Buffer): void {
     if (this.handleFlowControl) {
       // PAUSE/RESUME messages are not forwarded to the pty
       if (data === this._flowControlPause) {

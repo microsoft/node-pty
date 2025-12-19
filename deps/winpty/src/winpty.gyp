@@ -23,7 +23,7 @@
             # Add the 'src/gen' directory to the include path and force gyp to
             # run the script (re)generating the version header.
             '<!(cmd /c "cd shared && UpdateGenVersion.bat <(WINPTY_COMMIT_HASH)")',
-        ],
+        ]
     },
     'targets' : [
         {
@@ -40,12 +40,26 @@
                 '-lshell32',
                 '-luser32',
             ],
+            'msvs_configuration_attributes': {
+                'SpectreMitigation': 'Spectre'
+            },
             'msvs_settings': {
                 # Specify this setting here to override a setting from somewhere
                 # else, such as node's common.gypi.
                 'VCCLCompilerTool': {
                     'ExceptionHandling': '1', # /EHsc
+                    'AdditionalOptions': [
+                        '/guard:cf',
+                        '/w34244',
+                        '/w34267',
+                        '/ZH:SHA_256'
+                    ]
                 },
+                'VCLinkerTool': {
+                    'AdditionalOptions': [
+                        '/guard:cf'
+                    ]
+                }
             },
             'sources' : [
                 'agent/Agent.h',
@@ -128,12 +142,26 @@
                 '-ladvapi32',
                 '-luser32',
             ],
+            'msvs_configuration_attributes': {
+                'SpectreMitigation': 'Spectre'
+            },
             'msvs_settings': {
                 # Specify this setting here to override a setting from somewhere
                 # else, such as node's common.gypi.
                 'VCCLCompilerTool': {
                     'ExceptionHandling': '1', # /EHsc
+                    'AdditionalOptions': [
+                        '/guard:cf',
+                        '/w34244',
+                        '/w34267',
+                        '/ZH:SHA_256'
+                    ]
                 },
+                'VCLinkerTool': {
+                    'AdditionalOptions': [
+                        '/guard:cf'
+                    ]
+                }
             },
             'sources' : [
                 'include/winpty.h',

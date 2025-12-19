@@ -153,8 +153,8 @@ bool createDataServerPipe(bool write,
       /*dwOpenMode=*/winOpenMode,
       /*dwPipeMode=*/PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
       /*nMaxInstances=*/1,
-      /*nOutBufferSize=*/0,
-      /*nInBufferSize=*/0,
+      /*nOutBufferSize=*/128 * 1024,
+      /*nInBufferSize=*/128 * 1024,
       /*nDefaultTimeOut=*/30000,
       &sa);
 
@@ -428,7 +428,7 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
 
   HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
   bool fLoadedDll = hLibrary != nullptr;
-  if (fLoadedDll)
+  if (useConptyDll && fLoadedDll)
   {
     PFNRELEASEPSEUDOCONSOLE const pfnReleasePseudoConsole = (PFNRELEASEPSEUDOCONSOLE)GetProcAddress(
       (HMODULE)hLibrary, "ConptyReleasePseudoConsole");
@@ -559,7 +559,9 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
         pfnClosePseudoConsole(handle->hpc);
       }
     }
-    TerminateProcess(handle->hShell, 1);
+    if (useConptyDll) {
+      TerminateProcess(handle->hShell, 1);
+    }
   }
 
   return env.Undefined();

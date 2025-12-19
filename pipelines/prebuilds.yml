@@ -1,0 +1,145 @@
+trigger:
+  branches:
+    include:
+      - main
+
+resources:
+  repositories:
+    - repository: 1esPipelines
+      type: git
+      name: 1ESPipelineTemplates/1ESPipelineTemplates
+      ref: refs/tags/release
+
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
+  parameters:
+    sdl:
+      sourceAnalysisPool: 1es-windows-2022-x64
+      tsa:
+        enabled: true
+    stages:
+      - stage: Build
+        jobs:
+          - job: win32_x64
+            pool:
+              name: 1es-windows-2022-x64
+              os: windows
+            templateContext:
+              outputs:
+                - output: pipelineArtifact
+                  targetPath: $(Build.SourcesDirectory)/build/Release
+                  artifactName: 'win32-x64'
+            steps:
+            - template: pipelines/build.yml@self
+              parameters:
+                arch: x64
+          - job: win32_arm64
+            pool:
+              name: 1es-windows-2022-x64
+              os: windows
+            templateContext:
+              outputs:
+                - output: pipelineArtifact
+                  targetPath: $(Build.SourcesDirectory)/build/Release
+                  artifactName: 'win32-arm64'
+            steps:
+            - template: pipelines/build.yml@self
+              parameters:
+                arch: arm64
+          - job: macOS_x64
+            pool:
+              name: Azure Pipelines
+              vmImage: macOS-latest
+              os: macOS
+            templateContext:
+              outputs:
+                - output: pipelineArtifact
+                  targetPath: $(Build.SourcesDirectory)/build/Release
+                  artifactName: 'darwin-x64'
+            steps:
+            - template: pipelines/build.yml@self
+              parameters:
+                arch: x64
+          - job: macOS_arm64
+            pool:
+              name: Azure Pipelines
+              vmImage: macOS-latest
+              os: macOS
+            templateContext:
+              outputs:
+                - output: pipelineArtifact
+                  targetPath: $(Build.SourcesDirectory)/build/Release
+                  artifactName: 'darwin-arm64'
+            steps:
+            - template: pipelines/build.yml@self
+              parameters:
+                arch: arm64
+          - job: linux_x64
+            pool:
+              name: 1es-ubuntu-22.04-x64
+              os: linux
+            templateContext:
+              outputs:
+                - output: pipelineArtifact
+                  targetPath: $(Build.SourcesDirectory)/build/Release
+                  artifactName: 'linux-x64'
+            steps:
+            - template: pipelines/build.yml@self
+              parameters:
+                arch: x64
+          - job: linux_arm64
+            pool:
+              name: 1es-ubuntu-22.04-x64
+              os: linux
+            templateContext:
+              outputs:
+                - output: pipelineArtifact
+                  targetPath: $(Build.SourcesDirectory)/build/Release
+                  artifactName: 'linux-arm64'
+            steps:
+            - template: pipelines/build.yml@self
+              parameters:
+                arch: arm64
+
+      - stage: Archive
+        jobs:
+          - job: archive
+            pool:
+              name: 1es-ubuntu-22.04-x64
+              os: linux
+            templateContext:
+              inputs:
+                - input: pipelineArtifact
+                  artifactName: win32-x64
+                  targetPath: $(Build.ArtifactStagingDirectory)/win32-x64
+                - input: pipelineArtifact
+                  artifactName: win32-arm64
+                  targetPath: $(Build.ArtifactStagingDirectory)/win32-arm64
+                - input: pipelineArtifact
+                  artifactName: darwin-x64
+                  targetPath: $(Build.ArtifactStagingDirectory)/darwin-x64
+                - input: pipelineArtifact
+                  artifactName: darwin-arm64
+                  targetPath: $(Build.ArtifactStagingDirectory)/darwin-arm64
+                - input: pipelineArtifact
+                  artifactName: linux-x64
+                  targetPath: $(Build.ArtifactStagingDirectory)/linux-x64
+                - input: pipelineArtifact
+                  artifactName: linux-arm64
+                  targetPath: $(Build.ArtifactStagingDirectory)/linux-arm64
+              outputs:
+                - output: pipelineArtifact
+                  targetPath: $(Build.ArtifactStagingDirectory)/prebuilds
+                  artifactName: 'prebuilds'
+            steps:
+              - script: |
+                  mkdir -p $(Build.ArtifactStagingDirectory)/prebuilds
+                  cp -r $(Build.ArtifactStagingDirectory)/win32-x64 $(Build.ArtifactStagingDirectory)/prebuilds/
+                  cp -r $(Build.ArtifactStagingDirectory)/win32-arm64 $(Build.ArtifactStagingDirectory)/prebuilds/
+                  cp -r $(Build.ArtifactStagingDirectory)/darwin-x64 $(Build.ArtifactStagingDirectory)/prebuilds/
+                  cp -r $(Build.ArtifactStagingDirectory)/darwin-arm64 $(Build.ArtifactStagingDirectory)/prebuilds/
+
+                  # Exclude Linux prebuilds for now
+                  # cp -r $(Build.ArtifactStagingDirectory)/linux-x64 $(Build.ArtifactStagingDirectory)/prebuilds/
+                  # cp -r $(Build.ArtifactStagingDirectory)/linux-arm64 $(Build.ArtifactStagingDirectory)/prebuilds/
+                displayName: 'Create prebuilds archive'

@@ -11,6 +11,7 @@ import { fork } from 'child_process';
 import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
 import { ConoutConnection } from './windowsConoutConnection';
+import { loadNativeModule } from './utils';
 
 let conptyNative: IConptyNative;
 let winptyNative: IWinptyNative;
@@ -62,31 +63,11 @@ export class WindowsPtyAgent {
     }
     if (this._useConpty) {
       if (!conptyNative) {
-        try {
-          conptyNative = require('../build/Release/conpty.node');
-        } catch (outerError) {
-          try {
-            conptyNative = require('../build/Debug/conpty.node');
-          } catch (innerError) {
-            console.error('innerError', innerError);
-            // Re-throw the exception from the Release require if the Debug require fails as well
-            throw outerError;
-          }
-        }
+        conptyNative = loadNativeModule('conpty').module;
       }
     } else {
       if (!winptyNative) {
-        try {
-          winptyNative = require('../build/Release/pty.node');
-        } catch (outerError) {
-          try {
-            winptyNative = require('../build/Debug/pty.node');
-          } catch (innerError) {
-            console.error('innerError', innerError);
-            // Re-throw the exception from the Release require if the Debug require fails as well
-            throw outerError;
-          }
-        }
+        winptyNative = loadNativeModule('pty').module;
       }
     }
     this._ptyNative = this._useConpty ? conptyNative : winptyNative;
@@ -118,7 +99,7 @@ export class WindowsPtyAgent {
     this._outSocket = new Socket();
     this._outSocket.setEncoding('utf8');
     // The conout socket must be ready out on another thread to avoid deadlocks
-    this._conoutSocketWorker = new ConoutConnection(term.conout);
+    this._conoutSocketWorker = new ConoutConnection(term.conout, this._useConptyDll);
     this._conoutSocketWorker.onReady(() => {
       this._conoutSocketWorker.connectSocket(this._outSocket);
     });

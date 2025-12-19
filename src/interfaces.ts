@@ -22,7 +22,7 @@ export interface ITerminal {
    * Writes data to the socket.
    * @param data The data to write.
    */
-  write(data: string): void;
+  write(data: string | Buffer): void;
 
   /**
    * Resize the pty.
