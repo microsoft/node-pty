@@ -87,6 +87,8 @@ declare module 'node-pty' {
     /**
      * Alternate argv[0] to use instead of the file being launched. Can be used to launch a shell
      * as a login shell, e.g. using `"-sh"` when launching /bin/sh.
+     *
+     * This setting does nothing on Windows.
      */
     argv0?: string;
   }
