@@ -16,7 +16,7 @@ const DEFAULT_NAME = 'Windows Shell';
 
 export class WindowsTerminal extends Terminal {
   private _isReady: boolean;
-  private _deferreds: any[];
+  private _deferreds: { run: () => void }[];
   private _agent: WindowsPtyAgent;
 
   constructor(file?: string, args?: ArgvOrCommandLine, opt?: IWindowsPtyForkOptions) {
@@ -60,31 +60,26 @@ export class WindowsTerminal extends Terminal {
     // emitted.
     this._socket.on('ready_datapipe', () => {
 
-      // These events needs to be forwarded.
-      ['connect', 'data', 'end', 'timeout', 'drain'].forEach(event => {
-        this._socket.on(event, () => {
+      // Run deferreds and set ready state once the first data event is received.
+      this._socket.once('data', () => {
+        // Wait until the first data event is fired then we can run deferreds.
+        if (!this._isReady) {
+          // Terminal is now ready and we can avoid having to defer method
+          // calls.
+          this._isReady = true;
 
-          // Wait until the first data event is fired then we can run deferreds.
-          if (!this._isReady && event === 'data') {
+          // Execute all deferred methods
+          this._deferreds.forEach(fn => {
+            // NB! In order to ensure that `this` has all its references
+            // updated any variable that need to be available in `this` before
+            // the deferred is run has to be declared above this forEach
+            // statement.
+            fn.run();
+          });
 
-            // Terminal is now ready and we can avoid having to defer method
-            // calls.
-            this._isReady = true;
-
-            // Execute all deferred methods
-            this._deferreds.forEach(fn => {
-              // NB! In order to ensure that `this` has all its references
-              // updated any variable that need to be available in `this` before
-              // the deferred is run has to be declared above this forEach
-              // statement.
-              fn.run();
-            });
-
-            // Reset
-            this._deferreds = [];
-
-          }
-        });
+          // Reset
+          this._deferreds = [];
+        }
       });
 
       // Shutdown if `error` event is emitted.
