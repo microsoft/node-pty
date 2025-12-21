@@ -12,13 +12,16 @@
             'VCCLCompilerTool': {
               'AdditionalOptions': [
                 '/guard:cf',
+                '/sdl',
+                '/W3',
                 '/w34244',
-                '/we4267',
+                '/w34267',
                 '/ZH:SHA_256'
               ]
             },
             'VCLinkerTool': {
               'AdditionalOptions': [
+                '/DYNAMICBASE',
                 '/guard:cf'
               ]
             }
@@ -36,7 +39,7 @@
             'src/win/path_util.cc'
           ],
           'libraries': [
-            'shlwapi.lib'
+            '-lshlwapi'
           ],
         },
         {
@@ -62,7 +65,7 @@
             'src/win/path_util.cc'
           ],
           'libraries': [
-            'shlwapi.lib'
+            '-lshlwapi'
           ],
         }
       ]
@@ -76,7 +79,7 @@
           'libraries': [
             '-lutil'
           ],
-          'cflags': ['-Wall'],
+          'cflags': ['-Wall', '-O2', '-D_FORTIFY_SOURCE=2'],
           'conditions': [
             # http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html
             #   One some systems (at least including Cygwin, Interix,

@@ -34,6 +34,7 @@ typedef HRESULT (__stdcall *PFNCREATEPSEUDOCONSOLE)(COORD c, HANDLE hIn, HANDLE 
 typedef HRESULT (__stdcall *PFNRESIZEPSEUDOCONSOLE)(HPCON hpc, COORD newSize);
 typedef HRESULT (__stdcall *PFNCLEARPSEUDOCONSOLE)(HPCON hpc);
 typedef void (__stdcall *PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
+typedef void (__stdcall *PFNRELEASEPSEUDOCONSOLE)(HPCON hpc);
 
 #endif
 
@@ -48,27 +49,26 @@ struct pty_baton {
   pty_baton(int _id, HANDLE _hIn, HANDLE _hOut, HPCON _hpc) : id(_id), hIn(_hIn), hOut(_hOut), hpc(_hpc) {};
 };
 
-static std::vector<pty_baton*> ptyHandles;
+static std::vector<std::unique_ptr<pty_baton>> ptyHandles;
 static volatile LONG ptyCounter;
 
 static pty_baton* get_pty_baton(int id) {
-  for (size_t i = 0; i < ptyHandles.size(); ++i) {
-    pty_baton* ptyHandle = ptyHandles[i];
-    if (ptyHandle->id == id) {
-      return ptyHandle;
-    }
+  auto it = std::find_if(ptyHandles.begin(), ptyHandles.end(), [id](const auto& ptyHandle) {
+    return ptyHandle->id == id;
+  });
+  if (it != ptyHandles.end()) {
+    return it->get();
   }
   return nullptr;
 }
 
 static bool remove_pty_baton(int id) {
-  for (size_t i = 0; i < ptyHandles.size(); ++i) {
-    pty_baton* ptyHandle = ptyHandles[i];
-    if (ptyHandle->id == id) {
-      ptyHandles.erase(ptyHandles.begin() + i);
-      ptyHandle = nullptr;
-      return true;
-    }
+  auto it = std::remove_if(ptyHandles.begin(), ptyHandles.end(), [id](const auto& ptyHandle) {
+    return ptyHandle->id == id;
+  });
+  if (it != ptyHandles.end()) {
+    ptyHandles.erase(it);
+    return true;
   }
   return false;
 }
@@ -102,11 +102,8 @@ void SetupExitCallback(Napi::Env env, Napi::Function cb, pty_baton* baton) {
     // Get process exit code.
     GetExitCodeProcess(baton->hShell, (LPDWORD)(&exit_event->exit_code));
     // Clean up handles
-    // Calling DisconnectNamedPipes here or in PtyKill results in a crash,
-    // ref https://github.com/microsoft/node-pty/issues/512,
-    // so we only call CloseHandle for now.
-    CloseHandle(baton->hIn);
-    CloseHandle(baton->hOut);
+    CloseHandle(baton->hShell);
+    assert(remove_pty_baton(baton->id));
 
     auto status = tsfn.BlockingCall(exit_event, callback); // In main thread
     switch (status) {
@@ -156,8 +153,8 @@ bool createDataServerPipe(bool write,
       /*dwOpenMode=*/winOpenMode,
       /*dwPipeMode=*/PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
       /*nMaxInstances=*/1,
-      /*nOutBufferSize=*/0,
-      /*nInBufferSize=*/0,
+      /*nOutBufferSize=*/128 * 1024,
+      /*nInBufferSize=*/128 * 1024,
       /*nDefaultTimeOut=*/30000,
       &sa);
 
@@ -304,7 +301,8 @@ static Napi::Value PtyStartProcess(const Napi::CallbackInfo& info) {
     // We were able to instantiate a conpty
     const int ptyId = InterlockedIncrement(&ptyCounter);
     marshal.Set("pty", Napi::Number::New(env, ptyId));
-    ptyHandles.insert(ptyHandles.end(), new pty_baton(ptyId, hIn, hOut, hpc));
+    ptyHandles.emplace_back(
+        std::make_unique<pty_baton>(ptyId, hIn, hOut, hpc));
   } else {
     throw Napi::Error::New(env, "Cannot launch conpty");
   }
@@ -335,20 +333,22 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
   std::stringstream errorText;
   BOOL fSuccess = FALSE;
 
-  if (info.Length() != 5 ||
+  if (info.Length() != 6 ||
       !info[0].IsNumber() ||
       !info[1].IsString() ||
       !info[2].IsString() ||
       !info[3].IsArray() ||
-      !info[4].IsFunction()) {
-    throw Napi::Error::New(env, "Usage: pty.connect(id, cmdline, cwd, env, exitCallback)");
+      !info[4].IsBoolean() ||
+      !info[5].IsFunction()) {
+    throw Napi::Error::New(env, "Usage: pty.connect(id, cmdline, cwd, env, useConptyDll, exitCallback)");
   }
 
   const int id = info[0].As<Napi::Number>().Int32Value();
   const std::wstring cmdline(path_util::to_wstring(info[1].As<Napi::String>()));
   const std::wstring cwd(path_util::to_wstring(info[2].As<Napi::String>()));
   const Napi::Array envValues = info[3].As<Napi::Array>();
-  Napi::Function exitCallback = info[4].As<Napi::Function>();
+  const bool useConptyDll = info[4].As<Napi::Boolean>().Value();
+  Napi::Function exitCallback = info[5].As<Napi::Function>();
 
   // Fetch pty handle from ID and start process
   pty_baton* handle = get_pty_baton(id);
@@ -426,11 +426,26 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
     throw errorWithCode(info, "Cannot create process");
   }
 
+  HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
+  bool fLoadedDll = hLibrary != nullptr;
+  if (useConptyDll && fLoadedDll)
+  {
+    PFNRELEASEPSEUDOCONSOLE const pfnReleasePseudoConsole = (PFNRELEASEPSEUDOCONSOLE)GetProcAddress(
+      (HMODULE)hLibrary, "ConptyReleasePseudoConsole");
+    if (pfnReleasePseudoConsole)
+    {
+      pfnReleasePseudoConsole(handle->hpc);
+    }
+  }
+
   // Update handle
   handle->hShell = piClient.hProcess;
 
   // Close the thread handle to avoid resource leak
   CloseHandle(piClient.hThread);
+  // Close the input read and output write handle of the pseudoconsole
+  CloseHandle(handle->hIn);
+  CloseHandle(handle->hOut);
 
   SetupExitCallback(env, exitCallback, handle);
 
@@ -544,9 +559,9 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
         pfnClosePseudoConsole(handle->hpc);
       }
     }
-
-    CloseHandle(handle->hShell);
-    assert(remove_pty_baton(id));
+    if (useConptyDll) {
+      TerminateProcess(handle->hShell, 1);
+    }
   }
 
   return env.Undefined();

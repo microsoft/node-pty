@@ -6,7 +6,8 @@ import { parentPort, workerData } from 'worker_threads';
 import { Socket, createServer } from 'net';
 import { ConoutWorkerMessage, IWorkerData, getWorkerPipeName } from '../shared/conout';
 
-const conoutPipeName = (workerData as IWorkerData).conoutPipeName;
+const { conoutPipeName } = (workerData as IWorkerData);
+
 const conoutSocket = new Socket();
 conoutSocket.setEncoding('utf8');
 conoutSocket.connect(conoutPipeName, () => {
@@ -14,7 +15,6 @@ conoutSocket.connect(conoutPipeName, () => {
     conoutSocket.pipe(workerSocket);
   });
   server.listen(getWorkerPipeName(conoutPipeName));
-
   if (!parentPort) {
     throw new Error('worker_threads parentPort is null');
   }

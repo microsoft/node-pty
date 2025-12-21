@@ -37,9 +37,12 @@ export class ConoutConnection implements IDisposable {
   public get onReady(): IEvent<void> { return this._onReady.event; }
 
   constructor(
-    private _conoutPipeName: string
+    private _conoutPipeName: string,
+    private _useConptyDll: boolean
   ) {
-    const workerData: IWorkerData = { conoutPipeName: _conoutPipeName };
+    const workerData: IWorkerData = {
+      conoutPipeName: _conoutPipeName
+    };
     const scriptPath = __dirname.replace('node_modules.asar', 'node_modules.asar.unpacked');
     this._worker = new Worker(join(scriptPath, 'worker/conoutSocketWorker.js'), { workerData });
     this._worker.on('message', (message: ConoutWorkerMessage) => {
@@ -54,7 +57,7 @@ export class ConoutConnection implements IDisposable {
   }
 
   dispose(): void {
-    if (this._isDisposed) {
+    if (!this._useConptyDll && this._isDisposed) {
       return;
     }
     this._isDisposed = true;
