@@ -30,7 +30,7 @@ function getNextBetaVersion() {
   const nextStableVersion = `${stableVersion[0]}.${parseInt(stableVersion[1]) + 1}.0`;
   const publishedVersions = getPublishedVersions(nextStableVersion, tag);
   if (publishedVersions.length === 0) {
-    return `${nextStableVersion}-${tag}1`;
+    return `${nextStableVersion}-${tag}.1`;
   }
   const latestPublishedVersion = publishedVersions.sort((a, b) => {
     const aVersion = parseInt(a.substr(a.search(/[0-9]+$/)));
@@ -38,7 +38,7 @@ function getNextBetaVersion() {
     return aVersion > bVersion ? -1 : 1;
   })[0];
   const latestTagVersion = parseInt(latestPublishedVersion.substr(latestPublishedVersion.search(/[0-9]+$/)), 10);
-  return `${nextStableVersion}-${tag}${latestTagVersion + 1}`;
+  return `${nextStableVersion}-${tag}.${latestTagVersion + 1}`;
 }
 
 function getPublishedVersions(version, tag) {
@@ -48,7 +48,7 @@ function getPublishedVersions(version, tag) {
     cp.spawnSync('npm', ['view', packageJson.name, 'versions', '--json']);
   const versionsJson = JSON.parse(versionsProcess.stdout);
   if (tag) {
-    return versionsJson.filter(v => !v.search(new RegExp(`${version}-${tag}[0-9]+`)));
+    return versionsJson.filter(v => !v.search(new RegExp(`${version}-${tag}\.[0-9]+`)));
   }
   return versionsJson;
 }
