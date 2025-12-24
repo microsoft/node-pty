@@ -1,6 +1,14 @@
 ## Testing in a real terminal
 
-The recommended way to test node-pty during development is to clone the xterm.js repository and link's node-pty module to this directory.
+The recommended way to test node-pty during development is via the electron example:
+
+```sh
+cd examples/electron
+npm ci
+npm start
+```
+
+Alternatively, clone the xterm.js repository and link's node-pty module to this directory.
 
 1. Clone xterm.js in a separate folder:
     ```sh
