@@ -10,7 +10,7 @@
   "author": "Tyriar",
   "dependencies": {
     "@xterm/xterm": "^6.0.0",
-    "electron": "^33.0.0",
+    "electron": "^35.7.5",
     "node-pty": "^1.0.0"
   }
 }
