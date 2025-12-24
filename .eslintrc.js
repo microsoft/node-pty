@@ -11,7 +11,8 @@ module.exports = {
   },
   "ignorePatterns": [
     "**/typings/*.d.ts",
-    "scripts/**/*"
+    "scripts/**/*",
+    "examples/**/*",
   ],
   "plugins": [
     "@typescript-eslint"
