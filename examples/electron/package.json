@@ -9,8 +9,8 @@
   "repository": "https://github.com/microsoft/node-pty",
   "author": "Tyriar",
   "dependencies": {
+    "@xterm/xterm": "^6.0.0",
     "electron": "^33.0.0",
-    "node-pty": "^1.0.0",
-    "xterm": "^5.0.0"
+    "node-pty": "^1.0.0"
   }
 }
