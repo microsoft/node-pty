@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const os = require('os');
-const pty = require('node-pty');
+const pty = require('../..');
 
 let mainWindow;
 let ptyProcess;
