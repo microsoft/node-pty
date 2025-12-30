@@ -370,7 +370,7 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
   int err = -1;
   pty_posix_spawn(argv, env, term, &winp, &master, &pid, &err);
   if (err != 0) {
-    throw Napi::Error::New(napiEnv, "posix_spawnp failed.");
+    throw Napi::Error::New(napiEnv, std::string("pty_posix_spawn failed with error: ") + std::to_string(err) + " (" + strerror(err) + ")");
   }
   if (pty_nonblock(master) == -1) {
     throw Napi::Error::New(napiEnv, "Could not set master fd to nonblocking.");
