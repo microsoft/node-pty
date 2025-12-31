@@ -115,7 +115,11 @@
                         '-isystem<(sysroot)/../include/c++/10.5.0/x86_64-linux-gnu',
                         '-isystem<(sysroot)/../include/c++/10.5.0/backward'
                       ],
-                      'ldflags': ['--sysroot=<(sysroot)'],
+                      'ldflags': [
+                        '--sysroot=<(sysroot)',
+                        '-L<(sysroot)/lib',
+                        '-L<(sysroot)/usr/lib'
+                      ],
                     }],
                     ['target_arch=="arm64"', {
                       'cflags': [
@@ -131,7 +135,11 @@
                         '-isystem<(sysroot)/../include/c++/10.5.0/aarch64-linux-gnu',
                         '-isystem<(sysroot)/../include/c++/10.5.0/backward'
                       ],
-                      'ldflags': ['--sysroot=<(sysroot)'],
+                      'ldflags': [
+                        '--sysroot=<(sysroot)',
+                        '-L<(sysroot)/lib',
+                        '-L<(sysroot)/usr/lib'
+                      ],
                     }]
                   ]
                 }]
