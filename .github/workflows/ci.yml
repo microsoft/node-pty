@@ -36,6 +36,14 @@ jobs:
       - name: Install dependencies and build
         run: npm ci
 
+      - name: Verify GLIBC requirements
+        if: runner.os == 'Linux'
+        run: |
+          EXPECTED_GLIBC_VERSION="2.28" \
+          EXPECTED_GLIBCXX_VERSION="3.4.25" \
+          SEARCH_PATH="build" \
+          ./scripts/linux/verify-glibc-requirements.sh
+
       - name: Test
         run: npm test
 
