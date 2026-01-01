@@ -699,6 +699,9 @@ pty_posix_spawn(char** argv, char** env,
     if (low_fds[count] >= STDERR_FILENO)
       break;
   }
+  if (count < 3) {
+    count++;
+  }
 
   int flags = POSIX_SPAWN_CLOEXEC_DEFAULT |
               POSIX_SPAWN_SETSIGDEF |
@@ -709,15 +712,14 @@ pty_posix_spawn(char** argv, char** env,
     return;
   }
 
-  int res = grantpt(*master) || unlockpt(*master);
-  if (res == -1) {
+  if (grantpt(*master) == -1 || unlockpt(*master) == -1) {
     return;
   }
 
   // Use TIOCPTYGNAME instead of ptsname() to avoid threading problems.
   int slave;
   char slave_pty_name[128];
-  res = ioctl(*master, TIOCPTYGNAME, slave_pty_name);
+  int res = ioctl(*master, TIOCPTYGNAME, slave_pty_name);
   if (res == -1) {
     return;
   }
@@ -778,8 +780,9 @@ done:
   posix_spawn_file_actions_destroy(&acts);
   posix_spawnattr_destroy(&attrs);
 
-  for (; count > 0; count--) {
-    close(low_fds[count]);
+  close(slave);
+  for (size_t i = 0; i < count; i++) {
+    close(low_fds[i]);
   }
 }
 #endif
