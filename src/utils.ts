@@ -17,7 +17,7 @@ export function loadNativeModule(name: string): {dir: string, module: any} {
   let lastError: unknown;
   for (const d of dirs) {
     for (const r of relative) {
-      const dir = `${r}/${d}/`;
+      const dir = `${r}/${d}`;
       try {
         return { dir, module: require(`${dir}/${name}.node`) };
       } catch (e) {
