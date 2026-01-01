@@ -36,6 +36,11 @@ jobs:
       - name: Install dependencies and build
         run: npm ci
 
+      - name: Debug built files
+        shell: bash
+        run: |
+          ls -lR ./
+
       - name: Verify GLIBC requirements
         if: runner.os == 'Linux'
         run: |
