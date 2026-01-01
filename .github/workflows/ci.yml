@@ -22,8 +22,27 @@ jobs:
         with:
           node-version: '22.x'
 
+      - name: Install sysroot
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gcc-10 g++-10
+          SYSROOT_PATH=$(node scripts/linux/install-sysroot.js x64 | grep "SYSROOT_PATH=" | cut -d= -f2)
+          echo "SYSROOT_PATH=$SYSROOT_PATH" >> $GITHUB_ENV
+          echo "Sysroot path set to: $SYSROOT_PATH"
+          echo "CC=gcc-10" >> $GITHUB_ENV
+          echo "CXX=g++-10" >> $GITHUB_ENV
+
       - name: Install dependencies and build
         run: npm ci
+
+      - name: Verify GLIBC requirements
+        if: runner.os == 'Linux'
+        run: |
+          EXPECTED_GLIBC_VERSION="2.28" \
+          EXPECTED_GLIBCXX_VERSION="3.4.25" \
+          SEARCH_PATH="build" \
+          ./scripts/linux/verify-glibc-requirements.sh
 
       - name: Test
         run: npm test

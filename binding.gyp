@@ -80,6 +80,7 @@
             '-lutil'
           ],
           'cflags': ['-Wall', '-O2', '-D_FORTIFY_SOURCE=2'],
+          'ldflags': [],
           'conditions': [
             # http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html
             #   One some systems (at least including Cygwin, Interix,
@@ -87,6 +88,61 @@
             ['OS=="mac" or OS=="solaris"', {
               'libraries!': [
                 '-lutil'
+              ]
+            }],
+            ['OS=="linux"', {
+              'variables': {
+                'sysroot%': '<!(node -p "process.env.SYSROOT_PATH || \'\'")',
+                'target_arch%': '<!(node -p "process.env.npm_config_arch || process.arch")',
+              },
+              'conditions': [
+                ['sysroot!=""', {
+                  'variables': {
+                    'gcc_include%': '<!(${CXX:-g++} -print-file-name=include)',
+                  },
+                  'conditions': [
+                    ['target_arch=="x64"', {
+                      'cflags': [
+                        '--sysroot=<(sysroot)',
+                        '-nostdinc',
+                        '-isystem<(gcc_include)',
+                        '-isystem<(sysroot)/usr/include',
+                        '-isystem<(sysroot)/usr/include/x86_64-linux-gnu'
+                      ],
+                      'cflags_cc': [
+                        '-nostdinc++',
+                        '-isystem<(sysroot)/../include/c++/10.5.0',
+                        '-isystem<(sysroot)/../include/c++/10.5.0/x86_64-linux-gnu',
+                        '-isystem<(sysroot)/../include/c++/10.5.0/backward'
+                      ],
+                      'ldflags': [
+                        '--sysroot=<(sysroot)',
+                        '-L<(sysroot)/lib',
+                        '-L<(sysroot)/usr/lib'
+                      ],
+                    }],
+                    ['target_arch=="arm64"', {
+                      'cflags': [
+                        '--sysroot=<(sysroot)',
+                        '-nostdinc',
+                        '-isystem<(gcc_include)',
+                        '-isystem<(sysroot)/usr/include',
+                        '-isystem<(sysroot)/usr/include/aarch64-linux-gnu'
+                      ],
+                      'cflags_cc': [
+                        '-nostdinc++',
+                        '-isystem<(sysroot)/../include/c++/10.5.0',
+                        '-isystem<(sysroot)/../include/c++/10.5.0/aarch64-linux-gnu',
+                        '-isystem<(sysroot)/../include/c++/10.5.0/backward'
+                      ],
+                      'ldflags': [
+                        '--sysroot=<(sysroot)',
+                        '-L<(sysroot)/lib',
+                        '-L<(sysroot)/usr/lib'
+                      ],
+                    }]
+                  ]
+                }]
               ]
             }]
           ]

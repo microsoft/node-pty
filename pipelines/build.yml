@@ -13,8 +13,23 @@ steps:
     addToPath: true
   displayName: 'Use latest Python 3.x'
 
+- bash: |
+    if [ "$(uname)" = "Linux" ]; then
+      sudo apt-get update -qq
+      sudo apt-get install -y gcc-10 g++-10
+      SYSROOT_PATH=$(node scripts/linux/install-sysroot.js ${{ parameters.arch }} | grep "SYSROOT_PATH=" | cut -d= -f2)
+      echo "##vso[task.setvariable variable=SYSROOT_PATH]$SYSROOT_PATH"
+      echo "##vso[task.setvariable variable=CC]gcc-10"
+      echo "##vso[task.setvariable variable=CXX]g++-10"
+      echo "Sysroot path set to: $SYSROOT_PATH"
+    fi
+  displayName: 'Install sysroot (Linux only)'
+
 - script: npm ci
   displayName: 'Install dependencies'
   env:
     ARCH: ${{ parameters.arch }}
     npm_config_arch: ${{ parameters.arch }}
+    SYSROOT_PATH: $(SYSROOT_PATH)
+    CC: $(CC)
+    CXX: $(CXX)
