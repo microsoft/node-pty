@@ -5,12 +5,13 @@ on:
 
 jobs:
   build-test:
-    name: Build & Test (${{ matrix.os }})
+    name: Build & Test (${{ matrix.os }}${{ matrix.cross && ' xarch' || '' }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, macos-14, windows-2022]
+        cross: [false, true]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,12 +23,22 @@ jobs:
         with:
           node-version: '22.x'
 
+      - name: Set architecture
+        id: arch
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            echo "arch=${{ matrix.cross && 'x64' || 'arm64' }}" >> $GITHUB_OUTPUT
+          else
+            echo "arch=${{ matrix.cross && 'arm64' || 'x64' }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Install sysroot
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y gcc-10 g++-10
-          SYSROOT_PATH=$(node scripts/linux/install-sysroot.js x64 | grep "SYSROOT_PATH=" | cut -d= -f2)
+          SYSROOT_PATH=$(node scripts/linux/install-sysroot.js ${{ steps.arch.outputs.arch }} | grep "SYSROOT_PATH=" | cut -d= -f2)
           echo "SYSROOT_PATH=$SYSROOT_PATH" >> $GITHUB_ENV
           echo "Sysroot path set to: $SYSROOT_PATH"
           echo "CC=gcc-10" >> $GITHUB_ENV
@@ -35,6 +46,9 @@ jobs:
 
       - name: Install dependencies and build
         run: npm ci
+        env:
+          ARCH: ${{ steps.arch.outputs.arch }}
+          npm_config_arch: ${{ steps.arch.outputs.arch }}
 
       - name: Verify GLIBC requirements
         if: runner.os == 'Linux'
@@ -45,7 +59,9 @@ jobs:
           ./scripts/linux/verify-glibc-requirements.sh
 
       - name: Test
+        if: ${{ !matrix.cross }}
         run: npm test
 
       - name: Lint
+        if: ${{ !matrix.cross }}
         run: npm run lint
