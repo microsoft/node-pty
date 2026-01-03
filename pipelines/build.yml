@@ -9,9 +9,9 @@ steps:
 
 - task: UsePythonVersion@0
   inputs:
-    versionSpec: '3.12'
+    versionSpec: '3.x'
     addToPath: true
-  displayName: 'Use Python 3.12'
+  displayName: 'Use latest Python 3.x'
 
 - bash: |
     if [ "$(uname)" = "Linux" ]; then
@@ -22,8 +22,11 @@ steps:
       echo "##vso[task.setvariable variable=CC]gcc-10"
       echo "##vso[task.setvariable variable=CXX]g++-10"
       echo "Sysroot path set to: $SYSROOT_PATH"
+    elif [ "$(uname)" = "Darwin" ]; then
+      echo "##vso[task.setvariable variable=CC]clang"
+      echo "##vso[task.setvariable variable=CXX]clang++"
     fi
-  displayName: 'Install sysroot (Linux only)'
+  displayName: 'Configure compiler'
 
 - script: npm ci
   displayName: 'Install dependencies'
