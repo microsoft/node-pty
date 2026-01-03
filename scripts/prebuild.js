@@ -31,4 +31,12 @@ if (!fs.existsSync(PREBUILD_DIR)) {
   process.exit(1);
 }
 
+// Ensure spawn-helper has execute permission (may be stripped by npm pack)
+if (process.platform === 'darwin') {
+  const spawnHelper = path.join(PREBUILD_DIR, 'spawn-helper');
+  if (fs.existsSync(spawnHelper)) {
+    fs.chmodSync(spawnHelper, 0o755);
+  }
+}
+
 process.exit(0);
