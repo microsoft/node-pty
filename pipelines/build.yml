@@ -16,11 +16,17 @@ steps:
 - bash: |
     if [ "$(uname)" = "Linux" ]; then
       sudo apt-get update -qq
-      sudo apt-get install -y gcc-10 g++-10
+      if [ "${{ parameters.arch }}" = "arm64" ]; then
+        sudo apt-get install -y gcc-10-aarch64-linux-gnu g++-10-aarch64-linux-gnu
+        echo "##vso[task.setvariable variable=CC]aarch64-linux-gnu-gcc-10"
+        echo "##vso[task.setvariable variable=CXX]aarch64-linux-gnu-g++-10"
+      else
+        sudo apt-get install -y gcc-10 g++-10
+        echo "##vso[task.setvariable variable=CC]gcc-10"
+        echo "##vso[task.setvariable variable=CXX]g++-10"
+      fi
       SYSROOT_PATH=$(node scripts/linux/install-sysroot.js ${{ parameters.arch }} | grep "SYSROOT_PATH=" | cut -d= -f2)
       echo "##vso[task.setvariable variable=SYSROOT_PATH]$SYSROOT_PATH"
-      echo "##vso[task.setvariable variable=CC]gcc-10"
-      echo "##vso[task.setvariable variable=CXX]g++-10"
       echo "Sysroot path set to: $SYSROOT_PATH"
     elif [ "$(uname)" = "Darwin" ]; then
       echo "##vso[task.setvariable variable=CC]clang"
