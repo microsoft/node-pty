@@ -50,6 +50,7 @@
                     'ExceptionHandling': '1', # /EHsc
                     'AdditionalOptions': [
                         '/guard:cf',
+                        '/w34146',
                         '/w34244',
                         '/w34267',
                         '/ZH:SHA_256'
@@ -152,6 +153,7 @@
                     'ExceptionHandling': '1', # /EHsc
                     'AdditionalOptions': [
                         '/guard:cf',
+                        '/w34146',
                         '/w34244',
                         '/w34267',
                         '/ZH:SHA_256'
