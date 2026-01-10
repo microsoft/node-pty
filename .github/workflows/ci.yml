@@ -5,13 +5,12 @@ on:
 
 jobs:
   build-test:
-    name: Build & Test (${{ matrix.os }}${{ matrix.cross && ' xarch' || '' }})
+    name: Build & Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-14, windows-2022]
-        cross: [false, true]
+        os: [ubuntu-22.04, macos-14, windows-2022, macos-15-intel, ubuntu-22.04-arm, windows-11-arm]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,10 +26,10 @@ jobs:
         id: arch
         shell: bash
         run: |
-          if [ "${{ runner.os }}" = "macOS" ]; then
-            echo "arch=${{ matrix.cross && 'x64' || 'arm64' }}" >> $GITHUB_OUTPUT
+          if [ "${{ runner.arch }}" = "ARM64" ]; then
+            echo "arch=arm64" >> $GITHUB_OUTPUT
           else
-            echo "arch=${{ matrix.cross && 'arm64' || 'x64' }}" >> $GITHUB_OUTPUT
+            echo "arch=x64" >> $GITHUB_OUTPUT
           fi
 
       - name: Install sysroot
@@ -65,9 +64,9 @@ jobs:
           ./scripts/linux/verify-glibc-requirements.sh
 
       - name: Test
-        if: ${{ !matrix.cross }}
         run: npm test
 
       - name: Lint
-        if: ${{ !matrix.cross }}
+        # Only run lint on one OS to reduce duplicate work
+        if: ${{ matrix.os == 'ubuntu-22.04' }}
         run: npm run lint
