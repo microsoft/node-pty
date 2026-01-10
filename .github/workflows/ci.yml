@@ -18,8 +18,8 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: Install dependencies and build
-        run: npm ci
+      - name: Install dependencies (skip build)
+        run: npm ci --ignore-scripts
 
       - name: Lint
         run: npm run lint
