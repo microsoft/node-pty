@@ -36,6 +36,7 @@ jobs:
       - name: Install sysroot
         if: runner.os == 'Linux'
         run: |
+          set -eo pipefail
           sudo apt-get update -qq
           if [ "${{ steps.arch.outputs.arch }}" = "arm64" ]; then
             sudo apt-get install -y gcc-10-aarch64-linux-gnu g++-10-aarch64-linux-gnu
