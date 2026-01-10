@@ -4,6 +4,26 @@ on:
   pull_request:
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Install dependencies and build
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
   build-test:
     name: Build & Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -59,8 +79,3 @@ jobs:
 
       - name: Test
         run: npm test
-
-      - name: Lint
-        # Only run lint on one OS to reduce duplicate work
-        if: ${{ matrix.os == 'ubuntu-22.04' }}
-        run: npm run lint
