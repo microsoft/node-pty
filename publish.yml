@@ -52,6 +52,8 @@ extends:
           - pwsh: |
               Get-ChildItem -Path . -Recurse -Directory -Name "_manifest" | Remove-Item -Recurse -Force
             displayName: 'Delete _manifest folders'
+          - bash: chmod +x prebuilds/darwin-*/spawn-helper
+            displayName: 'Ensure spawn-helper is executable'
           - script: npm ci
             displayName: 'Install dependencies and build'
           # The following script leaves the version unchanged for
@@ -70,6 +72,8 @@ extends:
               branchName: 'refs/heads/main'
               artifactName: 'prebuilds'
               targetPath: 'prebuilds'
+          - bash: chmod +x prebuilds/darwin-*/spawn-helper
+            displayName: 'Ensure spawn-helper is executable'
           - script: npm ci
             displayName: 'Install dependencies and build'
           - script: npm test
