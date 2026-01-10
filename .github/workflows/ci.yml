@@ -36,15 +36,9 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
-          if [ "${{ steps.arch.outputs.arch }}" = "arm64" ]; then
-            sudo apt-get install -y gcc-10-aarch64-linux-gnu g++-10-aarch64-linux-gnu
-            echo "CC=aarch64-linux-gnu-gcc-10" >> $GITHUB_ENV
-            echo "CXX=aarch64-linux-gnu-g++-10" >> $GITHUB_ENV
-          else
-            sudo apt-get install -y gcc-10 g++-10
-            echo "CC=gcc-10" >> $GITHUB_ENV
-            echo "CXX=g++-10" >> $GITHUB_ENV
-          fi
+          sudo apt-get install -y gcc-10 g++-10
+          echo "CC=gcc-10" >> $GITHUB_ENV
+          echo "CXX=g++-10" >> $GITHUB_ENV
           SYSROOT_PATH=$(node scripts/linux/install-sysroot.js ${{ steps.arch.outputs.arch }} | grep "SYSROOT_PATH=" | cut -d= -f2)
           echo "SYSROOT_PATH=$SYSROOT_PATH" >> $GITHUB_ENV
           echo "Sysroot path set to: $SYSROOT_PATH"
