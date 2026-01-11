@@ -37,6 +37,8 @@
 /* http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html */
 #if defined(__linux__)
 #include <pty.h>
+#include <dirent.h>
+#include <sys/syscall.h>
 #elif defined(__APPLE__)
 #include <util.h>
 #elif defined(__FreeBSD__)
@@ -109,6 +111,48 @@ int pthread_fchdir_np(int fd) API_AVAILABLE(macosx(10.12));
 struct ExitEvent {
   int exit_code = 0, signal_code = 0;
 };
+
+#if defined(__linux__)
+/**
+ * Close all file descriptors >= 3 to prevent FD leakage to child processes.
+ * Uses close_range() syscall on Linux 5.9+, falls back to /proc/self/fd iteration.
+ */
+static void
+pty_close_inherited_fds() {
+  // Try close_range() first (Linux 5.9+, glibc 2.34+)
+  #if defined(SYS_close_range)
+  if (syscall(SYS_close_range, 3, ~0U, 0) == 0) {
+    return;
+  }
+  #endif
+
+  // Fallback: iterate /proc/self/fd
+  int dirfd = open("/proc/self/fd", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  if (dirfd >= 0) {
+    DIR *dir = fdopendir(dirfd);
+    if (dir) {
+      struct dirent *entry;
+      while ((entry = readdir(dir)) != nullptr) {
+        if (entry->d_name[0] == '.') continue;
+        int fd = atoi(entry->d_name);
+        if (fd >= 3 && fd != dirfd) {
+          close(fd);
+        }
+      }
+      closedir(dir);  // Also closes dirfd
+      return;
+    }
+    close(dirfd);
+  }
+
+  // Ultimate fallback: brute force (slow with high ulimit)
+  long max_fd = sysconf(_SC_OPEN_MAX);
+  if (max_fd < 0) max_fd = 1024;
+  for (int fd = 3; fd < max_fd; fd++) {
+    close(fd);
+  }
+}
+#endif
 
 void SetupExitCallback(Napi::Env env, Napi::Function cb, pid_t pid) {
   std::thread *th = new std::thread;
@@ -432,6 +476,9 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
           _exit(1);
         }
       }
+
+      // Close inherited FDs to prevent leaking pty master FDs to child
+      pty_close_inherited_fds();
 
       {
         char **old = environ;
