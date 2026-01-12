@@ -18,6 +18,7 @@ const FIXTURES_PATH = path.normalize(path.join(__dirname, '..', 'fixtures', 'utf
 if (process.platform !== 'win32') {
   // Only load UnixTerminal on non-Windows platforms
   // This prevents trying to access winpty.node that doesn't exist anymore.
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   const { UnixTerminal } = require('./unixTerminal') as { UnixTerminal: typeof UnixTerminalType };
   describe('UnixTerminal', () => {
     describe('Constructor', () => {
