@@ -118,7 +118,6 @@ export interface IPtyForkOptions extends IBasePtyForkOptions {
 }
 
 export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
-  useConpty?: boolean;
   useConptyDll?: boolean;
   conptyInheritCursor?: boolean;
 }
