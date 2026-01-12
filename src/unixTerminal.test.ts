@@ -11,13 +11,14 @@ import * as fs from 'fs';
 import { constants } from 'os';
 import { pollUntil } from './testUtils.test';
 import { pid } from 'process';
+import type { UnixTerminal as UnixTerminalType } from './unixTerminal';
 
 const FIXTURES_PATH = path.normalize(path.join(__dirname, '..', 'fixtures', 'utf8-character.txt'));
 
 if (process.platform !== 'win32') {
   // Only load UnixTerminal on non-Windows platforms
   // This prevents trying to access winpty.node that doesn't exist anymore.
-  const { UnixTerminal } = require('./unixTerminal');
+  const { UnixTerminal } = require('./unixTerminal') as { UnixTerminal: typeof UnixTerminalType };
   describe('UnixTerminal', () => {
     describe('Constructor', () => {
       it('should set a valid pts name', () => {
@@ -77,7 +78,7 @@ if (process.platform !== 'win32') {
     });
 
     describe('open', () => {
-      let term: UnixTerminal;
+      let term: UnixTerminalType;
 
       afterEach(() => {
         if (term) {
@@ -319,7 +320,7 @@ if (process.platform !== 'win32') {
                 fs.statSync(`/proc/${sub}/fd/${readFd}`);
                 done('not reachable');
               } catch (error) {
-                assert.notStrictEqual(error.message.indexOf('ENOENT'), -1);
+                assert.notStrictEqual((error as NodeJS.ErrnoException).message.indexOf('ENOENT'), -1);
               }
               setTimeout(() => {
                 process.kill(parseInt(sub), 'SIGINT');  // SIGINT to child
