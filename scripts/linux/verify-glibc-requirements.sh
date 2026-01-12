@@ -24,7 +24,7 @@ for file in $files; do
         glibcxx_version=$version
       fi
     fi
-  done < <("$SYSROOT_PATH/../bin/objdump" -T "$file")
+  done < <(objdump -T "$file")
 
   if [[ "$glibc_version" != "$EXPECTED_GLIBC_VERSION" ]]; then
     echo "Error: File $file has dependency on GLIBC > $EXPECTED_GLIBC_VERSION, found $glibc_version"
