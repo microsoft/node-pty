@@ -3,7 +3,6 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-import { UnixTerminal } from './unixTerminal';
 import * as assert from 'assert';
 import * as cp from 'child_process';
 import * as path from 'path';
@@ -16,6 +15,9 @@ import { pid } from 'process';
 const FIXTURES_PATH = path.normalize(path.join(__dirname, '..', 'fixtures', 'utf8-character.txt'));
 
 if (process.platform !== 'win32') {
+  // Only load UnixTerminal on non-Windows platforms
+  // This prevents trying to access winpty.node that doesn't exist anymore.
+  const { UnixTerminal } = require('./unixTerminal');
   describe('UnixTerminal', () => {
     describe('Constructor', () => {
       it('should set a valid pts name', () => {
