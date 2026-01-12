@@ -9,7 +9,9 @@ This is useful for:
 - Writing a terminal emulator (eg. via [xterm.js](https://github.com/sourcelair/xterm.js)).
 - Getting certain programs to *think* you're a terminal, such as when you need a program to send you control sequences.
 
-`node-pty` supports Linux, macOS and Windows. Windows support is possible by utilizing the [Windows conpty API](https://blogs.msdn.microsoft.com/commandline/2018/08/02/windows-command-line-introducing-the-windows-pseudo-console-conpty/) on Windows 1809+ and the [winpty](https://github.com/rprichard/winpty) library in older version.
+`node-pty` supports Linux, macOS and Windows. Windows support is possible by utilizing the [Windows conpty API](https://blogs.msdn.microsoft.com/commandline/2018/08/02/windows-command-line-introducing-the-windows-pseudo-console-conpty/) on Windows 1809+.
+
+> **Note:** Support for the `winpty` library has been removed. Windows 10 version 1809 (build 18309) or later is now required.
 
 ## API
 
@@ -149,10 +151,6 @@ By default `PAUSE` and `RESUME` are XON/XOFF control codes (as shown above). To 
 > Internal Windows PowerShell error.  Loading managed Windows PowerShell failed with error 8009001d.
 
 This happens when PowerShell is launched with no `SystemRoot` environment variable present.
-
-### ConnectNamedPipe failed: Windows error 232
-
-This error can occur due to anti-virus software intercepting winpty from creating a pty. To workaround this you can exclude this file from your anti-virus scanning `node-pty\build\Release\winpty-agent.exe`
 
 ## pty.js
 
