@@ -11,7 +11,7 @@ import * as fs from 'fs';
 import { constants } from 'os';
 import { pollUntil } from './testUtils.test';
 import { pid } from 'process';
-// import type { UnixTerminal as UnixTerminalType } from './unixTerminal';
+import type { UnixTerminal as UnixTerminalType } from './unixTerminal';
 
 const FIXTURES_PATH = path.normalize(path.join(__dirname, '..', 'fixtures', 'utf8-character.txt'));
 
@@ -263,7 +263,7 @@ if (process.platform !== 'win32') {
       if (process.platform === 'linux') {
         it('should not leak pty file descriptors to child processes', (done) => {
           // Spawn 3 ptys - the 3rd should not see FDs from the first two
-          const ptys: UnixTerminal[] = [];
+          const ptys: UnixTerminalType[] = [];
           for (let i = 0; i < 3; i++) {
             ptys.push(new UnixTerminal('/bin/bash', [], {}));
           }
