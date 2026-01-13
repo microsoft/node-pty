@@ -131,7 +131,7 @@ SetCloseOnExec(int fd) {
 static void
 pty_close_inherited_fds() {
   // Try close_range() first (Linux 5.9+, glibc 2.34+)
-  #if defined(SYS_close_range)
+  #if defined(SYS_close_range) && defined(CLOSE_RANGE_CLOEXEC)
   if (syscall(SYS_close_range, 3, ~0U, CLOSE_RANGE_CLOEXEC) == 0) {
     return;
   }

@@ -13,3 +13,4 @@ fixtures/space folder/
 .vscode/ipch/
 yarn.lock
 prebuilds/
+_codeql_detected_source_root
