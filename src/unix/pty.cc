@@ -114,11 +114,6 @@ struct ExitEvent {
 
 #if defined(__linux__)
 
-/* Define CLOSE_RANGE_CLOEXEC if not available (e.g., on Alpine/musl) */
-#ifndef CLOSE_RANGE_CLOEXEC
-#define CLOSE_RANGE_CLOEXEC (1U << 2)
-#endif
-
 static int
 SetCloseOnExec(int fd) {
   int flags = fcntl(fd, F_GETFD, 0);
@@ -136,7 +131,7 @@ SetCloseOnExec(int fd) {
 static void
 pty_close_inherited_fds() {
   // Try close_range() first (Linux 5.9+, glibc 2.34+)
-  #if defined(SYS_close_range)
+  #if defined(SYS_close_range) && defined(CLOSE_RANGE_CLOEXEC)
   if (syscall(SYS_close_range, 3, ~0U, CLOSE_RANGE_CLOEXEC) == 0) {
     return;
   }
