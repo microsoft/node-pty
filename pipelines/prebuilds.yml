@@ -2,12 +2,6 @@ trigger:
   branches:
     include:
       - main
-  paths:
-    include:
-      - '**.cc'
-      - '**.h'
-      - '**.c'
-      - 'deps/**'
 pr: none
 
 resources:
