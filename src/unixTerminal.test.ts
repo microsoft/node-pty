@@ -280,12 +280,15 @@ if (process.platform !== 'win32') {
           let sub = '';
           let pid = '';
           p.stdout.on('data', (data) => {
-            if (!data.toString().indexOf('title')) {
-              sub = data.toString().split(' ')[1].slice(0, -1);
-            } else if (!data.toString().indexOf('ready')) {
-              pid = data.toString().split(' ')[1].slice(0, -1);
-              process.kill(parseInt(pid), 'SIGINT');
-              p.kill('SIGINT');
+            const lines = data.toString().split('\n');
+            for (const line of lines) {
+              if (line.startsWith('title ')) {
+                sub = line.split(' ')[1];
+              } else if (line.startsWith('ready ')) {
+                pid = line.split(' ')[1];
+                process.kill(parseInt(pid), 'SIGINT');
+                p.kill('SIGINT');
+              }
             }
           });
           p.on('exit', () => {

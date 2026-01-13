@@ -18,6 +18,7 @@ const ghApiHeaders = {
 
 if (process.env.GITHUB_TOKEN) {
   ghApiHeaders.Authorization = 'Basic ' + Buffer.from(process.env.GITHUB_TOKEN).toString('base64');
+  console.error('Using GITHUB_TOKEN for authenticated requests to GitHub API.');
 }
 
 const ghDownloadHeaders = {
@@ -48,29 +49,29 @@ async function fetchUrl(options, retries = 10, retryDelay = 1000) {
         signal: controller.signal
       });
       if (response.ok && (response.status >= 200 && response.status < 300)) {
-        console.log(`Fetch completed: Status ${response.status}.`);
+        console.error(`Fetch completed: Status ${response.status}.`);
         const contents = Buffer.from(await response.arrayBuffer());
         const asset = JSON.parse(contents.toString()).assets.find((a) => a.name === options.assetName);
         if (!asset) {
           throw new Error(`Could not find asset in release of Microsoft/vscode-linux-build-agent @ ${version}`);
         }
-        console.log(`Found asset ${options.assetName} @ ${asset.url}.`);
+        console.error(`Found asset ${options.assetName} @ ${asset.url}.`);
         const assetResponse = await fetch(asset.url, {
           headers: ghDownloadHeaders
         });
         if (assetResponse.ok && (assetResponse.status >= 200 && assetResponse.status < 300)) {
           const assetContents = Buffer.from(await assetResponse.arrayBuffer());
-          console.log(`Fetched response body buffer: ${assetContents.byteLength} bytes`);
+          console.error(`Fetched response body buffer: ${assetContents.byteLength} bytes`);
           if (options.checksumSha256) {
             const actualSHA256Checksum = createHash('sha256').update(assetContents).digest('hex');
             if (actualSHA256Checksum !== options.checksumSha256) {
               throw new Error(`Checksum mismatch for ${asset.url} (expected ${options.checksumSha256}, actual ${actualSHA256Checksum})`);
             }
           }
-          console.log(`Verified SHA256 checksums match for ${asset.url}`);
+          console.error(`Verified SHA256 checksums match for ${asset.url}`);
 					const tarCommand = `tar -xz -C ${options.dest}`;
 					execSync(tarCommand, { input: assetContents });
-					console.log(`Fetch complete!`);
+					console.error(`Fetch complete!`);
 					return;
         }
         throw new Error(`Request ${asset.url} failed with status code: ${assetResponse.status}`);
@@ -81,7 +82,7 @@ async function fetchUrl(options, retries = 10, retryDelay = 1000) {
     }
   } catch (e) {
     if (retries > 0) {
-      console.log(`Fetching failed: ${e}`);
+      console.error(`Fetching failed: ${e}`);
       await new Promise(resolve => setTimeout(resolve, retryDelay));
       return fetchUrl(options, retries - 1, retryDelay);
     }
@@ -122,7 +123,7 @@ async function getSysroot(arch) {
     return result;
   }
 
-  console.log(`Installing ${arch} root image: ${sysroot}`);
+  console.error(`Installing ${arch} root image: ${sysroot}`);
   fs.rmSync(sysroot, { recursive: true, force: true });
   fs.mkdirSync(sysroot, { recursive: true });
 
@@ -139,7 +140,7 @@ async function getSysroot(arch) {
 
 async function main() {
   const arch = process.argv[2] || process.env.ARCH || 'x64';
-  console.log(`Installing sysroot for architecture: ${arch}`);
+  console.error(`Installing sysroot for architecture: ${arch}`);
 
   try {
     const sysrootPath = await getSysroot(arch);
