@@ -112,7 +112,7 @@ declare module 'node-pty' {
   }
 
   /**
-   * An interface representing a pseudoterminal. Emulation via winpty is deprecated.
+   * An interface representing a pseudoterminal.
    */
   export interface IPty {
     /**
