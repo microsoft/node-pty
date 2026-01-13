@@ -11,7 +11,7 @@ import * as fs from 'fs';
 import { constants } from 'os';
 import { pollUntil } from './testUtils.test';
 import { pid } from 'process';
-import type { UnixTerminal as UnixTerminalType } from './unixTerminal';
+// import type { UnixTerminal as UnixTerminalType } from './unixTerminal';
 
 const FIXTURES_PATH = path.normalize(path.join(__dirname, '..', 'fixtures', 'utf8-character.txt'));
 
