@@ -113,6 +113,17 @@ struct ExitEvent {
 };
 
 #if defined(__linux__)
+
+static int
+SetCloseOnExec(int fd) {
+  int flags = fcntl(fd, F_GETFD, 0);
+  if (flags == -1)
+    return flags;
+  if (flags & FD_CLOEXEC)
+    return 0;
+  return fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+}
+
 /**
  * Close all file descriptors >= 3 to prevent FD leakage to child processes.
  * Uses close_range() syscall on Linux 5.9+, falls back to /proc/self/fd iteration.
