@@ -47,7 +47,7 @@ extends:
               definition: '647'
               buildVersionToDownload: 'latestFromBranch'
               branchName: 'refs/heads/main'
-              artifactName: 'prebuilds'
+              artifactName: 'prebuilds-$(Build.SourceVersion)'
               targetPath: 'prebuilds'
           - pwsh: |
               Get-ChildItem -Path . -Recurse -Directory -Name "_manifest" | Remove-Item -Recurse -Force
@@ -70,7 +70,7 @@ extends:
               definition: '647'
               buildVersionToDownload: 'latestFromBranch'
               branchName: 'refs/heads/main'
-              artifactName: 'prebuilds'
+              artifactName: 'prebuilds-$(Build.SourceVersion)'
               targetPath: 'prebuilds'
           - bash: chmod +x prebuilds/darwin-*/spawn-helper
             displayName: 'Ensure spawn-helper is executable'
