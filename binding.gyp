@@ -80,7 +80,7 @@
           'libraries': [
             '-lutil'
           ],
-          'cflags': ['-Wall', '-O2', '-D_FORTIFY_SOURCE=2'],
+          'cflags': ['-Wall', '-O2'],
           'ldflags': [],
           'conditions': [
             # http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html
