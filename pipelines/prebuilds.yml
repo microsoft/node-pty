@@ -2,6 +2,7 @@ trigger:
   branches:
     include:
       - main
+pr: none
 
 resources:
   repositories:
@@ -102,6 +103,7 @@ extends:
                 arch: arm64
 
       - stage: Archive
+        dependsOn: Build
         jobs:
           - job: archive
             pool:
