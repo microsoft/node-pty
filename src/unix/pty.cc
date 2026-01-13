@@ -114,6 +114,11 @@ struct ExitEvent {
 
 #if defined(__linux__)
 
+/* Define CLOSE_RANGE_CLOEXEC if not available (e.g., on Alpine/musl) */
+#ifndef CLOSE_RANGE_CLOEXEC
+#define CLOSE_RANGE_CLOEXEC (1U << 2)
+#endif
+
 static int
 SetCloseOnExec(int fd) {
   int flags = fcntl(fd, F_GETFD, 0);
