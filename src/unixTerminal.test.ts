@@ -3,7 +3,6 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-import { UnixTerminal } from './unixTerminal';
 import * as assert from 'assert';
 import * as cp from 'child_process';
 import * as path from 'path';
@@ -12,10 +11,15 @@ import * as fs from 'fs';
 import { constants } from 'os';
 import { pollUntil } from './testUtils.test';
 import { pid } from 'process';
+import type { UnixTerminal as UnixTerminalType } from './unixTerminal';
 
 const FIXTURES_PATH = path.normalize(path.join(__dirname, '..', 'fixtures', 'utf8-character.txt'));
 
 if (process.platform !== 'win32') {
+  // Dynamic require to avoid loading pty.node on Windows
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  const { UnixTerminal } = require('./unixTerminal') as { UnixTerminal: typeof UnixTerminalType };
+
   describe('UnixTerminal', () => {
     describe('Constructor', () => {
       it('should set a valid pts name', () => {
@@ -75,7 +79,7 @@ if (process.platform !== 'win32') {
     });
 
     describe('open', () => {
-      let term: UnixTerminal;
+      let term: UnixTerminalType;
 
       afterEach(() => {
         if (term) {
