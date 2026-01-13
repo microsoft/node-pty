@@ -230,7 +230,6 @@ HRESULT CreateNamedPipesAndPseudoConsole(const Napi::CallbackInfo& info,
     {
       // Failed to find CreatePseudoConsole in kernel32. This is likely because
       //    the user is not running a build of Windows that supports that API.
-      //    
       return HRESULT_FROM_WIN32(GetLastError());
     }
   } else {
