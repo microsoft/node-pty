@@ -126,31 +126,13 @@ pty_close_inherited_fds() {
   }
   #endif
 
-  // Fallback: iterate /proc/self/fd
-  int dirfd = open("/proc/self/fd", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-  if (dirfd >= 0) {
-    DIR *dir = fdopendir(dirfd);
-    if (dir) {
-      struct dirent *entry;
-      while ((entry = readdir(dir)) != nullptr) {
-        if (entry->d_name[0] == '.') continue;
-        int fd = atoi(entry->d_name);
-        if (fd >= 3 && fd != dirfd) {
-          close(fd);
-        }
-      }
-      closedir(dir);  // Also closes dirfd
-      return;
-    }
-    close(dirfd);
-  }
-
-  // Ultimate fallback: brute force (slow with high ulimit)
-  long max_fd = sysconf(_SC_OPEN_MAX);
-  if (max_fd < 0) max_fd = 1024;
-  for (int fd = 3; fd < max_fd; fd++) {
-    close(fd);
-  }
+  int fd;
+  /* Set the CLOEXEC flag on all open descriptors. Unconditionally try the
+   * first 16 file descriptors. After that, bail out after the first error.
+   */
+  for (fd = 3; ; fd++)
+    if (SetCloseOnExec(fd) && fd > 15)
+      break;
 }
 #endif
 
