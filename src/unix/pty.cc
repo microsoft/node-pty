@@ -37,6 +37,8 @@
 /* http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html */
 #if defined(__linux__)
 #include <pty.h>
+#include <dirent.h>
+#include <sys/syscall.h>
 #elif defined(__APPLE__)
 #include <util.h>
 #elif defined(__FreeBSD__)
@@ -109,6 +111,40 @@ int pthread_fchdir_np(int fd) API_AVAILABLE(macosx(10.12));
 struct ExitEvent {
   int exit_code = 0, signal_code = 0;
 };
+
+#if defined(__linux__)
+
+static int
+SetCloseOnExec(int fd) {
+  int flags = fcntl(fd, F_GETFD, 0);
+  if (flags == -1)
+    return flags;
+  if (flags & FD_CLOEXEC)
+    return 0;
+  return fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+}
+
+/**
+ * Close all file descriptors >= 3 to prevent FD leakage to child processes.
+ * Uses close_range() syscall on Linux 5.9+, falls back to /proc/self/fd iteration.
+ */
+static void
+pty_close_inherited_fds() {
+  // Try close_range() first (Linux 5.9+, glibc 2.34+)
+  #if defined(SYS_close_range)
+  if (syscall(SYS_close_range, 3, ~0U, CLOSE_RANGE_CLOEXEC) == 0) {
+    return;
+  }
+  #endif
+
+  int fd;
+  // Set the CLOEXEC flag on all open descriptors. Unconditionally try the first
+  // 16 file descriptors. After that, bail out after the first error.
+  for (fd = 3; ; fd++)
+    if (SetCloseOnExec(fd) && fd > 15)
+      break;
+}
+#endif
 
 void SetupExitCallback(Napi::Env env, Napi::Function cb, pid_t pid) {
   std::thread *th = new std::thread;
@@ -432,6 +468,9 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
           _exit(1);
         }
       }
+
+      // Close inherited FDs to prevent leaking pty master FDs to child
+      pty_close_inherited_fds();
 
       {
         char **old = environ;
