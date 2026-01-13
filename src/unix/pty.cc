@@ -127,9 +127,8 @@ pty_close_inherited_fds() {
   #endif
 
   int fd;
-  /* Set the CLOEXEC flag on all open descriptors. Unconditionally try the
-   * first 16 file descriptors. After that, bail out after the first error.
-   */
+  // Set the CLOEXEC flag on all open descriptors. Unconditionally try the first
+  // 16 file descriptors. After that, bail out after the first error.
   for (fd = 3; ; fd++)
     if (SetCloseOnExec(fd) && fd > 15)
       break;
