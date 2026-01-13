@@ -256,6 +256,34 @@ if (process.platform !== 'win32') {
       });
     });
     describe('spawn', () => {
+      if (process.platform === 'linux') {
+        it('should not leak pty file descriptors to child processes', (done) => {
+          // Spawn 3 ptys - the 3rd should not see FDs from the first two
+          const ptys: UnixTerminal[] = [];
+          for (let i = 0; i < 3; i++) {
+            ptys.push(new UnixTerminal('/bin/bash', [], {}));
+          }
+
+          let output = '';
+          ptys[2].onData((data) => {
+            output += data;
+          });
+
+          // Check for ptmx FDs in the 3rd terminal's shell
+          ptys[2].write('echo "PTMX_COUNT:$(file /proc/$$/fd/* 2>/dev/null | grep -c ptmx)"\n');
+
+          setTimeout(() => {
+            for (const pty of ptys) {
+              pty.kill();
+            }
+            // Extract the count from output - should be 0
+            const match = output.match(/PTMX_COUNT:(\d+)/);
+            assert.ok(match, `Could not find PTMX_COUNT in output: ${output}`);
+            assert.strictEqual(match![1], '0', `Expected 0 ptmx FDs but got ${match![1]}`);
+            done();
+          }, 1000);
+        });
+      }
       if (process.platform === 'darwin') {
         it('should return the name of the process', (done) => {
           const term = new UnixTerminal('/bin/echo');
