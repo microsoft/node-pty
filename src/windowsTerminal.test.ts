@@ -20,7 +20,7 @@ interface IWindowsProcessTreeResult {
 }
 
 function pollForProcessState(desiredState: IProcessState, intervalMs: number = 100, timeoutMs: number = 2000): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
+  return new Promise<void>(resolve => {
     let tries = 0;
     const interval = setInterval(() => {
       psList({ all: true }).then(ps => {
@@ -49,7 +49,8 @@ function pollForProcessState(desiredState: IProcessState, intervalMs: number = 1
         if (tries * intervalMs >= timeoutMs) {
           clearInterval(interval);
           const processListing = pids.map(k => `${k}: ${desiredState[k]}`).join('\n');
-          reject(new Error(`Bad process state, expected:\n${processListing}`));
+          assert.fail(`Bad process state, expected:\n${processListing}`);
+          resolve();
         }
       });
     }, intervalMs);
@@ -57,7 +58,7 @@ function pollForProcessState(desiredState: IProcessState, intervalMs: number = 1
 }
 
 function pollForProcessTreeSize(pid: number, size: number, intervalMs: number = 100, timeoutMs: number = 2000): Promise<IWindowsProcessTreeResult[]> {
-  return new Promise<IWindowsProcessTreeResult[]>((resolve, reject) => {
+  return new Promise<IWindowsProcessTreeResult[]>(resolve => {
     let tries = 0;
     const interval = setInterval(() => {
       psList({ all: true }).then(ps => {
@@ -83,7 +84,7 @@ function pollForProcessTreeSize(pid: number, size: number, intervalMs: number = 
         tries++;
         if (tries * intervalMs >= timeoutMs) {
           clearInterval(interval);
-          reject(new Error(`Bad process state, expected: ${size}, actual: ${list.length}`));
+          assert.fail(`Bad process state, expected: ${size}, actual: ${list.length}`);
         }
       });
     }, intervalMs);
