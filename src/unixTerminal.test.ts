@@ -381,19 +381,21 @@ if (process.platform !== 'win32') {
           done();
         });
       });
-      it('should not leak child process', (done) => {
+      it('should not leak child process', function (done) {
+        this.timeout(5000);
         const count = cp.execSync('ps -ax | grep node | wc -l');
         const term = new UnixTerminal('node', [ '-e', `
           console.log('ready');
           setTimeout(()=>console.log('timeout'), 200);`
         ]);
-        term.on('data', async (data) => {
+        term.on('data', (data) => {
           if (data === 'ready\r\n') {
             process.kill(term.pid, 'SIGINT');
-            await setTimeout(() => null, 1000);
-            const newCount = cp.execSync('ps -ax | grep node | wc -l');
-            assert.strictEqual(count.toString(), newCount.toString());
-            done();
+            setTimeout(() => {
+              const newCount = cp.execSync('ps -ax | grep node | wc -l');
+              assert.strictEqual(count.toString(), newCount.toString());
+              done();
+            }, 1000);
           }
         });
       });
