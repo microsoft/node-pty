@@ -20,7 +20,7 @@ interface IWindowsProcessTreeResult {
 }
 
 function pollForProcessState(desiredState: IProcessState, intervalMs: number = 100, timeoutMs: number = 2000): Promise<void> {
-  return new Promise<void>(resolve => {
+  return new Promise<void>((resolve, reject) => {
     let tries = 0;
     const interval = setInterval(() => {
       psList({ all: true }).then(ps => {
@@ -49,8 +49,7 @@ function pollForProcessState(desiredState: IProcessState, intervalMs: number = 1
         if (tries * intervalMs >= timeoutMs) {
           clearInterval(interval);
           const processListing = pids.map(k => `${k}: ${desiredState[k]}`).join('\n');
-          assert.fail(`Bad process state, expected:\n${processListing}`);
-          resolve();
+          reject(new Error(`Bad process state, expected:\n${processListing}`));
         }
       });
     }, intervalMs);
@@ -58,7 +57,7 @@ function pollForProcessState(desiredState: IProcessState, intervalMs: number = 1
 }
 
 function pollForProcessTreeSize(pid: number, size: number, intervalMs: number = 100, timeoutMs: number = 2000): Promise<IWindowsProcessTreeResult[]> {
-  return new Promise<IWindowsProcessTreeResult[]>(resolve => {
+  return new Promise<IWindowsProcessTreeResult[]>((resolve, reject) => {
     let tries = 0;
     const interval = setInterval(() => {
       psList({ all: true }).then(ps => {
@@ -84,7 +83,7 @@ function pollForProcessTreeSize(pid: number, size: number, intervalMs: number = 
         tries++;
         if (tries * intervalMs >= timeoutMs) {
           clearInterval(interval);
-          assert.fail(`Bad process state, expected: ${size}, actual: ${list.length}`);
+          reject(new Error(`Bad process state, expected: ${size}, actual: ${list.length}`));
         }
       });
     }, intervalMs);
@@ -120,9 +119,9 @@ if (process.platform === 'win32') {
             term.on('exit', () => {
               pollForProcessState(desiredState, 1000, 5000).then(() => {
                 done();
-              });
+              }).catch(done);
             });
-          });
+          }).catch(done);
         });
       });
 
