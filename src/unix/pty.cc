@@ -121,7 +121,7 @@ static void
 pty_close_inherited_fds() {
   // Try close_range() first (Linux 5.9+, glibc 2.34+)
   #if defined(SYS_close_range)
-  if (syscall(SYS_close_range, 3, ~0U, 0) == 0) {
+  if (syscall(SYS_close_range, 3, ~0U, CLOSE_RANGE_CLOEXEC) == 0) {
     return;
   }
   #endif
