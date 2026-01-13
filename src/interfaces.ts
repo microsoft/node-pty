@@ -118,6 +118,15 @@ export interface IPtyForkOptions extends IBasePtyForkOptions {
 }
 
 export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
+  /**
+   * Whether to use the ConPTY system on Windows. When this is not set, ConPTY will be used when
+   * the Windows build number is >= 18309 (instead of winpty). Note that ConPTY is available from
+   * build 17134 but is too unstable to enable by default.
+   *
+   * @deprecated This option is ignored and will be removed in a future version.
+   * https://github.com/microsoft/node-pty/issues/871
+   */
+  useConpty?: boolean;
   useConptyDll?: boolean;
   conptyInheritCursor?: boolean;
 }
