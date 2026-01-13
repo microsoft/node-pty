@@ -132,7 +132,7 @@ extends:
               outputs:
                 - output: pipelineArtifact
                   targetPath: $(Build.ArtifactStagingDirectory)/prebuilds
-                  artifactName: 'prebuilds'
+                  artifactName: 'prebuilds-$(Build.SourceVersion)'
             steps:
               - script: |
                   mkdir -p $(Build.ArtifactStagingDirectory)/prebuilds
