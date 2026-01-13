@@ -238,7 +238,7 @@ HRESULT CreateNamedPipesAndPseudoConsole(const Napi::CallbackInfo& info,
   }
 
   // Failed to find  kernel32. This is realy unlikely - honestly no idea how
-  //    this is even possible to hit. We are no longer falling back to winpty.
+  //    this is even possible to hit.
   return HRESULT_FROM_WIN32(GetLastError());
 }
 
