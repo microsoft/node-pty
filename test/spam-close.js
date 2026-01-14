@@ -17,8 +17,7 @@ setInterval(() => {
     cols: 80,
     rows: 26,
     cwd: isWindows ? process.env.USERPROFILE : process.env.HOME,
-    env: Object.assign({ TEST: "Environment vars work" }, process.env),
-    useConpty: true
+    env: Object.assign({ TEST: "Environment vars work" }, process.env)
   });
 
   ptyProcess.onData(data => console.log(`  data: ${data.replace(/\x1b|\n|\r/g, '_')}`));

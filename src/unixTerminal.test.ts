@@ -3,7 +3,6 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-import { UnixTerminal } from './unixTerminal';
 import * as assert from 'assert';
 import * as cp from 'child_process';
 import * as path from 'path';
@@ -12,10 +11,15 @@ import * as fs from 'fs';
 import { constants } from 'os';
 import { pollUntil } from './testUtils.test';
 import { pid } from 'process';
+import type { UnixTerminal as UnixTerminalType } from './unixTerminal';
 
 const FIXTURES_PATH = path.normalize(path.join(__dirname, '..', 'fixtures', 'utf8-character.txt'));
 
 if (process.platform !== 'win32') {
+  // Dynamic require to avoid loading pty.node on Windows
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  const { UnixTerminal } = require('./unixTerminal') as { UnixTerminal: typeof UnixTerminalType };
+
   describe('UnixTerminal', () => {
     describe('Constructor', () => {
       it('should set a valid pts name', () => {
@@ -75,7 +79,7 @@ if (process.platform !== 'win32') {
     });
 
     describe('open', () => {
-      let term: UnixTerminal;
+      let term: UnixTerminalType;
 
       afterEach(() => {
         if (term) {
@@ -259,7 +263,7 @@ if (process.platform !== 'win32') {
       if (process.platform === 'linux') {
         it('should not leak pty file descriptors to child processes', (done) => {
           // Spawn 3 ptys - the 3rd should not see FDs from the first two
-          const ptys: UnixTerminal[] = [];
+          const ptys: UnixTerminalType[] = [];
           for (let i = 0; i < 3; i++) {
             ptys.push(new UnixTerminal('/bin/bash', [], {}));
           }
@@ -348,7 +352,7 @@ if (process.platform !== 'win32') {
                 fs.statSync(`/proc/${sub}/fd/${readFd}`);
                 done('not reachable');
               } catch (error) {
-                assert.notStrictEqual(error.message.indexOf('ENOENT'), -1);
+                assert.notStrictEqual((error as NodeJS.ErrnoException).message.indexOf('ENOENT'), -1);
               }
               setTimeout(() => {
                 process.kill(parseInt(sub), 'SIGINT');  // SIGINT to child

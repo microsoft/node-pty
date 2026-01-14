@@ -48,7 +48,7 @@ export class WindowsTerminal extends Terminal {
     this._deferreds = [];
 
     // Create new termal.
-    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.useConpty, opt.useConptyDll, opt.conptyInheritCursor);
+    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.useConptyDll, opt.conptyInheritCursor);
     this._socket = this._agent.outSocket;
 
     // Not available until `ready` event emitted.

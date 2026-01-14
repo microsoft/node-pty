@@ -86,13 +86,14 @@ declare module 'node-pty' {
   }
 
   export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
-    /**
-     * Whether to use the ConPTY system on Windows. When this is not set, ConPTY will be used when
-     * the Windows build number is >= 18309 (instead of winpty). Note that ConPTY is available from
-     * build 17134 but is too unstable to enable by default.
-     *
-     * This setting does nothing on non-Windows.
-     */
+  /**
+   * Whether to use the ConPTY system on Windows. When this is not set, ConPTY will be used when
+   * the Windows build number is >= 18309 (instead of winpty). Note that ConPTY is available from
+   * build 17134 but is too unstable to enable by default.
+   *
+   * @deprecated This option is ignored and will be removed in a future version.
+   * https://github.com/microsoft/node-pty/issues/871
+   */
     useConpty?: boolean;
 
     /**
@@ -111,7 +112,7 @@ declare module 'node-pty' {
   }
 
   /**
-   * An interface representing a pseudoterminal, on Windows this is emulated via the winpty library.
+   * An interface representing a pseudoterminal.
    */
   export interface IPty {
     /**

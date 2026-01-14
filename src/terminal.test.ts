@@ -4,15 +4,15 @@
  */
 
 import * as assert from 'assert';
-import { WindowsTerminal } from './windowsTerminal';
-import { UnixTerminal } from './unixTerminal';
 import { Terminal } from './terminal';
 import { Socket } from 'net';
 
-const terminalConstructor = (process.platform === 'win32') ? WindowsTerminal : UnixTerminal;
+const terminalConstructor = (process.platform === 'win32')
+  ? require('./windowsTerminal').WindowsTerminal
+  : require('./unixTerminal').UnixTerminal;
 const SHELL = (process.platform === 'win32') ? 'cmd.exe' : '/bin/bash';
 
-let terminalCtor: WindowsTerminal | UnixTerminal;
+let terminalCtor: any; // Will be WindowsTerminal | UnixTerminal depending on conditional report
 if (process.platform === 'win32') {
   terminalCtor = require('./windowsTerminal');
 } else {
