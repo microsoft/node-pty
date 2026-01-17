@@ -14,10 +14,11 @@
   },
   "files": [
     "binding.gyp",
-    "lib/",
-    "scripts/",
-    "src/",
-    "deps/",
+    "lib/**/*.js",
+    "!lib/**/*.test.js",
+    "scripts/post-install.js",
+    "scripts/prebuild.js",
+    "src/**/*.{cc,h}",
     "prebuilds/",
     "third_party/",
     "typings/"
