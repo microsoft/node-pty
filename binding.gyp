@@ -27,6 +27,8 @@
               ]
             }
           },
+      }, {
+        'cflags': ['-O2', '-fstack-protector-strong'],
       }],
     ],
   },
@@ -60,7 +62,7 @@
           'libraries': [
             '-lutil'
           ],
-          'cflags': ['-Wall', '-O2', '-fstack-protector-strong'],
+          'cflags': ['-Wall'],
           'ldflags': [],
           'conditions': [
             # http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html
