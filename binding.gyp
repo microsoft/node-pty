@@ -60,7 +60,7 @@
           'libraries': [
             '-lutil'
           ],
-          'cflags': ['-Wall', '-O2'],
+          'cflags': ['-Wall', '-O2', '-fstack-protector-strong'],
           'ldflags': [],
           'conditions': [
             # http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html
