@@ -543,11 +543,13 @@ Napi::Value PtyResize(const Napi::CallbackInfo& info) {
   Napi::Env env(info.Env());
   Napi::HandleScope scope(env);
 
-  if (info.Length() != 3 ||
+  if (info.Length() != 5 ||
       !info[0].IsNumber() ||
       !info[1].IsNumber() ||
-      !info[2].IsNumber()) {
-    throw Napi::Error::New(env, "Usage: pty.resize(fd, cols, rows)");
+      !info[2].IsNumber() ||
+      !info[3].IsNumber() ||
+      !info[4].IsNumber()) {
+    throw Napi::Error::New(env, "Usage: pty.resize(fd, cols, rows, xPixel, yPixel)");
   }
 
   int fd = info[0].As<Napi::Number>().Int32Value();
@@ -555,8 +557,8 @@ Napi::Value PtyResize(const Napi::CallbackInfo& info) {
   struct winsize winp;
   winp.ws_col = info[1].As<Napi::Number>().Int32Value();
   winp.ws_row = info[2].As<Napi::Number>().Int32Value();
-  winp.ws_xpixel = 0;
-  winp.ws_ypixel = 0;
+  winp.ws_xpixel = info[3].As<Napi::Number>().Int32Value();
+  winp.ws_ypixel = info[4].As<Napi::Number>().Int32Value();
 
   if (ioctl(fd, TIOCSWINSZ, &winp) == -1) {
     switch (errno) {

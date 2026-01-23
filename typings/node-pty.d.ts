@@ -159,8 +159,9 @@ declare module 'node-pty' {
      * Resizes the dimensions of the pty.
      * @param columns The number of columns to use.
      * @param rows The number of rows to use.
+     * @param pixelSize Optional pixel dimensions of the pty.
      */
-    resize(columns: number, rows: number): void;
+    resize(columns: number, rows: number, pixelSize?: { width: number, height: number }): void;
 
     /**
      * Clears the pty's internal representation of its buffer. This is a no-op

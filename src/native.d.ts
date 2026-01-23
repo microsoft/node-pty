@@ -14,7 +14,7 @@ interface IUnixNative {
   fork(file: string, args: string[], parsedEnv: string[], cwd: string, cols: number, rows: number, uid: number, gid: number, useUtf8: boolean, helperPath: string, onExitCallback: (code: number, signal: number) => void): IUnixProcess;
   open(cols: number, rows: number): IUnixOpenProcess;
   process(fd: number, pty?: string): string;
-  resize(fd: number, cols: number, rows: number): void;
+  resize(fd: number, cols: number, rows: number, xPixel: number, yPixel: number): void;
 }
 
 interface IConptyProcess {

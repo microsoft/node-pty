@@ -28,8 +28,9 @@ export interface ITerminal {
    * Resize the pty.
    * @param cols The number of columns.
    * @param rows The number of rows.
+   * @param pixelSize Optional pixel dimensions of the pty.
    */
-  resize(cols: number, rows: number): void;
+  resize(cols: number, rows: number, pixelSize?: { width: number, height: number }): void;
 
   /**
    * Clears the pty's internal representation of its buffer. This is a no-op
