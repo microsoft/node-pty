@@ -159,7 +159,9 @@ declare module 'node-pty' {
      * Resizes the dimensions of the pty.
      * @param columns The number of columns to use.
      * @param rows The number of rows to use.
-     * @param pixelSize Optional pixel dimensions of the pty.
+     * @param pixelSize Optional pixel dimensions of the pty. On Unix, this sets the `ws_xpixel`
+     * and `ws_ypixel` fields of the `winsize` struct. Applications running in the pty can read
+     * these values via the `TIOCGWINSZ` ioctl. This parameter is ignored on Windows.
      */
     resize(columns: number, rows: number, pixelSize?: { width: number, height: number }): void;
 
