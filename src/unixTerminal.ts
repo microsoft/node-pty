@@ -272,9 +272,9 @@ export class UnixTerminal extends Terminal {
     if (cols <= 0 || rows <= 0 || isNaN(cols) || isNaN(rows) || cols === Infinity || rows === Infinity) {
       throw new Error('resizing must be done using positive cols and rows');
     }
-    const xPixel = pixelSize?.width ?? 0;
-    const yPixel = pixelSize?.height ?? 0;
-    pty.resize(this._fd, cols, rows, xPixel, yPixel);
+    const pixelWidth = pixelSize?.width ?? 0;
+    const pixelHeight = pixelSize?.height ?? 0;
+    pty.resize(this._fd, cols, rows, pixelWidth, pixelHeight);
     this._cols = cols;
     this._rows = rows;
   }
