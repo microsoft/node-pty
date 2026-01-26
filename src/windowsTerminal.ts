@@ -138,7 +138,7 @@ export class WindowsTerminal extends Terminal {
    * TTY
    */
 
-  public resize(cols: number, rows: number): void {
+  public resize(cols: number, rows: number, pixelSize?: { width: number, height: number }): void {
     if (cols <= 0 || rows <= 0 || isNaN(cols) || isNaN(rows) || cols === Infinity || rows === Infinity) {
       throw new Error('resizing must be done using positive cols and rows');
     }
