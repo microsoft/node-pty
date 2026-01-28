@@ -258,7 +258,7 @@ export class UnixTerminal extends Terminal {
   public get process(): string {
     if (process.platform === 'darwin') {
       const title = pty.process(this._fd);
-      return (title !== 'kernel_task') ? title : this._file;
+      return (title !== 'kernel_task' && title !== 'spawn_helper') ? title : this._file;
     }
 
     return pty.process(this._fd, this._pty) || this._file;
