@@ -366,6 +366,37 @@ if (process.platform !== 'win32') {
             done();
           });
         });
+        it('should not leak /dev/ptmx file descriptors after pty exit', async function(): Promise<void> {
+          this.timeout(30000);
+
+          const getPtmxFDCount = (): number => {
+            try {
+              const output = cp.execSync(`lsof -p ${process.pid} 2>/dev/null`, { encoding: 'utf8' });
+              return output.split('\n').filter(line => line.includes('ptmx')).length;
+            } catch {
+              return 0;
+            }
+          };
+
+          const initialCount = getPtmxFDCount();
+          for (let i = 0; i < 20; i++) {
+            const term = new UnixTerminal('/bin/bash', ['-c', 'echo hello']);
+            await new Promise<void>(resolve => {
+              term.onExit(() => {
+                term.destroy();
+                resolve();
+              });
+            });
+          }
+
+          await new Promise(r => setTimeout(r, 500));
+
+          const finalCount = getPtmxFDCount();
+          assert.ok(
+            finalCount <= initialCount,
+            `Leaked ${finalCount - initialCount} /dev/ptmx FDs after spawning 20 PTYs (initial: ${initialCount}, final: ${finalCount})`
+          );
+        });
       }
       it('should handle exec() errors', (done) => {
         const term = new UnixTerminal('/bin/bogus.exe', []);
