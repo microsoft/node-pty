@@ -291,8 +291,10 @@ if (process.platform !== 'win32') {
       if (process.platform === 'darwin') {
         it('should return the name of the process', (done) => {
           const term = new UnixTerminal('/bin/echo');
-          assert.strictEqual(term.process, '/bin/echo');
-          term.on('exit', () => done());
+          term.on('exit', () => {
+            assert.strictEqual(term.process, '/bin/echo');
+            done();
+          });
           term.destroy();
         });
         it('should return the name of the sub process', (done) => {
