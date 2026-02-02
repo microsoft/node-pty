@@ -70,6 +70,7 @@ ptyProcess.write('ls\r');
 - [NxShell](https://nxshell.github.io/): An easy to use new terminal for Windows/Linux/MacOS platform.
 - [OpenSumi](https://github.com/opensumi/core): A framework helps you quickly build Cloud or Desktop IDE products.
 - [Enjoy Git](https://github.com/huangcs427/enjoy-git-release): A modern Git client featuring an intuitive user interface, built with Electron, Vue 3, and TypeScript.
+- [Logos](https://github.com/zixiao-labs/logos): A Modern, Lightweight Code Editor, built with Electron, Vue 3, and TypeScript.
 
 Do you use node-pty in your application as well? Please open a [Pull Request](https://github.com/Tyriar/node-pty/pulls) to include it here. We would love to have it in our list.
 
