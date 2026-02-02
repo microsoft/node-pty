@@ -42,6 +42,8 @@ export class WindowsPtyAgent {
   public get innerPid(): number { return this._innerPid; }
   public get pty(): number { return this._pty; }
 
+  private _pendingPtyInfo: { pty: number, commandLine: string, cwd: string, env: string[] } | undefined;
+
   constructor(
     file: string,
     args: ArgvOrCommandLine,
@@ -78,9 +80,20 @@ export class WindowsPtyAgent {
     this._outSocket = new Socket();
     this._outSocket.setEncoding('utf8');
     // The conout socket must be ready out on another thread to avoid deadlocks
+    // We must wait for the worker to connect before calling conptyNative.connect()
+    // to avoid blocking the Node.js event loop in ConnectNamedPipe.
+    // See https://github.com/microsoft/node-pty/issues/763
     this._conoutSocketWorker = new ConoutConnection(term.conout, this._useConptyDll);
+
+    // Store pending connection info - we'll complete the connection when worker is ready
+    this._pendingPtyInfo = { pty: this._pty, commandLine, cwd, env };
+
     this._conoutSocketWorker.onReady(() => {
       this._conoutSocketWorker.connectSocket(this._outSocket);
+      // Now that the worker has connected to the output pipe, we can safely call
+      // conptyNative.connect() which calls ConnectNamedPipe - it won't block because
+      // the client (worker) is already connected
+      this._completePtyConnection();
     });
     this._outSocket.on('connect', () => {
       this._outSocket.emit('ready_datapipe');
@@ -93,8 +106,16 @@ export class WindowsPtyAgent {
       writable: true
     });
     this._inSocket.setEncoding('utf8');
+  }
 
-    const connect = conptyNative.connect(this._pty, commandLine, cwd, env, this._useConptyDll, c => this._$onProcessExit(c));
+  private _completePtyConnection(): void {
+    if (!this._pendingPtyInfo) {
+      return;
+    }
+    const { pty, commandLine, cwd, env } = this._pendingPtyInfo;
+    this._pendingPtyInfo = undefined;
+
+    const connect = conptyNative.connect(pty, commandLine, cwd, env, this._useConptyDll, c => this._$onProcessExit(c));
     this._innerPid = connect.pid;
   }
 
