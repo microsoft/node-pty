@@ -12,12 +12,12 @@ const getConsoleProcessList = loadNativeModule('conpty_console_list').module.get
 const shellPid = parseInt(process.argv[2], 10);
 let consoleProcessList: number[] = [];
 if (shellPid > 0) {
-	try {
-		consoleProcessList = getConsoleProcessList(shellPid);
-	} catch {
-		// AttachConsole can fail if the process already exited or is invalid.
-		consoleProcessList = [];
-	}
+  try {
+    consoleProcessList = getConsoleProcessList(shellPid);
+  } catch {
+    // AttachConsole can fail if the process already exited or is invalid.
+    consoleProcessList = [];
+  }
 }
 process.send!({ consoleProcessList });
 process.exit(0);
