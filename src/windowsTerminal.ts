@@ -59,6 +59,8 @@ export class WindowsTerminal extends Terminal {
     // The forked windows terminal is not available until `ready` event is
     // emitted.
     this._socket.on('ready_datapipe', () => {
+      // Update pid now that the agent has connected
+      this._pid = this._agent.innerPid;
 
       // Run deferreds and set ready state once the first data event is received.
       this._socket.once('data', () => {
