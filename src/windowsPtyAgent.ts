@@ -140,6 +140,9 @@ export class WindowsPtyAgent {
   }
 
   public kill(): void {
+    // Prevent deferred connection from completing after kill
+    this._pendingPtyInfo = undefined;
+
     // Tell the agent to kill the pty, this releases handles to the process
     if (!this._useConptyDll) {
       this._inSocket.readable = false;
