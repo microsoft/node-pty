@@ -88,7 +88,16 @@ export class WindowsPtyAgent {
     // Store pending connection info - we'll complete the connection when worker is ready
     this._pendingPtyInfo = { pty: this._pty, commandLine, cwd, env };
 
+    // Timeout to ensure connection completes even if worker fails to signal ready
+    const connectionTimeout = setTimeout(() => {
+      if (this._pendingPtyInfo) {
+        // Worker never signaled ready - complete connection anyway to avoid zombie state
+        this._completePtyConnection();
+      }
+    }, 5000);
+
     this._conoutSocketWorker.onReady(() => {
+      clearTimeout(connectionTimeout);
       this._conoutSocketWorker.connectSocket(this._outSocket);
       // Now that the worker has connected to the output pipe, we can safely call
       // conptyNative.connect() which calls ConnectNamedPipe - it won't block because
