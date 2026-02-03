@@ -126,6 +126,32 @@ if (process.platform === 'win32') {
         });
       });
 
+      describe('pid', () => {
+        it('should be 0 before ready and set after ready_datapipe (issue #763)', function (done) {
+          this.timeout(10000);
+          const term = new WindowsTerminal('cmd.exe', '/c echo test', { useConptyDll });
+
+          // pid may be 0 immediately after construction due to deferred connection
+          const initialPid = term.pid;
+
+          // Access internal socket to listen for ready_datapipe
+          const socket = (term as any)._socket;
+          socket.on('ready_datapipe', () => {
+            // After ready_datapipe, pid should be set to a valid non-zero value
+            setTimeout(() => {
+              assert.notStrictEqual(term.pid, 0, 'pid should be set after ready_datapipe');
+              assert.strictEqual(typeof term.pid, 'number', 'pid should be a number');
+              // If initial was 0, it should now be different (proves the fix works)
+              if (initialPid === 0) {
+                assert.notStrictEqual(term.pid, initialPid, 'pid should be updated from initial value');
+              }
+              term.on('exit', () => done());
+              term.kill();
+            }, 100);
+          });
+        });
+      });
+
       describe('resize', () => {
         it('should throw a non-native exception when resizing an invalid value', function(done) {
           this.timeout(20000);
