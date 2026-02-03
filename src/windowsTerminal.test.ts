@@ -104,25 +104,43 @@ if (process.platform === 'win32') {
         it('should kill the process tree', function (done: Mocha.Done): void {
           this.timeout(20000);
           const term = new WindowsTerminal('cmd.exe', [], { useConptyDll });
-          // Start sub-processes
-          term.write('powershell.exe\r');
-          term.write('node.exe\r');
-          console.log('start poll for tree size');
-          pollForProcessTreeSize(term.pid, 3, 500, 5000).then(list => {
-            assert.strictEqual(list[0].name.toLowerCase(), 'cmd.exe');
-            assert.strictEqual(list[1].name.toLowerCase(), 'powershell.exe');
-            assert.strictEqual(list[2].name.toLowerCase(), 'node.exe');
-            term.kill();
-            const desiredState: IProcessState = {};
-            desiredState[list[0].pid] = false;
-            desiredState[list[1].pid] = false;
-            desiredState[list[2].pid] = false;
-            term.on('exit', () => {
-              pollForProcessState(desiredState, 1000, 5000).then(() => {
-                done();
-              }).catch(done);
-            });
-          }).catch(done);
+          const socket = (term as any)._socket;
+          let started = false;
+          const startPolling = (): void => {
+            if (started) {
+              return;
+            }
+            if (term.pid === 0) {
+              setTimeout(startPolling, 50);
+              return;
+            }
+            started = true;
+            // Start sub-processes
+            term.write('powershell.exe\r');
+            term.write('node.exe\r');
+            console.log('start poll for tree size');
+            pollForProcessTreeSize(term.pid, 3, 500, 5000).then(list => {
+              assert.strictEqual(list[0].name.toLowerCase(), 'cmd.exe');
+              assert.strictEqual(list[1].name.toLowerCase(), 'powershell.exe');
+              assert.strictEqual(list[2].name.toLowerCase(), 'node.exe');
+              term.kill();
+              const desiredState: IProcessState = {};
+              desiredState[list[0].pid] = false;
+              desiredState[list[1].pid] = false;
+              desiredState[list[2].pid] = false;
+              term.on('exit', () => {
+                pollForProcessState(desiredState, 1000, 5000).then(() => {
+                  done();
+                }).catch(done);
+              });
+            }).catch(done);
+          };
+
+          if (term.pid > 0) {
+            startPolling();
+          } else {
+            socket.once('ready_datapipe', () => setTimeout(startPolling, 50));
+          }
         });
       });
 
