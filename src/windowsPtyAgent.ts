@@ -169,6 +169,9 @@ export class WindowsPtyAgent {
   }
 
   private _getConsoleProcessList(): Promise<number[]> {
+    if (this._innerPid <= 0) {
+      return Promise.resolve([]);
+    }
     return new Promise<number[]>(resolve => {
       const agent = fork(path.join(__dirname, 'conpty_console_list_agent'), [ this._innerPid.toString() ]);
       agent.on('message', message => {
