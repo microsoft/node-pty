@@ -10,6 +10,13 @@ import { loadNativeModule } from './utils';
 
 const getConsoleProcessList = loadNativeModule('conpty_console_list').module.getConsoleProcessList;
 const shellPid = parseInt(process.argv[2], 10);
-const consoleProcessList = getConsoleProcessList(shellPid);
-process.send!({ consoleProcessList });
+try {
+  const consoleProcessList = getConsoleProcessList(shellPid);
+  process.send!({ consoleProcessList });
+} catch {
+  // AttachConsole can fail if the shell process has already exited.
+  // Fall back to returning just the shell PID, matching the timeout
+  // fallback behavior in windowsPtyAgent.ts.
+  process.send!({ consoleProcessList: [shellPid] });
+}
 process.exit(0);
