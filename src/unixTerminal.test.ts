@@ -428,6 +428,31 @@ if (process.platform !== 'win32') {
           }
         });
       });
+      it('should default argv0 to file', (done) => {
+        const term = new UnixTerminal('/bin/sh',
+          [ '-c', 'echo $0' ]);
+        let argv0 = '';
+        term.on('data', (data) => {
+          argv0 = argv0.concat(data);
+        });
+        term.on('exit', () => {
+          assert.strictEqual(argv0.trim(), '/bin/sh');
+          done();
+        });
+      });
+      it('should allow an alternate argv0', (done) => {
+        const term = new UnixTerminal('/bin/sh',
+          [ '-c', 'echo $0' ],
+          { argv0: 'alternate' });
+        let argv0 = '';
+        term.on('data', (data) => {
+          argv0 = argv0.concat(data);
+        });
+        term.on('exit', () => {
+          assert.strictEqual(argv0.trim(), 'alternate');
+          done();
+        });
+      });
     });
   });
 }

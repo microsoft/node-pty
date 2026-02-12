@@ -298,7 +298,7 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
   Napi::Env napiEnv(info.Env());
   Napi::HandleScope scope(napiEnv);
 
-  if (info.Length() != 11 ||
+  if (info.Length() != 12 ||
       !info[0].IsString() ||
       !info[1].IsArray() ||
       !info[2].IsArray() ||
@@ -309,8 +309,9 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
       !info[7].IsNumber() ||
       !info[8].IsBoolean() ||
       !info[9].IsString() ||
-      !info[10].IsFunction()) {
-    throw Napi::Error::New(napiEnv, "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, helperPath, onexit)");
+      !info[10].IsFunction() ||
+      !info[11].IsString()) {
+    throw Napi::Error::New(napiEnv, "Usage: pty.fork(file, args, env, cwd, cols, rows, uid, gid, utf8, helperPath, onexit, argv0)");
   }
 
   // file
@@ -387,20 +388,24 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
   // helperPath
   std::string helper_path = info[9].As<Napi::String>();
 
+  // argv0
+  std::string argv0 = info[11].As<Napi::String>();
+
   pid_t pid;
   int master = -1;
 #if defined(__APPLE__)
   int argc = argv_.Length();
-  int argl = argc + 4;
+  int argl = argc + 5;
   std::unique_ptr<char *, DelBuf> argv_unique_ptr(new char *[argl], DelBuf(argl));
   char **argv = argv_unique_ptr.get();
   argv[0] = strdup(helper_path.c_str());
   argv[1] = strdup(cwd_.c_str());
   argv[2] = strdup(file.c_str());
+  argv[3] = strdup(argv0.c_str());
   argv[argl - 1] = NULL;
   for (int i = 0; i < argc; i++) {
     std::string arg = argv_.Get(i).As<Napi::String>();
-    argv[i + 3] = strdup(arg.c_str());
+    argv[i + 4] = strdup(arg.c_str());
   }
 
   std::string err;
@@ -419,7 +424,7 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
   int argl = argc + 2;
   std::unique_ptr<char *, DelBuf> argv_unique_ptr(new char *[argl], DelBuf(argl));
   char** argv = argv_unique_ptr.get();
-  argv[0] = strdup(file.c_str());
+  argv[0] = strdup(argv0.c_str());
   argv[argl - 1] = NULL;
   for (int i = 0; i < argc; i++) {
     std::string arg = argv_.Get(i).As<Napi::String>();
@@ -478,7 +483,8 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
       {
         char **old = environ;
         environ = env;
-        execvp(argv[0], argv);
+        char* file_ = strdup(file.c_str());
+        execvp(file_, argv);
         environ = old;
         perror("execvp(3) failed.");
         _exit(1);
