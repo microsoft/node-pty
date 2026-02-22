@@ -48,7 +48,7 @@ export class WindowsTerminal extends Terminal {
     this._deferreds = [];
 
     // Create new termal.
-    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.useConpty, opt.useConptyDll, opt.conptyInheritCursor);
+    this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.useConptyDll, opt.conptyInheritCursor);
     this._socket = this._agent.outSocket;
 
     // Not available until `ready` event emitted.
@@ -59,6 +59,8 @@ export class WindowsTerminal extends Terminal {
     // The forked windows terminal is not available until `ready` event is
     // emitted.
     this._socket.on('ready_datapipe', () => {
+      // Update pid now that the agent has connected
+      this._pid = this._agent.innerPid;
 
       // Run deferreds and set ready state once the first data event is received.
       this._socket.once('data', () => {
@@ -138,7 +140,7 @@ export class WindowsTerminal extends Terminal {
    * TTY
    */
 
-  public resize(cols: number, rows: number): void {
+  public resize(cols: number, rows: number, pixelSize?: { width: number, height: number }): void {
     if (cols <= 0 || rows <= 0 || isNaN(cols) || isNaN(rows) || cols === Infinity || rows === Infinity) {
       throw new Error('resizing must be done using positive cols and rows');
     }

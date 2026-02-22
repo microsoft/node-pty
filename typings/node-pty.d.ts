@@ -94,13 +94,14 @@ declare module 'node-pty' {
   }
 
   export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
-    /**
-     * Whether to use the ConPTY system on Windows. When this is not set, ConPTY will be used when
-     * the Windows build number is >= 18309 (instead of winpty). Note that ConPTY is available from
-     * build 17134 but is too unstable to enable by default.
-     *
-     * This setting does nothing on non-Windows.
-     */
+  /**
+   * Whether to use the ConPTY system on Windows. When this is not set, ConPTY will be used when
+   * the Windows build number is >= 18309 (instead of winpty). Note that ConPTY is available from
+   * build 17134 but is too unstable to enable by default.
+   *
+   * @deprecated This option is ignored and will be removed in a future version.
+   * https://github.com/microsoft/node-pty/issues/871
+   */
     useConpty?: boolean;
 
     /**
@@ -119,7 +120,7 @@ declare module 'node-pty' {
   }
 
   /**
-   * An interface representing a pseudoterminal, on Windows this is emulated via the winpty library.
+   * An interface representing a pseudoterminal.
    */
   export interface IPty {
     /**
@@ -166,8 +167,11 @@ declare module 'node-pty' {
      * Resizes the dimensions of the pty.
      * @param columns The number of columns to use.
      * @param rows The number of rows to use.
+     * @param pixelSize Optional pixel dimensions of the pty. On Unix, this sets the `ws_xpixel`
+     * and `ws_ypixel` fields of the `winsize` struct. Applications running in the pty can read
+     * these values via the `TIOCGWINSZ` ioctl. This parameter is ignored on Windows.
      */
-    resize(columns: number, rows: number): void;
+    resize(columns: number, rows: number, pixelSize?: { width: number, height: number }): void;
 
     /**
      * Clears the pty's internal representation of its buffer. This is a no-op

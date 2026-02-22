@@ -4,13 +4,9 @@ on:
   pull_request:
 
 jobs:
-  build-test:
-    name: Build & Test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-22.04, macos-14, windows-2022]
+  lint:
+    name: Lint
+    runs-on: ubuntu-slim
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,11 +18,68 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: Install dependencies and build
-        run: npm ci
-
-      - name: Test
-        run: npm test
+      - name: Install dependencies (skip build)
+        run: npm ci --ignore-scripts
 
       - name: Lint
         run: npm run lint
+
+  build-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-14, windows-2022, macos-15-intel, ubuntu-22.04-arm, windows-11-arm]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Set architecture
+        id: arch
+        shell: bash
+        run: |
+          if [ "${{ runner.arch }}" = "ARM64" ]; then
+            echo "arch=arm64" >> $GITHUB_OUTPUT
+          else
+            echo "arch=x64" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install sysroot
+        if: runner.os == 'Linux'
+        run: |
+          set -eo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y gcc-10 g++-10
+          echo "CC=gcc-10" >> $GITHUB_ENV
+          echo "CXX=g++-10" >> $GITHUB_ENV
+          SYSROOT_PATH=$(node scripts/linux/install-sysroot.js ${{ steps.arch.outputs.arch }} | grep "SYSROOT_PATH=" | cut -d= -f2)
+          echo "SYSROOT_PATH=$SYSROOT_PATH" >> $GITHUB_ENV
+          echo "Sysroot path set to: $SYSROOT_PATH"
+        env:
+          # Set github token for authenticated sysroot download
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install dependencies and build
+        run: npm ci
+        env:
+          ARCH: ${{ steps.arch.outputs.arch }}
+          npm_config_arch: ${{ steps.arch.outputs.arch }}
+
+      - name: Verify GLIBC requirements
+        if: runner.os == 'Linux'
+        run: |
+          EXPECTED_GLIBC_VERSION="2.28" \
+          EXPECTED_GLIBCXX_VERSION="3.4.25" \
+          SEARCH_PATH="build" \
+          ./scripts/linux/verify-glibc-requirements.sh
+
+      - name: Test
+        run: npm test

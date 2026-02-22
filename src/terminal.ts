@@ -178,7 +178,7 @@ export abstract class Terminal implements ITerminal {
     this._socket.once(eventName, listener);
   }
 
-  public abstract resize(cols: number, rows: number): void;
+  public abstract resize(cols: number, rows: number, pixelSize?: { width: number, height: number }): void;
   public abstract clear(): void;
   public abstract destroy(): void;
   public abstract kill(signal?: string): void;

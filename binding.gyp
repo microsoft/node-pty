@@ -9,23 +9,26 @@
           'SpectreMitigation': 'Spectre'
         },
         'msvs_settings': {
-            'VCCLCompilerTool': {
-              'AdditionalOptions': [
-                '/guard:cf',
-                '/sdl',
-                '/W3',
-                '/w34244',
-                '/w34267',
-                '/ZH:SHA_256'
-              ]
-            },
-            'VCLinkerTool': {
-              'AdditionalOptions': [
-                '/DYNAMICBASE',
-                '/guard:cf'
-              ]
-            }
+          'VCCLCompilerTool': {
+            'AdditionalOptions': [
+              '/guard:cf',
+              '/sdl',
+              '/W3',
+              '/we4146',
+              '/we4244',
+              '/we4267',
+              '/ZH:SHA_256'
+            ]
           },
+          'VCLinkerTool': {
+            'AdditionalOptions': [
+              '/DYNAMICBASE',
+              '/guard:cf'
+            ]
+          }
+        },
+      }, {
+        'cflags': ['-O2', '-fstack-protector-strong'],
       }],
     ],
   },
@@ -47,26 +50,6 @@
           'sources' : [
             'src/win/conpty_console_list.cc'
           ],
-        },
-        {
-          'target_name': 'pty',
-          'include_dirs' : [
-            '<!(node -p "require(\'node-addon-api\').include_dir")',
-            'deps/winpty/src/include',
-          ],
-          # Disabled due to winpty
-          'msvs_disabled_warnings': [ 4506, 4530 ],
-          'dependencies' : [
-            'deps/winpty/src/winpty.gyp:winpty-agent',
-            'deps/winpty/src/winpty.gyp:winpty',
-          ],
-          'sources' : [
-            'src/win/winpty.cc',
-            'src/win/path_util.cc'
-          ],
-          'libraries': [
-            '-lshlwapi'
-          ],
         }
       ]
     }, { # OS!="win"
@@ -79,7 +62,8 @@
           'libraries': [
             '-lutil'
           ],
-          'cflags': ['-Wall', '-O2', '-D_FORTIFY_SOURCE=2'],
+          'cflags': ['-Wall'],
+          'ldflags': [],
           'conditions': [
             # http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html
             #   One some systems (at least including Cygwin, Interix,
@@ -87,6 +71,61 @@
             ['OS=="mac" or OS=="solaris"', {
               'libraries!': [
                 '-lutil'
+              ]
+            }],
+            ['OS=="linux"', {
+              'variables': {
+                'sysroot%': '<!(node -p "process.env.SYSROOT_PATH || \'\'")',
+                'target_arch%': '<!(node -p "process.env.npm_config_arch || process.arch")',
+              },
+              'conditions': [
+                ['sysroot!=""', {
+                  'variables': {
+                    'gcc_include%': '<!(${CXX:-g++} -print-file-name=include)',
+                  },
+                  'conditions': [
+                    ['target_arch=="x64"', {
+                      'cflags': [
+                        '--sysroot=<(sysroot)',
+                        '-nostdinc',
+                        '-isystem<(gcc_include)',
+                        '-isystem<(sysroot)/usr/include',
+                        '-isystem<(sysroot)/usr/include/x86_64-linux-gnu'
+                      ],
+                      'cflags_cc': [
+                        '-nostdinc++',
+                        '-isystem<(sysroot)/../include/c++/10.5.0',
+                        '-isystem<(sysroot)/../include/c++/10.5.0/x86_64-linux-gnu',
+                        '-isystem<(sysroot)/../include/c++/10.5.0/backward'
+                      ],
+                      'ldflags': [
+                        '--sysroot=<(sysroot)',
+                        '-L<(sysroot)/lib',
+                        '-L<(sysroot)/usr/lib'
+                      ],
+                    }],
+                    ['target_arch=="arm64"', {
+                      'cflags': [
+                        '--sysroot=<(sysroot)',
+                        '-nostdinc',
+                        '-isystem<(gcc_include)',
+                        '-isystem<(sysroot)/usr/include',
+                        '-isystem<(sysroot)/usr/include/aarch64-linux-gnu'
+                      ],
+                      'cflags_cc': [
+                        '-nostdinc++',
+                        '-isystem<(sysroot)/../include/c++/10.5.0',
+                        '-isystem<(sysroot)/../include/c++/10.5.0/aarch64-linux-gnu',
+                        '-isystem<(sysroot)/../include/c++/10.5.0/backward'
+                      ],
+                      'ldflags': [
+                        '--sysroot=<(sysroot)',
+                        '-L<(sysroot)/lib',
+                        '-L<(sysroot)/usr/lib'
+                      ],
+                    }]
+                  ]
+                }]
               ]
             }]
           ]

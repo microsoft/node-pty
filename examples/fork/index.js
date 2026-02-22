@@ -10,7 +10,6 @@ const ptyProcess = pty.spawn(shell, [], {
   rows: 26,
   cwd: isWindows ? process.env.USERPROFILE : process.env.HOME,
   env: Object.assign({ TEST: "Environment vars work" }, process.env),
-  useConpty: true,
   useConptyDll: true
 });
 

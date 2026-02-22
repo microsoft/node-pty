@@ -260,7 +260,7 @@ export class UnixTerminal extends Terminal {
   public get process(): string {
     if (process.platform === 'darwin') {
       const title = pty.process(this._fd);
-      return (title !== 'kernel_task') ? title : this._file;
+      return (title !== 'kernel_task' && title !== 'spawn_helper') ? title : this._file;
     }
 
     return pty.process(this._fd, this._pty) || this._file;
@@ -270,11 +270,13 @@ export class UnixTerminal extends Terminal {
    * TTY
    */
 
-  public resize(cols: number, rows: number): void {
+  public resize(cols: number, rows: number, pixelSize?: { width: number, height: number }): void {
     if (cols <= 0 || rows <= 0 || isNaN(cols) || isNaN(rows) || cols === Infinity || rows === Infinity) {
       throw new Error('resizing must be done using positive cols and rows');
     }
-    pty.resize(this._fd, cols, rows);
+    const pixelWidth = pixelSize?.width ?? 0;
+    const pixelHeight = pixelSize?.height ?? 0;
+    pty.resize(this._fd, cols, rows, pixelWidth, pixelHeight);
     this._cols = cols;
     this._rows = rows;
   }

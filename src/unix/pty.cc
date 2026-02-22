@@ -37,6 +37,8 @@
 /* http://www.gnu.org/software/gnulib/manual/html_node/forkpty.html */
 #if defined(__linux__)
 #include <pty.h>
+#include <dirent.h>
+#include <sys/syscall.h>
 #elif defined(__APPLE__)
 #include <util.h>
 #elif defined(__FreeBSD__)
@@ -109,6 +111,40 @@ int pthread_fchdir_np(int fd) API_AVAILABLE(macosx(10.12));
 struct ExitEvent {
   int exit_code = 0, signal_code = 0;
 };
+
+#if defined(__linux__)
+
+static int
+SetCloseOnExec(int fd) {
+  int flags = fcntl(fd, F_GETFD, 0);
+  if (flags == -1)
+    return flags;
+  if (flags & FD_CLOEXEC)
+    return 0;
+  return fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+}
+
+/**
+ * Close all file descriptors >= 3 to prevent FD leakage to child processes.
+ * Uses close_range() syscall on Linux 5.9+, falls back to /proc/self/fd iteration.
+ */
+static void
+pty_close_inherited_fds() {
+  // Try close_range() first (Linux 5.9+, glibc 2.34+)
+  #if defined(SYS_close_range) && defined(CLOSE_RANGE_CLOEXEC)
+  if (syscall(SYS_close_range, 3, ~0U, CLOSE_RANGE_CLOEXEC) == 0) {
+    return;
+  }
+  #endif
+
+  int fd;
+  // Set the CLOEXEC flag on all open descriptors. Unconditionally try the first
+  // 16 file descriptors. After that, bail out after the first error.
+  for (fd = 3; ; fd++)
+    if (SetCloseOnExec(fd) && fd > 15)
+      break;
+}
+#endif
 
 void SetupExitCallback(Napi::Env env, Napi::Function cb, pid_t pid) {
   std::thread *th = new std::thread;
@@ -243,7 +279,7 @@ pty_posix_spawn(char** argv, char** env,
                 const struct winsize *winp,
                 int* master,
                 pid_t* pid,
-                int* err);
+                std::string* err);
 #endif
 
 struct DelBuf {
@@ -356,7 +392,7 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
   std::string argv0 = info[11].As<Napi::String>();
 
   pid_t pid;
-  int master;
+  int master = -1;
 #if defined(__APPLE__)
   int argc = argv_.Length();
   int argl = argc + 5;
@@ -372,10 +408,13 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
     argv[i + 4] = strdup(arg.c_str());
   }
 
-  int err = -1;
+  std::string err;
   pty_posix_spawn(argv, env, term, &winp, &master, &pid, &err);
-  if (err != 0) {
-    throw Napi::Error::New(napiEnv, "posix_spawnp failed.");
+  if (!err.empty()) {
+    if (master != -1) {
+      close(master);
+    }
+    throw Napi::Error::New(napiEnv, err);
   }
   if (pty_nonblock(master) == -1) {
     throw Napi::Error::New(napiEnv, "Could not set master fd to nonblocking.");
@@ -437,6 +476,9 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
           _exit(1);
         }
       }
+
+      // Close inherited FDs to prevent leaking pty master FDs to child
+      pty_close_inherited_fds();
 
       {
         char **old = environ;
@@ -510,11 +552,13 @@ Napi::Value PtyResize(const Napi::CallbackInfo& info) {
   Napi::Env env(info.Env());
   Napi::HandleScope scope(env);
 
-  if (info.Length() != 3 ||
+  if (info.Length() != 5 ||
       !info[0].IsNumber() ||
       !info[1].IsNumber() ||
-      !info[2].IsNumber()) {
-    throw Napi::Error::New(env, "Usage: pty.resize(fd, cols, rows)");
+      !info[2].IsNumber() ||
+      !info[3].IsNumber() ||
+      !info[4].IsNumber()) {
+    throw Napi::Error::New(env, "Usage: pty.resize(fd, cols, rows, xPixel, yPixel)");
   }
 
   int fd = info[0].As<Napi::Number>().Int32Value();
@@ -522,8 +566,8 @@ Napi::Value PtyResize(const Napi::CallbackInfo& info) {
   struct winsize winp;
   winp.ws_col = info[1].As<Napi::Number>().Int32Value();
   winp.ws_row = info[2].As<Napi::Number>().Int32Value();
-  winp.ws_xpixel = 0;
-  winp.ws_ypixel = 0;
+  winp.ws_xpixel = info[3].As<Napi::Number>().Int32Value();
+  winp.ws_ypixel = info[4].As<Napi::Number>().Int32Value();
 
   if (ioctl(fd, TIOCSWINSZ, &winp) == -1) {
     switch (errno) {
@@ -690,15 +734,26 @@ pty_getproc(int fd, char *tty) {
 #endif
 
 #if defined(__APPLE__)
+static std::string format_error(const char* func, int err_code) {
+  char buf[256];
+  snprintf(buf, sizeof(buf), "%s: %s", func, strerror(err_code));
+  return buf;
+}
+
 static void
 pty_posix_spawn(char** argv, char** env,
                 const struct termios *termp,
                 const struct winsize *winp,
                 int* master,
                 pid_t* pid,
-                int* err) {
+                std::string* err) {
   int low_fds[3];
   size_t count = 0;
+  int res = 0;
+  int slave = -1;
+  char slave_pty_name[128];
+  int spawn_err;
+  sigset_t signal_set;
 
   for (; count < 3; count++) {
     low_fds[count] = posix_openpt(O_RDWR);
@@ -710,82 +765,103 @@ pty_posix_spawn(char** argv, char** env,
               POSIX_SPAWN_SETSIGDEF |
               POSIX_SPAWN_SETSIGMASK |
               POSIX_SPAWN_SETSID;
+
+  posix_spawn_file_actions_t acts;
+  posix_spawn_file_actions_init(&acts);
+
+  posix_spawnattr_t attrs;
+  posix_spawnattr_init(&attrs);
+
   *master = posix_openpt(O_RDWR);
   if (*master == -1) {
-    return;
+    *err = format_error("posix_openpt failed", errno);
+    goto done;
   }
 
-  int res = grantpt(*master) || unlockpt(*master);
+  res = grantpt(*master);
   if (res == -1) {
-    return;
+    *err = format_error("grantpt failed", errno);
+    goto done;
+  }
+
+  res = unlockpt(*master);
+  if (res == -1) {
+    *err = format_error("unlockpt failed", errno);
+    goto done;
   }
 
   // Use TIOCPTYGNAME instead of ptsname() to avoid threading problems.
-  int slave;
-  char slave_pty_name[128];
   res = ioctl(*master, TIOCPTYGNAME, slave_pty_name);
   if (res == -1) {
-    return;
+    *err = format_error("ioctl(TIOCPTYGNAME) failed", errno);
+    goto done;
   }
 
   slave = open(slave_pty_name, O_RDWR | O_NOCTTY);
   if (slave == -1) {
-    return;
+    *err = format_error("open slave pty failed", errno);
+    goto done;
   }
 
   if (termp) {
     res = tcsetattr(slave, TCSANOW, termp);
     if (res == -1) {
-      return;
+      *err = format_error("tcsetattr failed", errno);
+      goto done;
     };
   }
 
   if (winp) {
     res = ioctl(slave, TIOCSWINSZ, winp);
     if (res == -1) {
-      return;
+      *err = format_error("ioctl(TIOCSWINSZ) failed", errno);
+      goto done;
     }
   }
 
-  posix_spawn_file_actions_t acts;
-  posix_spawn_file_actions_init(&acts);
   posix_spawn_file_actions_adddup2(&acts, slave, STDIN_FILENO);
   posix_spawn_file_actions_adddup2(&acts, slave, STDOUT_FILENO);
   posix_spawn_file_actions_adddup2(&acts, slave, STDERR_FILENO);
   posix_spawn_file_actions_addclose(&acts, slave);
   posix_spawn_file_actions_addclose(&acts, *master);
 
-  posix_spawnattr_t attrs;
-  posix_spawnattr_init(&attrs);
-  *err = posix_spawnattr_setflags(&attrs, flags);
-  if (*err != 0) {
+  spawn_err = posix_spawnattr_setflags(&attrs, flags);
+  if (spawn_err != 0) {
+    *err = format_error("posix_spawnattr_setflags failed", spawn_err);
     goto done;
   }
 
-  sigset_t signal_set;
   /* Reset all signal the child to their default behavior */
   sigfillset(&signal_set);
-  *err = posix_spawnattr_setsigdefault(&attrs, &signal_set);
-  if (*err != 0) {
+  spawn_err = posix_spawnattr_setsigdefault(&attrs, &signal_set);
+  if (spawn_err != 0) {
+    *err = format_error("posix_spawnattr_setsigdefault failed", spawn_err);
     goto done;
   }
 
   /* Reset the signal mask for all signals */
   sigemptyset(&signal_set);
-  *err = posix_spawnattr_setsigmask(&attrs, &signal_set);
-  if (*err != 0) {
+  spawn_err = posix_spawnattr_setsigmask(&attrs, &signal_set);
+  if (spawn_err != 0) {
+    *err = format_error("posix_spawnattr_setsigmask failed", spawn_err);
     goto done;
   }
 
   do
-    *err = posix_spawn(pid, argv[0], &acts, &attrs, argv, env);
-  while (*err == EINTR);
+    spawn_err = posix_spawn(pid, argv[0], &acts, &attrs, argv, env);
+  while (spawn_err == EINTR);
+  if (spawn_err != 0) {
+    *err = format_error("posix_spawn failed", spawn_err);
+  }
 done:
   posix_spawn_file_actions_destroy(&acts);
   posix_spawnattr_destroy(&attrs);
+  if (slave != -1) {
+    close(slave);
+  }
 
-  for (; count > 0; count--) {
-    close(low_fds[count]);
+  for (size_t i = 0; i <= count; i++) {
+    close(low_fds[i]);
   }
 }
 #endif

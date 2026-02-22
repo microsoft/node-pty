@@ -28,8 +28,11 @@ export interface ITerminal {
    * Resize the pty.
    * @param cols The number of columns.
    * @param rows The number of rows.
+   * @param pixelSize Optional pixel dimensions of the pty. On Unix, this sets the `ws_xpixel`
+   * and `ws_ypixel` fields of the `winsize` struct. Applications running in the pty can read
+   * these values via the `TIOCGWINSZ` ioctl. This parameter is ignored on Windows.
    */
-  resize(cols: number, rows: number): void;
+  resize(cols: number, rows: number, pixelSize?: { width: number, height: number }): void;
 
   /**
    * Clears the pty's internal representation of its buffer. This is a no-op
@@ -119,6 +122,14 @@ export interface IPtyForkOptions extends IBasePtyForkOptions {
 }
 
 export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
+  /**
+   * Whether to use the ConPTY system on Windows. When this is not set, ConPTY will be used when
+   * the Windows build number is >= 18309 (instead of winpty). Note that ConPTY is available from
+   * build 17134 but is too unstable to enable by default.
+   *
+   * @deprecated This option is ignored and will be removed in a future version.
+   * https://github.com/microsoft/node-pty/issues/871
+   */
   useConpty?: boolean;
   useConptyDll?: boolean;
   conptyInheritCursor?: boolean;

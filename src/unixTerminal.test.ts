@@ -3,7 +3,6 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
-import { UnixTerminal } from './unixTerminal';
 import * as assert from 'assert';
 import * as cp from 'child_process';
 import * as path from 'path';
@@ -12,10 +11,15 @@ import * as fs from 'fs';
 import { constants } from 'os';
 import { pollUntil } from './testUtils.test';
 import { pid } from 'process';
+import type { UnixTerminal as UnixTerminalType } from './unixTerminal';
 
 const FIXTURES_PATH = path.normalize(path.join(__dirname, '..', 'fixtures', 'utf8-character.txt'));
 
 if (process.platform !== 'win32') {
+  // Dynamic require to avoid loading pty.node on Windows
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  const { UnixTerminal } = require('./unixTerminal') as { UnixTerminal: typeof UnixTerminalType };
+
   describe('UnixTerminal', () => {
     describe('Constructor', () => {
       it('should set a valid pts name', () => {
@@ -75,7 +79,7 @@ if (process.platform !== 'win32') {
     });
 
     describe('open', () => {
-      let term: UnixTerminal;
+      let term: UnixTerminalType;
 
       afterEach(() => {
         if (term) {
@@ -256,6 +260,34 @@ if (process.platform !== 'win32') {
       });
     });
     describe('spawn', () => {
+      if (process.platform === 'linux') {
+        it('should not leak pty file descriptors to child processes', (done) => {
+          // Spawn 3 ptys - the 3rd should not see FDs from the first two
+          const ptys: UnixTerminalType[] = [];
+          for (let i = 0; i < 3; i++) {
+            ptys.push(new UnixTerminal('/bin/bash', [], {}));
+          }
+
+          let output = '';
+          ptys[2].onData((data) => {
+            output += data;
+          });
+
+          // Check for ptmx FDs in the 3rd terminal's shell
+          ptys[2].write('echo "PTMX_COUNT:$(file /proc/$$/fd/* 2>/dev/null | grep -c ptmx)"\n');
+
+          setTimeout(() => {
+            for (const pty of ptys) {
+              pty.kill();
+            }
+            // Extract the count from output - should be 0
+            const match = output.match(/PTMX_COUNT:(\d+)/);
+            assert.ok(match, `Could not find PTMX_COUNT in output: ${output}`);
+            assert.strictEqual(match![1], '0', `Expected 0 ptmx FDs but got ${match![1]}`);
+            done();
+          }, 1000);
+        });
+      }
       if (process.platform === 'darwin') {
         it('should return the name of the process', (done) => {
           const term = new UnixTerminal('/bin/echo');
@@ -280,12 +312,15 @@ if (process.platform !== 'win32') {
           let sub = '';
           let pid = '';
           p.stdout.on('data', (data) => {
-            if (!data.toString().indexOf('title')) {
-              sub = data.toString().split(' ')[1].slice(0, -1);
-            } else if (!data.toString().indexOf('ready')) {
-              pid = data.toString().split(' ')[1].slice(0, -1);
-              process.kill(parseInt(pid), 'SIGINT');
-              p.kill('SIGINT');
+            const lines = data.toString().split('\n');
+            for (const line of lines) {
+              if (line.startsWith('title ')) {
+                sub = line.split(' ')[1];
+              } else if (line.startsWith('ready ')) {
+                pid = line.split(' ')[1];
+                process.kill(parseInt(pid), 'SIGINT');
+                p.kill('SIGINT');
+              }
             }
           });
           p.on('exit', () => {
@@ -317,7 +352,7 @@ if (process.platform !== 'win32') {
                 fs.statSync(`/proc/${sub}/fd/${readFd}`);
                 done('not reachable');
               } catch (error) {
-                assert.notStrictEqual(error.message.indexOf('ENOENT'), -1);
+                assert.notStrictEqual((error as NodeJS.ErrnoException).message.indexOf('ENOENT'), -1);
               }
               setTimeout(() => {
                 process.kill(parseInt(sub), 'SIGINT');  // SIGINT to child
@@ -330,6 +365,37 @@ if (process.platform !== 'win32') {
           p.on('close', () => {
             done();
           });
+        });
+        it('should not leak /dev/ptmx file descriptors after pty exit', async function(): Promise<void> {
+          this.timeout(30000);
+
+          const getPtmxFDCount = (): number => {
+            try {
+              const output = cp.execSync(`lsof -p ${process.pid} 2>/dev/null`, { encoding: 'utf8' });
+              return output.split('\n').filter(line => line.includes('ptmx')).length;
+            } catch {
+              return 0;
+            }
+          };
+
+          const initialCount = getPtmxFDCount();
+          for (let i = 0; i < 20; i++) {
+            const term = new UnixTerminal('/bin/bash', ['-c', 'echo hello']);
+            await new Promise<void>(resolve => {
+              term.onExit(() => {
+                term.destroy();
+                resolve();
+              });
+            });
+          }
+
+          await new Promise(r => setTimeout(r, 500));
+
+          const finalCount = getPtmxFDCount();
+          assert.ok(
+            finalCount <= initialCount,
+            `Leaked ${finalCount - initialCount} /dev/ptmx FDs after spawning 20 PTYs (initial: ${initialCount}, final: ${finalCount})`
+          );
         });
       }
       it('should handle exec() errors', (done) => {
