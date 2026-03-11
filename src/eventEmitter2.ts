@@ -13,7 +13,7 @@ export interface IEvent<T> {
 }
 
 export class EventEmitter2<T> {
-  private _listeners: IListener<T>[] = [];
+  private _listeners: Array<IListener<T>> = [];
   private _event?: IEvent<T>;
 
   public get event(): IEvent<T> {
@@ -37,7 +37,7 @@ export class EventEmitter2<T> {
   }
 
   public fire(data: T): void {
-    const queue: IListener<T>[] = [];
+    const queue: Array<IListener<T>> = [];
     for (let i = 0; i < this._listeners.length; i++) {
       queue.push(this._listeners[i]);
     }
