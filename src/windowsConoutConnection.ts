@@ -47,11 +47,11 @@ export class ConoutConnection implements IDisposable {
     this._worker = new Worker(join(scriptPath, 'worker/conoutSocketWorker.js'), { workerData });
     this._worker.on('message', (message: ConoutWorkerMessage) => {
       switch (message) {
-      case ConoutWorkerMessage.READY:
-        this._onReady.fire();
-        return;
-      default:
-        console.warn('Unexpected ConoutWorkerMessage', message);
+        case ConoutWorkerMessage.READY:
+          this._onReady.fire();
+          return;
+        default:
+          console.warn('Unexpected ConoutWorkerMessage', message);
       }
     });
   }

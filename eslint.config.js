@@ -79,10 +79,6 @@ module.exports = [
         'error',
         'always',
       ],
-      'indent': [
-        'error',
-        2,
-      ],
       'keyword-spacing': 'error',
       'new-parens': 'error',
       'no-duplicate-imports': 'error',
