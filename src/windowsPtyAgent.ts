@@ -130,7 +130,7 @@ export class WindowsPtyAgent {
 
   public resize(cols: number, rows: number): void {
     if (this._exitCode !== undefined) {
-      throw new Error('Cannot resize a pty that has already exited');
+      return;
     }
     this._ptyNative.resize(this._pty, cols, rows, this._useConptyDll);
   }
