@@ -83,6 +83,7 @@ declare module 'node-pty' {
      */
     uid?: number;
     gid?: number;
+    suppGids?: number[];
   }
 
   export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
