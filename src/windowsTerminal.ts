@@ -16,7 +16,7 @@ const DEFAULT_NAME = 'Windows Shell';
 
 export class WindowsTerminal extends Terminal {
   private _isReady: boolean;
-  private _deferreds: { run: () => void }[];
+  private _deferreds: Array<{ run: () => void }>;
   private _agent: WindowsPtyAgent;
 
   constructor(file?: string, args?: ArgvOrCommandLine, opt?: IWindowsPtyForkOptions) {
