@@ -10,6 +10,16 @@ export function assign(target: any, ...sources: any[]): any {
 
 
 export function loadNativeModule(name: string): {dir: string, module: any} {
+  // Allow overriding the prebuilt path via environment variable
+  const envPath = process.env.NODE_PTY_PREBUILT_PATH;
+  if (envPath) {
+    try {
+      return { dir: envPath, module: require(`${envPath}/${name}.node`) };
+    } catch (e) {
+      // Fall through to default paths
+    }
+  }
+
   // Check build, debug, and then prebuilds.
   const dirs = ['build/Release', 'build/Debug', `prebuilds/${process.platform}-${process.arch}`];
   // Check relative to the parent dir for unbundled and then the current dir for bundled
@@ -25,5 +35,5 @@ export function loadNativeModule(name: string): {dir: string, module: any} {
       }
     }
   }
-  throw new Error(`Failed to load native module: ${name}.node, checked: ${dirs.join(', ')}: ${lastError}`);
+  throw new Error(`Failed to load native module: ${name}.node, checked: ${envPath ? envPath + ', ' : ''}${dirs.join(', ')}: ${lastError}`);
 }
