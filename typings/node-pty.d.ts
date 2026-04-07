@@ -121,6 +121,11 @@ declare module 'node-pty' {
     readonly pid: number;
 
     /**
+     * The foreground process group ID, if available.
+     */
+    readonly foregroundPid?: number;
+
+    /**
      * The column size in characters.
      */
     readonly cols: number;

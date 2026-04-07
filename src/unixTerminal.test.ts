@@ -288,6 +288,18 @@ if (process.platform !== 'win32') {
           }, 1000);
         });
       }
+      it('should return the foreground process group pid', (done) => {
+        const term = new UnixTerminal('node', ['-e', 'console.log("ready"); setTimeout(() => null, 200);']);
+        term.onData((data) => {
+          if (!data.includes('ready')) {
+            return;
+          }
+          assert.strictEqual(typeof term.foregroundPid, 'number');
+          assert.strictEqual(term.foregroundPid, term.pid);
+          term.on('exit', () => done());
+          term.kill();
+        });
+      });
       if (process.platform === 'darwin') {
         it('should return the name of the process', (done) => {
           const term = new UnixTerminal('/bin/echo');
