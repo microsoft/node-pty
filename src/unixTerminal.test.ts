@@ -366,6 +366,25 @@ if (process.platform !== 'win32') {
             done();
           });
         });
+        it('should throw a descriptive error when spawn-helper is missing', () => {
+          const { loadNativeModule } = require('./utils');
+          const nativeModule = loadNativeModule('pty');
+          const spawnHelperPath = path.resolve(__dirname, nativeModule.dir + '/spawn-helper');
+          const backupPath = spawnHelperPath + '.bak';
+          fs.renameSync(spawnHelperPath, backupPath);
+          try {
+            assert.throws(
+              () => new UnixTerminal('/bin/zsh', []),
+              (e: Error) => {
+                assert.ok(e.message.includes('spawn-helper not found'), `Unexpected message: ${e.message}`);
+                assert.ok(e.message.includes(spawnHelperPath), `Path missing from message: ${e.message}`);
+                return true;
+              }
+            );
+          } finally {
+            fs.renameSync(backupPath, spawnHelperPath);
+          }
+        });
         it('should not leak /dev/ptmx file descriptors after pty exit', async function(): Promise<void> {
           this.timeout(30000);
 
