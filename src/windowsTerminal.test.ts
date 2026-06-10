@@ -268,6 +268,58 @@ if (process.platform === 'win32') {
           });
         });
       });
+
+      describe('Regression for #921', () => {
+        it('should not crash with concurrent kills while resizing/clearing', function (done) {
+          this.timeout(60000);
+          const N = 30;
+          const terms: WindowsTerminal[] = [];
+          let ready = 0;
+          let exited = 0;
+          let spamInterval: NodeJS.Timeout | undefined;
+          const cleanup = (err?: Error): void => {
+            if (spamInterval) {
+              clearInterval(spamInterval);
+              spamInterval = undefined;
+            }
+            done(err);
+          };
+          const startRace = (): void => {
+            spamInterval = setInterval(() => {
+              for (const t of terms) {
+                try {
+                  t.resize(80 + Math.floor(Math.random() * 40), 24 + Math.floor(Math.random() * 20));
+                } catch (e) { /* already exited */ }
+                try {
+                  t.clear();
+                } catch (e) { /* already exited */ }
+              }
+            }, 1);
+            for (const t of terms) {
+              try { t.kill(); } catch (e) { /* */ }
+            }
+          };
+          for (let i = 0; i < N; i++) {
+            const t = new WindowsTerminal('cmd.exe', [], { useConptyDll });
+            terms.push(t);
+            let readied = false;
+            t.on('data', () => {
+              if (readied) return;
+              readied = true;
+              ready++;
+              if (ready === N) {
+                startRace();
+              }
+            });
+            t.on('exit', () => {
+              exited++;
+              if (exited === N) {
+                cleanup();
+              }
+            });
+          }
+        });
+      });
     });
   });
 }
