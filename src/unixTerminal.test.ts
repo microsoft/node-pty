@@ -397,6 +397,37 @@ if (process.platform !== 'win32') {
             `Leaked ${finalCount - initialCount} /dev/ptmx FDs after spawning 20 PTYs (initial: ${initialCount}, final: ${finalCount})`
           );
         });
+        it('should not leak kqueue file descriptors after pty exit', async function(): Promise<void> {
+          this.timeout(30000);
+
+          const getKqueueFDCount = (): number => {
+            try {
+              const output = cp.execSync(`lsof -p ${process.pid} 2>/dev/null`, { encoding: 'utf8' });
+              return output.split('\n').filter(line => line.includes('KQUEUE')).length;
+            } catch {
+              return 0;
+            }
+          };
+
+          const initialCount = getKqueueFDCount();
+          for (let i = 0; i < 20; i++) {
+            const term = new UnixTerminal('/bin/bash', ['-c', 'echo hello']);
+            await new Promise<void>(resolve => {
+              term.onExit(() => {
+                term.destroy();
+                resolve();
+              });
+            });
+          }
+
+          await new Promise(r => setTimeout(r, 500));
+
+          const finalCount = getKqueueFDCount();
+          assert.ok(
+            finalCount <= initialCount,
+            `Leaked ${finalCount - initialCount} kqueue FDs after spawning 20 PTYs (initial: ${initialCount}, final: ${finalCount})`
+          );
+        });
       }
       it('should handle exec() errors', (done) => {
         const term = new UnixTerminal('/bin/bogus.exe', []);

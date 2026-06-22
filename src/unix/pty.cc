@@ -203,6 +203,7 @@ void SetupExitCallback(Napi::Env env, Napi::Function cb, pid_t pid) {
         }
       }
     }
+    close(kq);
 #else
     while (true) {
       errno = 0;
