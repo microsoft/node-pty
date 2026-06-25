@@ -46,7 +46,7 @@ struct pty_baton {
   HANDLE hOut;
   HPCON hpc;
 
-  HANDLE hShell;
+  HANDLE hShell = nullptr;
 
   pty_baton(int _id, HANDLE _hIn, HANDLE _hOut, HPCON _hpc) : id(_id), hIn(_hIn), hOut(_hOut), hpc(_hpc) {};
 };
@@ -384,6 +384,14 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
   ConnectNamedPipe(handle->hIn, nullptr);
   ConnectNamedPipe(handle->hOut, nullptr);
 
+  // Close hIn/hOut on every exit so a throw doesn't leak the named-pipe server handles.
+  auto closePipeHandles = [handle]() {
+    CloseHandle(handle->hIn);
+    CloseHandle(handle->hOut);
+    handle->hIn = nullptr;
+    handle->hOut = nullptr;
+  };
+
   // Attach the pseudoconsole to the client application we're creating
   STARTUPINFOEXW siEx{0};
   siEx.StartupInfo.cb = sizeof(STARTUPINFOEXW);
@@ -394,12 +402,14 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
 
   SIZE_T size = 0;
   InitializeProcThreadAttributeList(NULL, 1, 0, &size);
-  BYTE *attrList = new BYTE[size];
-  siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(attrList);
+  std::unique_ptr<BYTE[]> attrList = std::make_unique<BYTE[]>(size);
+  siEx.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(attrList.get());
 
   fSuccess = InitializeProcThreadAttributeList(siEx.lpAttributeList, 1, 0, &size);
   if (!fSuccess) {
-    throw errorWithCode(info, "InitializeProcThreadAttributeList failed");
+    Napi::Error error = errorWithCode(info, "InitializeProcThreadAttributeList failed");
+    closePipeHandles();
+    throw error;
   }
   fSuccess = UpdateProcThreadAttribute(siEx.lpAttributeList,
                                        0,
@@ -409,7 +419,10 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
                                        NULL,
                                        NULL);
   if (!fSuccess) {
-    throw errorWithCode(info, "UpdateProcThreadAttribute failed");
+    Napi::Error error = errorWithCode(info, "UpdateProcThreadAttribute failed");
+    DeleteProcThreadAttributeList(siEx.lpAttributeList);
+    closePipeHandles();
+    throw error;
   }
 
   PROCESS_INFORMATION piClient{};
@@ -426,8 +439,13 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
       &piClient                     // lpProcessInformation
   );
   if (!fSuccess) {
-    throw errorWithCode(info, "Cannot create process");
+    Napi::Error error = errorWithCode(info, "Cannot create process");
+    DeleteProcThreadAttributeList(siEx.lpAttributeList);
+    closePipeHandles();
+    throw error;
   }
+
+  DeleteProcThreadAttributeList(siEx.lpAttributeList);
 
   HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
   bool fLoadedDll = hLibrary != nullptr;
@@ -447,8 +465,7 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
   // Close the thread handle to avoid resource leak
   CloseHandle(piClient.hThread);
   // Close the input read and output write handle of the pseudoconsole
-  CloseHandle(handle->hIn);
-  CloseHandle(handle->hOut);
+  closePipeHandles();
 
   SetupExitCallback(env, exitCallback, handle);
 
@@ -550,7 +567,7 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
   const bool useConptyDll = info[1].As<Napi::Boolean>().Value();
 
   std::lock_guard<std::mutex> lock(g_ptyHandlesMutex);
-  const pty_baton* handle = get_pty_baton(lock, id);
+  pty_baton* handle = get_pty_baton(lock, id);
 
   if (handle != nullptr) {
     HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
@@ -565,7 +582,17 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
         pfnClosePseudoConsole(handle->hpc);
       }
     }
-    if (useConptyDll) {
+    // Defensive: if PtyConnect was never called (or failed before closing the
+    // pipe handles), release the named pipe server handles here.
+    if (handle->hIn != nullptr) {
+      CloseHandle(handle->hIn);
+      handle->hIn = nullptr;
+    }
+    if (handle->hOut != nullptr) {
+      CloseHandle(handle->hOut);
+      handle->hOut = nullptr;
+    }
+    if (useConptyDll && handle->hShell != nullptr) {
       TerminateProcess(handle->hShell, 1);
     }
   }
