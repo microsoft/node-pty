@@ -238,6 +238,20 @@ if (process.platform === 'win32') {
         });
       });
 
+      describe('connect failure', () => {
+        it('should emit exit instead of an uncaught exception when CreateProcessW fails', function (done) {
+          this.timeout(10000);
+          // Must exist (startProcess validates that) but not be a valid executable.
+          const notAnExe = path.join(__dirname, '..', 'package.json');
+          const term = new WindowsTerminal(notAnExe, [], { useConptyDll });
+          term.on('exit', (code) => {
+            assert.notStrictEqual(code, 0);
+            assert.strictEqual(term.pid, 0);
+            done();
+          });
+        });
+      });
+
       describe('On close', () => {
         it('should return process zero exit codes', function (done) {
           this.timeout(10000);

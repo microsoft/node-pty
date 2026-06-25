@@ -10,6 +10,7 @@ import { fork } from 'child_process';
 import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
 import { ConoutConnection } from './windowsConoutConnection';
+import { EventEmitter2, IEvent } from './eventEmitter2';
 import { loadNativeModule } from './utils';
 
 let conptyNative: IConptyNative;
@@ -31,6 +32,9 @@ export class WindowsPtyAgent {
   private _closeTimeout: NodeJS.Timer | undefined;
   private _exitCode: number | undefined;
   private _conoutSocketWorker: ConoutConnection;
+
+  private _onError = new EventEmitter2<Error>();
+  public get onError(): IEvent<Error> { return this._onError.event; }
 
   private _fd: any;
   private _pty: number;
@@ -124,8 +128,21 @@ export class WindowsPtyAgent {
     const { pty, commandLine, cwd, env } = this._pendingPtyInfo;
     this._pendingPtyInfo = undefined;
 
-    const connect = conptyNative.connect(pty, commandLine, cwd, env, this._useConptyDll, c => this._$onProcessExit(c));
-    this._innerPid = connect.pid;
+    try {
+      const connect = conptyNative.connect(pty, commandLine, cwd, env, this._useConptyDll, c => this._$onProcessExit(c));
+      this._innerPid = connect.pid;
+    } catch (err) {
+      // connect() runs from the conout worker's onReady callback (or its
+      // timeout fallback), so a throw here would otherwise surface as an
+      // uncaughtException with no way for the consumer to observe it.
+      const code = /error code: (\d+)/.exec((err as Error).message)?.[1];
+      this._exitCode = code ? parseInt(code, 10) : -1;
+      try { this._ptyNative.kill(this._pty, this._useConptyDll); } catch { /* already gone */ }
+      this._conoutSocketWorker.dispose();
+      this._inSocket.destroy();
+      this._outSocket.destroy();
+      this._onError.fire(err as Error);
+    }
   }
 
   public resize(cols: number, rows: number): void {
