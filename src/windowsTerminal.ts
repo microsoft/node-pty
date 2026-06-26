@@ -50,6 +50,12 @@ export class WindowsTerminal extends Terminal {
     // Create new termal.
     this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.useConptyDll, opt.conptyInheritCursor);
     this._socket = this._agent.outSocket;
+    // The socket 'close' handler that drives 'exit' is only attached after
+    // ready_datapipe, which never fires when connect() fails.
+    this._agent.onError(() => {
+      this._close();
+      this.emit('exit', this._agent.exitCode);
+    });
 
     // Not available until `ready` event emitted.
     this._pid = this._agent.innerPid;
