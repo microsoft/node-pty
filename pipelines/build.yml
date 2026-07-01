@@ -13,7 +13,7 @@ steps:
     addToPath: true
   displayName: 'Use latest Python 3.x'
 
-- template: pipelines/npm-feed-auth.yml@self
+- template: npm-feed-auth.yml@self
 
 - bash: |
     if [ "$(uname)" = "Linux" ]; then
