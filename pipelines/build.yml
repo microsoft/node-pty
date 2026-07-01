@@ -13,6 +13,8 @@ steps:
     addToPath: true
   displayName: 'Use latest Python 3.x'
 
+- template: npm-feed-auth.yml@self
+
 - bash: |
     if [ "$(uname)" = "Linux" ]; then
       sudo apt-get update -qq

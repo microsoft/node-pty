@@ -49,6 +49,7 @@ extends:
               branchName: '$(Build.SourceBranch)'
               artifactName: 'prebuilds-$(Build.SourceVersion)'
               targetPath: 'prebuilds'
+          - template: pipelines/npm-feed-auth.yml@self
           - pwsh: |
               Get-ChildItem -Path . -Recurse -Directory -Name "_manifest" | Remove-Item -Recurse -Force
             displayName: 'Delete _manifest folders'
@@ -72,6 +73,7 @@ extends:
               branchName: '$(Build.SourceBranch)'
               artifactName: 'prebuilds-$(Build.SourceVersion)'
               targetPath: 'prebuilds'
+          - template: pipelines/npm-feed-auth.yml@self
           - bash: chmod +x prebuilds/darwin-*/spawn-helper
             displayName: 'Ensure spawn-helper is executable'
           - script: npm ci

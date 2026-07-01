@@ -1,0 +1,26 @@
+steps:
+  - pwsh: |
+      $feedRegistry = 'https://pkgs.dev.azure.com/monacotools/Monaco/_packaging/vscode/npm/registry/'
+      $npmrcPath = Join-Path '$(Agent.TempDirectory)' 'vscode-feed.npmrc'
+      Set-Content -Path $npmrcPath -Encoding utf8 -Value @(
+        "registry=$feedRegistry"
+        'always-auth=true'
+      )
+
+      Write-Host "##vso[task.setvariable variable=NPM_CONFIG_USERCONFIG]$npmrcPath"
+
+      Get-ChildItem -Path '$(Build.SourcesDirectory)' -Filter 'package-lock.json' -Recurse -File | ForEach-Object {
+        $lockfilePath = $_.FullName
+        $contents = Get-Content -Path $lockfilePath -Raw
+        $updatedContents = $contents.Replace('https://registry.npmjs.org/', $feedRegistry).Replace('https://registry.npmjs.com/', $feedRegistry)
+
+        if ($updatedContents -ne $contents) {
+          Set-Content -Path $lockfilePath -Encoding utf8 -Value $updatedContents -NoNewline
+        }
+      }
+    displayName: 'Configure npm to use Monaco vscode feed'
+
+  - task: npmAuthenticate@0
+    displayName: 'Authenticate to Monaco vscode npm feed'
+    inputs:
+      workingFile: '$(NPM_CONFIG_USERCONFIG)'
