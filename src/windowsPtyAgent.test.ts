@@ -4,10 +4,48 @@
  */
 
 import * as assert from 'assert';
-import { argsToCommandLine, WindowsPtyAgent } from './windowsPtyAgent';
+import { Socket } from 'net';
+import { EventEmitter2, IEvent } from './eventEmitter2';
+import { argsToCommandLine, IWindowsPtyAgentOptions, WindowsPtyAgent } from './windowsPtyAgent';
+import { IConoutConnection } from './windowsConoutConnection';
 
 function check(file: string, args: string | string[], expected: string): void {
   assert.equal(argsToCommandLine(file, args), expected);
+}
+
+class TestConoutConnection implements IConoutConnection {
+  private readonly _onReady = new EventEmitter2<void>();
+  public get onReady(): IEvent<void> { return this._onReady.event; }
+
+  private readonly _onError = new EventEmitter2<Error>();
+  public get onError(): IEvent<Error> { return this._onError.event; }
+
+  public connectSocketCallCount = 0;
+  public isDisposed = false;
+
+  public connectSocket(socket: Socket): void {
+    void socket;
+    this.connectSocketCallCount++;
+  }
+
+  public dispose(): void {
+    this.isDisposed = true;
+  }
+
+  public fireReady(): void {
+    this._onReady.fire();
+  }
+
+  public fireError(error: Error): void {
+    this._onError.fire(error);
+  }
+}
+
+function createTestAgentOptions(connection: IConoutConnection, connectionTimeout: number): IWindowsPtyAgentOptions {
+  return {
+    connectionTimeout,
+    conoutConnectionFactory: () => connection
+  };
 }
 
 if (process.platform === 'win32') {
@@ -94,6 +132,87 @@ if (process.platform === 'win32') {
 
   describe('WindowsPtyAgent', () => {
     describe('connection timing (issue #763)', () => {
+      it('should fail without connecting when the worker times out', async function () {
+        this.timeout(10000);
+        const connection = new TestConoutConnection();
+        const term = new WindowsPtyAgent(
+          'cmd.exe',
+          '/c echo test',
+          Object.keys(process.env).map(k => `${k}=${process.env[k]}`),
+          process.cwd(),
+          80,
+          30,
+          false,
+          false,
+          false,
+          createTestAgentOptions(connection, 10)
+        );
+
+        let eventLoopResponsive = false;
+        setImmediate(() => eventLoopResponsive = true);
+        const error = await new Promise<Error>(resolve => term.onError(resolve));
+
+        assert.strictEqual(error.message, 'Timed out waiting for ConPTY output worker');
+        assert.strictEqual(eventLoopResponsive, true, 'event loop should remain responsive');
+        assert.strictEqual(connection.connectSocketCallCount, 0);
+        assert.strictEqual(connection.isDisposed, true);
+        assert.strictEqual(term.innerPid, 0);
+
+        connection.fireReady();
+        assert.strictEqual(connection.connectSocketCallCount, 0, 'late readiness must be ignored');
+      });
+
+      it('should fail when the worker errors before becoming ready', async () => {
+        const connection = new TestConoutConnection();
+        const term = new WindowsPtyAgent(
+          'cmd.exe',
+          '/c echo test',
+          Object.keys(process.env).map(k => `${k}=${process.env[k]}`),
+          process.cwd(),
+          80,
+          30,
+          false,
+          false,
+          false,
+          createTestAgentOptions(connection, 1000)
+        );
+
+        const expectedError = new Error('worker failed');
+        const errorPromise = new Promise<Error>(resolve => term.onError(resolve));
+        connection.fireError(expectedError);
+        const error = await errorPromise;
+
+        assert.strictEqual(error, expectedError);
+        assert.strictEqual(connection.connectSocketCallCount, 0);
+        assert.strictEqual(connection.isDisposed, true);
+        assert.strictEqual(term.innerPid, 0);
+      });
+
+      it('should ignore worker events after kill before readiness', () => {
+        const connection = new TestConoutConnection();
+        const term = new WindowsPtyAgent(
+          'cmd.exe',
+          '/c echo test',
+          Object.keys(process.env).map(k => `${k}=${process.env[k]}`),
+          process.cwd(),
+          80,
+          30,
+          false,
+          false,
+          false,
+          createTestAgentOptions(connection, 1000)
+        );
+        let errorCount = 0;
+        term.onError(() => errorCount++);
+
+        term.kill();
+        connection.fireReady();
+        connection.fireError(new Error('late error'));
+
+        assert.strictEqual(connection.connectSocketCallCount, 0);
+        assert.strictEqual(errorCount, 0);
+      });
+
       it('should defer conptyNative.connect() until worker is ready', function (done) {
         this.timeout(10000);
 
