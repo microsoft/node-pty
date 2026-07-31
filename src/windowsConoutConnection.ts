@@ -28,13 +28,23 @@ const FLUSH_DATA_INTERVAL = 1000;
  * - https://github.com/microsoft/terminal/issues/1810
  * - https://docs.microsoft.com/en-us/windows/console/closepseudoconsole
  */
-export class ConoutConnection implements IDisposable {
+export interface IConoutConnection extends IDisposable {
+  readonly onReady: IEvent<void>;
+  readonly onError: IEvent<Error>;
+  connectSocket(socket: Socket): void;
+}
+
+export class ConoutConnection implements IConoutConnection {
   private _worker: Worker;
   private _drainTimeout: NodeJS.Timeout | undefined;
   private _isDisposed: boolean = false;
+  private _isReady: boolean = false;
 
   private _onReady = new EventEmitter2<void>();
   public get onReady(): IEvent<void> { return this._onReady.event; }
+
+  private _onError = new EventEmitter2<Error>();
+  public get onError(): IEvent<Error> { return this._onError.event; }
 
   constructor(
     private _conoutPipeName: string,
@@ -48,10 +58,21 @@ export class ConoutConnection implements IDisposable {
     this._worker.on('message', (message: ConoutWorkerMessage) => {
       switch (message) {
         case ConoutWorkerMessage.READY:
+          this._isReady = true;
           this._onReady.fire();
           return;
         default:
           console.warn('Unexpected ConoutWorkerMessage', message);
+      }
+    });
+    this._worker.on('error', error => {
+      if (!this._isDisposed && !this._isReady) {
+        this._onError.fire(error);
+      }
+    });
+    this._worker.on('exit', code => {
+      if (!this._isDisposed && !this._isReady) {
+        this._onError.fire(new Error(`Conout worker exited before connecting (code ${code})`));
       }
     });
   }
