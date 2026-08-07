@@ -274,7 +274,13 @@ export class UnixTerminal extends Terminal {
     }
     const pixelWidth = pixelSize?.width ?? 0;
     const pixelHeight = pixelSize?.height ?? 0;
-    pty.resize(this._fd, cols, rows, pixelWidth, pixelHeight);
+    try {
+      pty.resize(this._fd, cols, rows, pixelWidth, pixelHeight);
+    } catch (e: any) {
+      // EBADF means the fd is already closed (PTY destroyed before resize fires); ignore it
+      if (e?.code === 'EBADF' || e?.message?.includes('EBADF')) { return; }
+      throw e;
+    }
     this._cols = cols;
     this._rows = rows;
   }
