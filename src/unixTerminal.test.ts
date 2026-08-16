@@ -18,7 +18,37 @@ const FIXTURES_PATH = path.normalize(path.join(__dirname, '..', 'fixtures', 'utf
 if (process.platform !== 'win32') {
   // Dynamic require to avoid loading pty.node on Windows
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  const { UnixTerminal } = require('./unixTerminal') as { UnixTerminal: typeof UnixTerminalType };
+  const { UnixTerminal, resolveSpawnHelperPath } = require('./unixTerminal') as { UnixTerminal: typeof UnixTerminalType; resolveSpawnHelperPath: (nativeDir: string, moduleDir: string) => string };
+
+  describe('resolveSpawnHelperPath', () => {
+    it('rewrites a packed asar path to its unpacked form', () => {
+      const helperPath = resolveSpawnHelperPath(
+        '/Example.app/Contents/Resources/app.asar/node_modules/node-pty/build/Release',
+        '/Example.app/Contents/Resources/app.asar/node_modules/node-pty/lib');
+      assert.strictEqual(helperPath, '/Example.app/Contents/Resources/app.asar.unpacked/node_modules/node-pty/build/Release/spawn-helper');
+    });
+
+    it('does not double-rewrite an already-unpacked asar path', () => {
+      const helperPath = resolveSpawnHelperPath(
+        '/Example.app/Contents/Resources/app.asar.unpacked/node_modules/node-pty/build/Release',
+        '/Example.app/Contents/Resources/app.asar.unpacked/node_modules/node-pty/lib');
+      assert.strictEqual(helperPath, '/Example.app/Contents/Resources/app.asar.unpacked/node_modules/node-pty/build/Release/spawn-helper');
+    });
+
+    it('rewrites a packed node_modules.asar path to its unpacked form', () => {
+      const helperPath = resolveSpawnHelperPath(
+        '/app/node_modules.asar/node-pty/build/Release',
+        '/app/node_modules.asar/node-pty/lib');
+      assert.strictEqual(helperPath, '/app/node_modules.asar.unpacked/node-pty/build/Release/spawn-helper');
+    });
+
+    it('does not double-rewrite an already-unpacked node_modules.asar path', () => {
+      const helperPath = resolveSpawnHelperPath(
+        '/app/node_modules.asar.unpacked/node-pty/build/Release',
+        '/app/node_modules.asar.unpacked/node-pty/lib');
+      assert.strictEqual(helperPath, '/app/node_modules.asar.unpacked/node-pty/build/Release/spawn-helper');
+    });
+  });
 
   describe('UnixTerminal', () => {
     describe('Constructor', () => {

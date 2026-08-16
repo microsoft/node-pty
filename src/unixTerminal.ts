@@ -14,10 +14,32 @@ import { assign, loadNativeModule } from './utils';
 
 const native = loadNativeModule('pty');
 const pty: IUnixNative = native.module;
-let helperPath = native.dir + '/spawn-helper';
-helperPath = path.resolve(__dirname, helperPath);
-helperPath = helperPath.replace('app.asar', 'app.asar.unpacked');
-helperPath = helperPath.replace('node_modules.asar', 'node_modules.asar.unpacked');
+
+/**
+ * Resolve the absolute path of the platform spawn helper binary.
+ *
+ * @param nativeDir - the directory that holds the compiled native module.
+ * @param moduleDir - the directory of this module (resolves relative dirs).
+ * @returns the absolute spawn-helper path.
+ */
+export function resolveSpawnHelperPath(nativeDir: string, moduleDir: string): string {
+  let helperPath = path.resolve(moduleDir, nativeDir + '/spawn-helper');
+  // String.prototype.replace matches the first occurrence, so when helperPath
+  // already contains 'app.asar.unpacked' (e.g. node-pty is installed under an
+  // unpacked asar directory) the substring 'app.asar' matches the prefix of
+  // 'app.asar.unpacked' and produces 'app.asar.unpacked.unpacked' — a path
+  // that does not exist on disk. Skip each rewrite when the unpacked variant
+  // is already present.
+  if (helperPath.indexOf('app.asar.unpacked') === -1) {
+    helperPath = helperPath.replace('app.asar', 'app.asar.unpacked');
+  }
+  if (helperPath.indexOf('node_modules.asar.unpacked') === -1) {
+    helperPath = helperPath.replace('node_modules.asar', 'node_modules.asar.unpacked');
+  }
+  return helperPath;
+}
+
+const helperPath = resolveSpawnHelperPath(native.dir, __dirname);
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
