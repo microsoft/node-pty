@@ -112,7 +112,7 @@ struct ExitEvent {
   int exit_code = 0, signal_code = 0;
 };
 
-#if defined(__linux__)
+#if defined(__linux__) || defined(__FreeBSD__)
 
 static int
 SetCloseOnExec(int fd) {
@@ -130,8 +130,15 @@ SetCloseOnExec(int fd) {
  */
 static void
 pty_close_inherited_fds() {
+  // FreeBSD 13+ exposes close_range(2) as a plain libc function; Linux
+  // reaches the same syscall through syscall(SYS_close_range, ...).
+  #if defined(__FreeBSD__) && defined(CLOSE_RANGE_CLOEXEC)
+  if (close_range(3, ~0U, CLOSE_RANGE_CLOEXEC) == 0) {
+    return;
+  }
+  #endif
   // Try close_range() first (Linux 5.9+, glibc 2.34+)
-  #if defined(SYS_close_range) && defined(CLOSE_RANGE_CLOEXEC)
+  #if defined(__linux__) && defined(SYS_close_range) && defined(CLOSE_RANGE_CLOEXEC)
   if (syscall(SYS_close_range, 3, ~0U, CLOSE_RANGE_CLOEXEC) == 0) {
     return;
   }
