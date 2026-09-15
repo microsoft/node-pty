@@ -3,6 +3,15 @@
     'dependencies': [
       "<!(node -p \"require('node-addon-api').targets\"):node_addon_api_except",
     ],
+    # Let node-addon-api swallow exceptions it cannot throw, instead of
+    # aborting the process. Without this define, an N-API call that fails with
+    # napi_pending_exception while the environment is tearing down reaches
+    # `throw Error::New(_env)` in Error::ThrowAsJavaScriptException with no
+    # handler above it, and the uncaught C++ exception terminates the host.
+    # node-addon-api documents the define for exactly this case; its own
+    # comment reads "the environment must be terminating [...] there is nothing
+    # the author has done incorrectly in their code". See #951 and #904.
+    'defines': [ 'NODE_API_SWALLOW_UNTHROWABLE_EXCEPTIONS' ],
     'conditions': [
       ['OS=="win"', {
         'msvs_configuration_attributes': {
