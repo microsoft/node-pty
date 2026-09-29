@@ -6,7 +6,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { fork } from 'child_process';
+import { fork, ForkOptions } from 'child_process';
 import { Socket } from 'net';
 import { ArgvOrCommandLine } from './types';
 import { ConoutConnection, IConoutConnection } from './windowsConoutConnection';
@@ -228,7 +228,11 @@ export class WindowsPtyAgent {
       return Promise.resolve([]);
     }
     return new Promise<number[]>(resolve => {
-      const agent = fork(path.join(__dirname, 'conpty_console_list_agent'), [ this._innerPid.toString() ]);
+      // The helper needs a console (AttachConsole) but no window: without
+      // windowsHide, killing a pty flashes a console window on screen.
+      // Cast: @types/node's ForkOptions omits windowsHide.
+      const forkOptions = { windowsHide: true } as ForkOptions;
+      const agent = fork(path.join(__dirname, 'conpty_console_list_agent'), [ this._innerPid.toString() ], forkOptions);
       agent.on('message', message => {
         clearTimeout(timeout);
         resolve(message.consoleProcessList);
