@@ -59,7 +59,7 @@
     "eslint": "^10.4.0",
     "globals": "^14.0.0",
     "mocha": "10",
-    "node-gyp": "^11.4.2",
+    "node-gyp": "^12.4.0",
     "ps-list": "^6.0.0",
     "typescript": "^5.0.0"
   }
