@@ -19,6 +19,11 @@ export interface ITerminal {
   pid: number;
 
   /**
+   * Gets the foreground process group ID, if available.
+   */
+  readonly foregroundPid?: number;
+
+  /**
    * Writes data to the socket.
    * @param data The data to write.
    */
