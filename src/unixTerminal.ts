@@ -309,6 +309,13 @@ interface IWriteTask {
 }
 
 /**
+ * How long to wait before re-attempting a write that returned EAGAIN. Large enough to
+ * stop the retry from monopolising the thread while a reader is stalled, small enough
+ * to be invisible to interactive writes.
+ */
+const EAGAIN_RETRY_DELAY_MS = 5;
+
+/**
  * A custom write stream that writes directly to a file descriptor with proper
  * handling of backpressure and errors. This avoids some event loop exhaustion
  * issues that can occur when using the standard APIs in Node.
@@ -316,7 +323,8 @@ interface IWriteTask {
 class CustomWriteStream implements IDisposable {
 
   private readonly _writeQueue: IWriteTask[] = [];
-  private _writeImmediate: NodeJS.Immediate | undefined;
+  private _writeRetry: NodeJS.Timeout | undefined;
+  private _isDisposed: boolean = false;
 
   constructor(
     private readonly _fd: number,
@@ -325,8 +333,9 @@ class CustomWriteStream implements IDisposable {
   }
 
   dispose(): void {
-    clearImmediate(this._writeImmediate);
-    this._writeImmediate = undefined;
+    this._isDisposed = true;
+    clearTimeout(this._writeRetry);
+    this._writeRetry = undefined;
   }
 
   write(data: string | Buffer): void {
@@ -345,7 +354,11 @@ class CustomWriteStream implements IDisposable {
   }
 
   private _processWriteQueue(): void {
-    this._writeImmediate = undefined;
+    if (this._isDisposed) {
+      return;
+    }
+
+    this._writeRetry = undefined;
 
     if (this._writeQueue.length === 0) {
       return;
@@ -357,11 +370,20 @@ class CustomWriteStream implements IDisposable {
     // than using the `net.Socket`/`tty.WriteStream` wrappers which swallow and
     // mask errors like EAGAIN and can cause the thread to block indefinitely.
     fs.write(this._fd, task.buffer, task.offset, (err, written) => {
+      // The fd may have been closed while this write was in flight. Anything below
+      // would either re-arm the retry or write again against a dead descriptor.
+      if (this._isDisposed) {
+        return;
+      }
+
       if (err) {
         if ('code' in err && err.code === 'EAGAIN') {
-          // `setImmediate` is used to yield to the event loop and re-attempt
-          // the write later.
-          this._writeImmediate = setImmediate(() => this._processWriteQueue());
+          // Re-attempt the write later. A delay rather than `setImmediate`: EAGAIN here
+          // means the reader has stopped draining the pty, so the branch keeps failing
+          // and an immediate re-attempt turns it into a busy-loop that saturates the
+          // thread. A reader that is merely slow applies backpressure without reaching
+          // this branch at all, so the delay does not throttle normal writes.
+          this._writeRetry = setTimeout(() => this._processWriteQueue(), EAGAIN_RETRY_DELAY_MS);
         } else {
           // Stop processing immediately on unexpected error and log
           this._writeQueue.length = 0;
