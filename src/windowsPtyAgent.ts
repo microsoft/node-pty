@@ -228,7 +228,10 @@ export class WindowsPtyAgent {
       return Promise.resolve([]);
     }
     return new Promise<number[]>(resolve => {
-      const agent = fork(path.join(__dirname, 'conpty_console_list_agent'), [ this._innerPid.toString() ]);
+      // Pass an empty execArgv for the same reason as ConoutConnection's worker:
+      // a forked child otherwise defaults to process.execArgv and replays the
+      // host's --require/--loader flags in this helper.
+      const agent = fork(path.join(__dirname, 'conpty_console_list_agent'), [ this._innerPid.toString() ], { execArgv: [] });
       agent.on('message', message => {
         clearTimeout(timeout);
         resolve(message.consoleProcessList);
