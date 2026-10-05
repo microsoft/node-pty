@@ -112,8 +112,6 @@ struct ExitEvent {
   int exit_code = 0, signal_code = 0;
 };
 
-#if defined(__linux__)
-
 static int
 SetCloseOnExec(int fd) {
   int flags = fcntl(fd, F_GETFD, 0);
@@ -123,6 +121,8 @@ SetCloseOnExec(int fd) {
     return 0;
   return fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
 }
+
+#if defined(__linux__)
 
 /**
  * Close all file descriptors >= 3 to prevent FD leakage to child processes.
@@ -415,6 +415,9 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
   if (pty_nonblock(master) == -1) {
     throw Napi::Error::New(napiEnv, "Could not set master fd to nonblocking.");
   }
+  if (SetCloseOnExec(master) == -1) {
+    throw Napi::Error::New(napiEnv, "Could not set master fd to close-on-exec.");
+  }
 #else
   int argc = argv_.Length();
   int argl = argc + 2;
@@ -488,6 +491,9 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info) {
       if (pty_nonblock(master) == -1) {
         throw Napi::Error::New(napiEnv, "Could not set master fd to nonblocking.");
       }
+      if (SetCloseOnExec(master) == -1) {
+        throw Napi::Error::New(napiEnv, "Could not set master fd to close-on-exec.");
+      }
   }
 #endif
 
@@ -533,6 +539,10 @@ Napi::Value PtyOpen(const Napi::CallbackInfo& info) {
 
   if (pty_nonblock(slave) == -1) {
     throw Napi::Error::New(env, "Could not set slave fd to nonblocking.");
+  }
+
+  if (SetCloseOnExec(master) == -1 || SetCloseOnExec(slave) == -1) {
+    throw Napi::Error::New(env, "Could not set pty fds to close-on-exec.");
   }
 
   Napi::Object obj = Napi::Object::New(env);
