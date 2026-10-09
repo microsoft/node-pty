@@ -101,6 +101,13 @@ if (process.platform === 'win32') {
           term.on('exit', () => done());
           term.kill();
         });
+        it('should not crash parent process when killed twice', function (done) {
+          this.timeout(20000);
+          const term = new WindowsTerminal('cmd.exe', [], { useConptyDll });
+          term.on('exit', () => done());
+          term.kill();
+          term.kill();
+        });
         it('should kill the process tree', function (done: Mocha.Done): void {
           this.timeout(20000);
           const term = new WindowsTerminal('cmd.exe', [], { useConptyDll });
