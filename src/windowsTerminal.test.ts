@@ -270,6 +270,28 @@ if (process.platform === 'win32') {
             done();
           });
         });
+
+        it('should close the pseudoconsole when the shell exits on its own (#965)', async function (): Promise<void> {
+          this.timeout(20000);
+          const hostPids = async (): Promise<number[]> => {
+            const ps = await psList({ all: true });
+            return ps
+              .filter(p => p.ppid === process.pid && /^(conhost|openconsole)\.exe$/i.test(p.name))
+              .map(p => p.pid);
+          };
+          const before = await hostPids();
+          const term = new WindowsTerminal('cmd.exe', '/C exit', { useConptyDll });
+          await new Promise<void>(resolve => term.on('exit', () => resolve()));
+          let leaked: number[] = [];
+          for (let i = 0; i < 25; i++) {
+            leaked = (await hostPids()).filter(pid => before.indexOf(pid) === -1);
+            if (leaked.length === 0) {
+              break;
+            }
+            await new Promise(r => setTimeout(r, 200));
+          }
+          assert.deepStrictEqual(leaked, [], 'console host outlived the shell');
+        });
       });
 
       describe('Write', () => {
