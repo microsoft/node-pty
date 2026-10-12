@@ -147,7 +147,8 @@ if (process.platform === 'win32') {
       describe('pid', () => {
         it('should be 0 before ready and set after ready_datapipe (issue #763)', function (done) {
           this.timeout(10000);
-          const term = new WindowsTerminal('cmd.exe', '/c echo test', { useConptyDll });
+          // A shell that waits for kill(), so it's still running when the pid is checked
+          const term = new WindowsTerminal('cmd.exe', [], { useConptyDll });
 
           // pid may be 0 immediately after construction due to deferred connection
           const initialPid = term.pid;
@@ -269,6 +270,48 @@ if (process.platform === 'win32') {
             assert.strictEqual(code, 2);
             done();
           });
+        });
+
+        it('should close the pseudoconsole when the shell exits on its own (#965)', function (done) {
+          this.timeout(20000);
+          const hostName = useConptyDll ? 'OpenConsole.exe' : 'conhost.exe';
+          const hosts = (): Promise<number[]> => psList({ all: true }).then(ps =>
+            ps.filter(p => p.ppid === process.pid && p.name === hostName).map(p => p.pid));
+          hosts().then(before => {
+            const term = new WindowsTerminal('cmd.exe', '', { useConptyDll });
+            hosts().then(after => {
+              const own = after.filter(pid => !before.includes(pid));
+              assert.strictEqual(own.length, 1);
+              term.on('exit', () => {
+                const gone: IProcessState = {};
+                own.forEach(pid => gone[pid] = false);
+                pollForProcessState(gone, 200, 5000).then(() => done());
+              });
+              term.write('exit\r');
+            });
+          });
+        });
+
+        it('should not close the pseudoconsole twice when kill() races the exit', function (done) {
+          this.timeout(30000);
+          const N = 10;
+          let exited = 0;
+          for (let i = 0; i < N; i++) {
+            const term = new WindowsTerminal('cmd.exe', '/C exit', { useConptyDll });
+            let termExited = false;
+            term.once('exit', () => {
+              termExited = true;
+              if (++exited === N) {
+                done();
+              }
+            });
+            // Only until its exit arrives: a kill() after that isn't safe (#967)
+            setTimeout(() => {
+              if (!termExited) {
+                term.kill();
+              }
+            }, i * 10);
+          }
         });
       });
 
