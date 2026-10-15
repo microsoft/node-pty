@@ -260,6 +260,16 @@ if (process.platform !== 'win32') {
       });
     });
     describe('spawn', () => {
+      it('should pass an own __proto__ env entry to the child', async () => {
+        const child = 'console.log(Object.prototype.hasOwnProperty.call(process.env, "__proto__") + ":" + process.env["__proto__"])';
+        // No object spread: it compiles to an assignment loop that drops an own __proto__ key before spawn is called.
+        const env = JSON.parse('{"__proto__":"selected-value"}');
+        const term = new UnixTerminal(process.execPath, ['-e', child], { env });
+        let output = '';
+        term.onData(data => output += data);
+        await new Promise<void>(resolve => term.on('exit', () => resolve()));
+        assert.ok(output.includes('true:selected-value'), `Unexpected child output: ${output}`);
+      });
       if (process.platform === 'linux') {
         it('should not leak pty file descriptors to child processes', (done) => {
           // Spawn 3 ptys - the 3rd should not see FDs from the first two
