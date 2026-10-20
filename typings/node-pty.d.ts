@@ -126,9 +126,9 @@ declare module 'node-pty' {
      * disabled and no visible window is owned by it, directly or through other owned windows. The
      * parent window is the last one set with `conptyParentWindow` or {@link IPty.setParentWindow}.
      * This recovers from a modal dialog that died with its process, which otherwise leaves the
-     * parent window disabled for good. It's a heuristic that can't tell why the window is disabled,
-     * so only set it if the host never disables its window without showing a window it owns. Only
-     * supported when `useConptyDll` is true. Defaults to false.
+     * parent window disabled for good. The check can't tell why the window is disabled, so only set
+     * it if the host never disables its window without showing a window it owns. Only supported
+     * when `useConptyDll` is true. Defaults to false.
      */
     conptyReenableParentWindowOnExit?: boolean;
   }

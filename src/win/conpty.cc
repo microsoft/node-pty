@@ -104,8 +104,8 @@ static BOOL CALLBACK FindVisibleOwnedWindow(HWND hwnd, LPARAM lParam) {
 }
 
 // A dialog that is modal to the parent window disables it until the dialog closes. If the dialog's
-// process exits first, nothing re-enables the parent. This is a heuristic: it re-enables the parent
-// when it is disabled and no visible window is owned by it, so hosts must opt in.
+// process exits first, nothing re-enables the parent, so re-enable it when it is still disabled and
+// no visible window is owned by it. This can't tell why the window is disabled, so hosts opt in.
 static void EnableParentWindowIfOrphaned(HWND parentWindow) {
   if (!IsWindow(parentWindow) || IsWindowEnabled(parentWindow)) {
     return;
