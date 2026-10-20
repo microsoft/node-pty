@@ -111,8 +111,6 @@ declare module 'node-pty' {
     conptyInheritCursor?: boolean;
 
     /**
-     * (EXPERIMENTAL)
-     *
      * The handle (HWND) of the top-level window that hosts this terminal. ConPTY makes it the owner
      * of the console window returned by `GetConsoleWindow()`, so windows that console applications
      * parent to it (for example `GetAncestor(GetConsoleWindow(), GA_ROOTOWNER)`, which MSAL/WAM
@@ -189,8 +187,6 @@ declare module 'node-pty' {
     clear(): void;
 
     /**
-     * (EXPERIMENTAL)
-     *
      * Sets the handle (HWND) of the top-level window that hosts this terminal, see
      * `IWindowsPtyForkOptions.conptyParentWindow`. Call it again whenever the terminal moves to a
      * different window. Optional so existing implementations of `IPty` keep compiling.
