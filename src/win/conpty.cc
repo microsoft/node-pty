@@ -50,8 +50,6 @@ struct pty_baton {
   HPCON hpc;
 
   HANDLE hShell = nullptr;
-  // Only set when the host opted in to re-enabling its window when the shell exits.
-  HWND parentWindowToReenable = nullptr;
 
   pty_baton(int _id, HANDLE _hIn, HANDLE _hOut, HPCON _hpc) : id(_id), hIn(_hIn), hOut(_hOut), hpc(_hpc) {};
 };
@@ -76,47 +74,6 @@ struct ExitEvent {
   int exit_code = 0;
 };
 
-// Only the low 32 bits of a window handle are significant.
-static bool IsSameWindow(HWND a, HWND b) {
-  return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(a)) == static_cast<uint32_t>(reinterpret_cast<uintptr_t>(b));
-}
-
-struct OwnedWindowSearch {
-  HWND owner;
-  bool found;
-};
-
-static BOOL CALLBACK FindVisibleOwnedWindow(HWND hwnd, LPARAM lParam) {
-  auto* search = reinterpret_cast<OwnedWindowSearch*>(lParam);
-  if (!IsWindowVisible(hwnd)) {
-    return TRUE;
-  }
-  // Walk the whole owner chain, since a dialog can be owned through a hidden proxy window.
-  HWND owner = GetWindow(hwnd, GW_OWNER);
-  for (int depth = 0; owner != nullptr && depth < 64; depth++) {
-    if (IsSameWindow(owner, search->owner)) {
-      search->found = true;
-      return FALSE;
-    }
-    owner = GetWindow(owner, GW_OWNER);
-  }
-  return TRUE;
-}
-
-// A dialog that is modal to the parent window disables it until the dialog closes. If the dialog's
-// process exits first, nothing re-enables the parent, so re-enable it when it is still disabled and
-// no visible window is owned by it. This can't tell why the window is disabled, so hosts opt in.
-static void EnableParentWindowIfOrphaned(HWND parentWindow) {
-  if (!IsWindow(parentWindow) || IsWindowEnabled(parentWindow)) {
-    return;
-  }
-  OwnedWindowSearch search = { parentWindow, false };
-  EnumWindows(FindVisibleOwnedWindow, reinterpret_cast<LPARAM>(&search));
-  if (!search.found) {
-    EnableWindow(parentWindow, TRUE);
-  }
-}
-
 void SetupExitCallback(Napi::Env env, Napi::Function cb, pty_baton* baton) {
   std::thread *th = new std::thread;
   // Don't use Napi::AsyncWorker which is limited by UV_THREADPOOL_SIZE.
@@ -139,20 +96,14 @@ void SetupExitCallback(Napi::Env env, Napi::Function cb, pty_baton* baton) {
     ExitEvent *exit_event = new ExitEvent;
     // Wait for process to complete.
     WaitForSingleObject(baton->hShell, INFINITE);
-    HWND parentWindow = nullptr;
     {
       std::lock_guard<std::mutex> lock(g_ptyHandlesMutex);
       GetExitCodeProcess(baton->hShell, (LPDWORD)(&exit_event->exit_code));
       CloseHandle(baton->hShell);
-      parentWindow = baton->parentWindowToReenable;
       const int id = baton->id;
       std::erase_if(ptyHandles, [id](const auto& ptyHandle) {
         return ptyHandle->id == id;
       });
-    }
-    if (parentWindow != nullptr) {
-      // EnableWindow waits for the parent window's thread, so don't hold up the exit event.
-      std::thread([parentWindow] { EnableParentWindowIfOrphaned(parentWindow); }).detach();
     }
 
     auto status = tsfn.BlockingCall(exit_event, callback); // In main thread
@@ -609,12 +560,11 @@ static Napi::Value PtyReparent(const Napi::CallbackInfo& info) {
   Napi::Env env(info.Env());
   Napi::HandleScope scope(env);
 
-  if (info.Length() != 4 ||
+  if (info.Length() != 3 ||
       !info[0].IsNumber() ||
       !(info[1].IsNumber() || info[1].IsBigInt()) ||
-      !info[2].IsBoolean() ||
-      !info[3].IsBoolean()) {
-    throw Napi::Error::New(env, "Usage: pty.reparent(id, hwnd, useConptyDll, reenableOnExit)");
+      !info[2].IsBoolean()) {
+    throw Napi::Error::New(env, "Usage: pty.reparent(id, hwnd, useConptyDll)");
   }
 
   int id = info[0].As<Napi::Number>().Int32Value();
@@ -634,7 +584,6 @@ static Napi::Value PtyReparent(const Napi::CallbackInfo& info) {
     hwndValue = static_cast<uint64_t>(info[1].As<Napi::Number>().Int64Value());
   }
   const bool useConptyDll = info[2].As<Napi::Boolean>().Value();
-  const bool reenableOnExit = info[3].As<Napi::Boolean>().Value();
 
   // ConptyReparentPseudoConsole only exists in the bundled conpty.dll.
   if (!useConptyDll) {
@@ -642,7 +591,7 @@ static Napi::Value PtyReparent(const Napi::CallbackInfo& info) {
   }
 
   std::lock_guard<std::mutex> lock(g_ptyHandlesMutex);
-  pty_baton* handle = get_pty_baton(lock, id);
+  const pty_baton* handle = get_pty_baton(lock, id);
 
   bool sent = false;
   if (handle != nullptr && handle->hpc != nullptr) {
@@ -658,9 +607,6 @@ static Napi::Value PtyReparent(const Napi::CallbackInfo& info) {
         // GetConsoleWindow(); ConPTY applies it asynchronously.
         const HWND newParent = reinterpret_cast<HWND>(static_cast<uintptr_t>(hwndValue));
         sent = SUCCEEDED(pfnReparentPseudoConsole(handle->hpc, newParent));
-        if (sent) {
-          handle->parentWindowToReenable = reenableOnExit ? newParent : nullptr;
-        }
       }
     }
   }

@@ -145,8 +145,6 @@ if (process.platform === 'win32') {
           false,
           false,
           false,
-          undefined,
-          false,
           createTestAgentOptions(connection, 10)
         );
 
@@ -176,8 +174,6 @@ if (process.platform === 'win32') {
           false,
           false,
           false,
-          undefined,
-          false,
           createTestAgentOptions(connection, 1000)
         );
 
@@ -203,8 +199,6 @@ if (process.platform === 'win32') {
           30,
           false,
           false,
-          false,
-          undefined,
           false,
           createTestAgentOptions(connection, 1000)
         );

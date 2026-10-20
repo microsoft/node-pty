@@ -138,8 +138,6 @@ export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
   useConpty?: boolean;
   useConptyDll?: boolean;
   conptyInheritCursor?: boolean;
-  conptyParentWindow?: number | bigint;
-  conptyReenableParentWindowOnExit?: boolean;
 }
 
 export interface IPtyOpenOptions {

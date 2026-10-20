@@ -70,15 +70,8 @@ export class WindowsPtyAgent {
     debug: boolean,
     private _useConptyDll: boolean = false,
     conptyInheritCursor: boolean = false,
-    conptyParentWindow?: number | bigint,
-    private _reenableParentWindowOnExit: boolean = false,
     options: IWindowsPtyAgentOptions = defaultWindowsPtyAgentOptions
   ) {
-    // Validate before allocating the pseudoconsole, so bad input leaves nothing behind.
-    if (conptyParentWindow !== undefined) {
-      validateWindowHandle(conptyParentWindow);
-    }
-
     if (!conptyNative) {
       conptyNative = loadNativeModule('conpty').module;
     }
@@ -99,16 +92,6 @@ export class WindowsPtyAgent {
     // Generated incremental number that has no real purpose besides  using it
     // as a terminal id.
     this._pty = term.pty;
-
-    if (conptyParentWindow !== undefined) {
-      // Requested before connect() launches the shell, like Windows Terminal does.
-      try {
-        this._ptyNative.reparent(this._pty, conptyParentWindow, this._useConptyDll, this._reenableParentWindowOnExit);
-      } catch (e) {
-        this._ptyNative.kill(this._pty, this._useConptyDll);
-        throw e;
-      }
-    }
 
     // Create terminal pipe IPC channel and forward to a local unix socket.
     this._outSocket = new Socket();
@@ -218,7 +201,7 @@ export class WindowsPtyAgent {
    */
   public setParentWindow(handle: number | bigint): boolean {
     validateWindowHandle(handle);
-    return this._ptyNative.reparent(this._pty, handle, this._useConptyDll, this._reenableParentWindowOnExit);
+    return this._ptyNative.reparent(this._pty, handle, this._useConptyDll);
   }
 
   public kill(): void {

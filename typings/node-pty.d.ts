@@ -109,28 +109,6 @@ declare module 'node-pty' {
      * @see https://docs.microsoft.com/en-us/windows/console/createpseudoconsole
      */
     conptyInheritCursor?: boolean;
-
-    /**
-     * The handle (HWND) of the top-level window that hosts this terminal. ConPTY makes it the owner
-     * of the console window returned by `GetConsoleWindow()`, so windows that console applications
-     * parent to it (for example `GetAncestor(GetConsoleWindow(), GA_ROOTOWNER)`, which MSAL/WAM
-     * sign-in uses) open on top of the host window instead of behind it. The owner is requested
-     * before the process is launched. Use {@link IPty.setParentWindow} when the terminal moves to
-     * another window. Must be a safe integer, or a bigint that fits in 64 bits. Only supported when
-     * `useConptyDll` is true; ignored otherwise.
-     */
-    conptyParentWindow?: number | bigint;
-
-    /**
-     * Whether to re-enable the parent window when the process exits, if the window is still
-     * disabled and no visible window is owned by it, directly or through other owned windows. The
-     * parent window is the last one set with `conptyParentWindow` or {@link IPty.setParentWindow}.
-     * This recovers from a modal dialog that died with its process, which otherwise leaves the
-     * parent window disabled for good. The check can't tell why the window is disabled, so only set
-     * it if the host never disables its window without showing a window it owns. Only supported
-     * when `useConptyDll` is true. Defaults to false.
-     */
-    conptyReenableParentWindowOnExit?: boolean;
   }
 
   /**
@@ -196,11 +174,15 @@ declare module 'node-pty' {
     clear(): void;
 
     /**
-     * Sets the handle (HWND) of the top-level window that hosts this terminal, see
-     * `IWindowsPtyForkOptions.conptyParentWindow`. Call it again whenever the terminal moves to a
-     * different window. Optional so existing implementations of `IPty` keep compiling.
-     * @param handle The window handle, for example Electron's
-     * `BrowserWindow.getNativeWindowHandle().readBigUInt64LE(0)`.
+     * Sets the handle (HWND) of the top-level window that hosts this terminal. ConPTY makes it the
+     * owner of the console window returned by `GetConsoleWindow()`, so windows that console
+     * applications parent to it (for example `GetAncestor(GetConsoleWindow(), GA_ROOTOWNER)`, which
+     * MSAL/WAM sign-in uses) open on top of the host window instead of behind it. Calling it right
+     * after spawning sends the request before the process is launched. Call it again whenever the
+     * terminal moves to a different window. Optional so existing implementations of `IPty` keep
+     * compiling.
+     * @param handle The window handle, as a safe integer or a bigint that fits in 64 bits, for
+     * example Electron's `BrowserWindow.getNativeWindowHandle().readBigUInt64LE(0)`.
      * @returns Whether the request was sent to ConPTY, which applies it asynchronously. This is
      * always false unless on Windows with `useConptyDll`, and false once the pseudoconsole is
      * closed.
