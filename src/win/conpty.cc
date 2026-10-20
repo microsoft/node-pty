@@ -50,6 +50,7 @@ struct pty_baton {
   HPCON hpc;
 
   HANDLE hShell = nullptr;
+  HWND parentWindow = nullptr;
 
   pty_baton(int _id, HANDLE _hIn, HANDLE _hOut, HPCON _hpc) : id(_id), hIn(_hIn), hOut(_hOut), hpc(_hpc) {};
 };
@@ -74,6 +75,34 @@ struct ExitEvent {
   int exit_code = 0;
 };
 
+struct OwnedWindowSearch {
+  HWND owner;
+  bool found;
+};
+
+static BOOL CALLBACK FindVisibleOwnedWindow(HWND hwnd, LPARAM lParam) {
+  auto* search = reinterpret_cast<OwnedWindowSearch*>(lParam);
+  if (GetWindow(hwnd, GW_OWNER) == search->owner && IsWindowVisible(hwnd)) {
+    search->found = true;
+    return FALSE;
+  }
+  return TRUE;
+}
+
+// A dialog that is modal to the parent window disables it until the dialog closes. If the dialog's
+// process exits first, nothing re-enables the parent, so do that once no visible owned window is
+// left (an owned window that is still visible may be another live modal dialog).
+static void EnableParentWindowIfOrphaned(HWND parentWindow) {
+  if (!IsWindow(parentWindow) || IsWindowEnabled(parentWindow)) {
+    return;
+  }
+  OwnedWindowSearch search = { parentWindow, false };
+  EnumWindows(FindVisibleOwnedWindow, reinterpret_cast<LPARAM>(&search));
+  if (!search.found) {
+    EnableWindow(parentWindow, TRUE);
+  }
+}
+
 void SetupExitCallback(Napi::Env env, Napi::Function cb, pty_baton* baton) {
   std::thread *th = new std::thread;
   // Don't use Napi::AsyncWorker which is limited by UV_THREADPOOL_SIZE.
@@ -96,14 +125,19 @@ void SetupExitCallback(Napi::Env env, Napi::Function cb, pty_baton* baton) {
     ExitEvent *exit_event = new ExitEvent;
     // Wait for process to complete.
     WaitForSingleObject(baton->hShell, INFINITE);
+    HWND parentWindow = nullptr;
     {
       std::lock_guard<std::mutex> lock(g_ptyHandlesMutex);
       GetExitCodeProcess(baton->hShell, (LPDWORD)(&exit_event->exit_code));
       CloseHandle(baton->hShell);
+      parentWindow = baton->parentWindow;
       const int id = baton->id;
       std::erase_if(ptyHandles, [id](const auto& ptyHandle) {
         return ptyHandle->id == id;
       });
+    }
+    if (parentWindow != nullptr) {
+      EnableParentWindowIfOrphaned(parentWindow);
     }
 
     auto status = tsfn.BlockingCall(exit_event, callback); // In main thread
@@ -498,7 +532,7 @@ static Napi::Value PtyResize(const Napi::CallbackInfo& info) {
   std::lock_guard<std::mutex> lock(g_ptyHandlesMutex);
   const pty_baton* handle = get_pty_baton(lock, id);
 
-  if (handle != nullptr) {
+  if (handle != nullptr && handle->hpc != nullptr) {
     HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
@@ -540,7 +574,7 @@ static Napi::Value PtyClear(const Napi::CallbackInfo& info) {
   std::lock_guard<std::mutex> lock(g_ptyHandlesMutex);
   const pty_baton* handle = get_pty_baton(lock, id);
 
-  if (handle != nullptr) {
+  if (handle != nullptr && handle->hpc != nullptr) {
     HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
@@ -570,8 +604,16 @@ static Napi::Value PtyReparent(const Napi::CallbackInfo& info) {
   int id = info[0].As<Napi::Number>().Int32Value();
   uint64_t hwndValue;
   if (info[1].IsBigInt()) {
+    // Accept signed and unsigned 64-bit values, but never truncate.
+    const Napi::BigInt hwndBigInt = info[1].As<Napi::BigInt>();
     bool lossless = false;
-    hwndValue = info[1].As<Napi::BigInt>().Uint64Value(&lossless);
+    hwndValue = hwndBigInt.Uint64Value(&lossless);
+    if (!lossless) {
+      hwndValue = static_cast<uint64_t>(hwndBigInt.Int64Value(&lossless));
+    }
+    if (!lossless) {
+      throw Napi::Error::New(env, "pty.reparent: hwnd does not fit in 64 bits");
+    }
   } else {
     hwndValue = static_cast<uint64_t>(info[1].As<Napi::Number>().Int64Value());
   }
@@ -579,13 +621,14 @@ static Napi::Value PtyReparent(const Napi::CallbackInfo& info) {
 
   // ConptyReparentPseudoConsole only exists in the bundled conpty.dll.
   if (!useConptyDll) {
-    return env.Undefined();
+    return Napi::Boolean::New(env, false);
   }
 
   std::lock_guard<std::mutex> lock(g_ptyHandlesMutex);
-  const pty_baton* handle = get_pty_baton(lock, id);
+  pty_baton* handle = get_pty_baton(lock, id);
 
-  if (handle != nullptr) {
+  bool applied = false;
+  if (handle != nullptr && handle->hpc != nullptr) {
     HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
@@ -596,12 +639,16 @@ static Napi::Value PtyReparent(const Napi::CallbackInfo& info) {
       {
         // Makes newParent the owner of the console window returned by
         // GetConsoleWindow(), so windows parented to it stack above the host.
-        pfnReparentPseudoConsole(handle->hpc, reinterpret_cast<HWND>(static_cast<uintptr_t>(hwndValue)));
+        const HWND newParent = reinterpret_cast<HWND>(static_cast<uintptr_t>(hwndValue));
+        applied = SUCCEEDED(pfnReparentPseudoConsole(handle->hpc, newParent));
+        if (applied) {
+          handle->parentWindow = newParent;
+        }
       }
     }
   }
 
-  return env.Undefined();
+  return Napi::Boolean::New(env, applied);
 }
 
 static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
@@ -631,6 +678,8 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
       if (pfnClosePseudoConsole)
       {
         pfnClosePseudoConsole(handle->hpc);
+        // Closing frees the pseudoconsole, but the baton lives until the exit thread erases it.
+        handle->hpc = nullptr;
       }
     }
     // Defensive: if PtyConnect was never called (or failed before closing the

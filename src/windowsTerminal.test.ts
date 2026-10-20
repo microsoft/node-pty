@@ -284,30 +284,39 @@ if (process.platform === 'win32') {
       });
 
       describe('parent window', () => {
+        const user32 = `Add-Type -Namespace NodePtyTest -Name W -MemberDefinition '[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow(); [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint f); [DllImport("user32.dll")] public static extern bool EnableWindow(IntPtr h, bool e); [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr h);'`;
+
+        function scriptArgs(...lines: string[]): string {
+          return `-NoProfile -NonInteractive -EncodedCommand ${Buffer.from([user32, ...lines].join('; '), 'utf16le').toString('base64')}`;
+        }
+
         // Prints the console window and GetAncestor(GetConsoleWindow(), GA_ROOTOWNER), which is the
         // parent MSAL/WAM uses for sign-in dialogs.
         function rootOwnerArgs(delayMs: number, keepAliveSeconds: number = 0): string {
-          const script = [
+          return scriptArgs(
             `Start-Sleep -Milliseconds ${delayMs}`,
-            `Add-Type -Namespace NodePtyTest -Name W -MemberDefinition '[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow(); [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint f);'`,
             `$c = [NodePtyTest.W]::GetConsoleWindow()`,
             `Write-Host ('console=' + $c.ToInt64() + ' rootOwner=' + [NodePtyTest.W]::GetAncestor($c, 3).ToInt64() + ' end')`,
             `Start-Sleep -Seconds ${keepAliveSeconds}`
-          ].join('; ');
-          return `-NoProfile -NonInteractive -EncodedCommand ${Buffer.from(script, 'utf16le').toString('base64')}`;
+          );
         }
 
-        function readWindows(term: WindowsTerminal): Promise<{ console: number, rootOwner: number }> {
+        function readOutput(term: WindowsTerminal, pattern: RegExp): Promise<RegExpExecArray> {
           return new Promise(resolve => {
             let output = '';
             term.on('data', (data) => {
               output += data;
-              const match = /console=(\d+) rootOwner=(\d+) end/.exec(output);
+              const match = pattern.exec(output);
               if (match) {
-                resolve({ console: parseInt(match[1], 10), rootOwner: parseInt(match[2], 10) });
+                resolve(match);
               }
             });
           });
+        }
+
+        async function readWindows(term: WindowsTerminal): Promise<{ console: number, rootOwner: number }> {
+          const match = await readOutput(term, /console=(\d+) rootOwner=(\d+) end/);
+          return { console: parseInt(match[1], 10), rootOwner: parseInt(match[2], 10) };
         }
 
         it('should make conptyParentWindow the owner of the console window before the shell starts', async function (): Promise<void> {
@@ -331,17 +340,59 @@ if (process.platform === 'win32') {
           try {
             const hostWindows = await readWindows(host);
             const term = new WindowsTerminal('powershell.exe', rootOwnerArgs(3000), { useConptyDll });
+            let applied: boolean | undefined;
             // The first data event means the shell is running and conpty has been released.
-            term.once('data', () => term.setParentWindow(BigInt(hostWindows.console)));
+            term.once('data', () => applied = term.setParentWindow(BigInt(hostWindows.console)));
             const windows = await readWindows(term);
+            assert.strictEqual(applied, useConptyDll);
             assert.strictEqual(windows.rootOwner, useConptyDll ? hostWindows.console : windows.console);
             term.kill();
           } finally {
             host.kill();
           }
         });
-      });
 
+        it('should not apply setParentWindow once the pty is killed', async function (): Promise<void> {
+          this.timeout(20000);
+          const term = new WindowsTerminal('cmd.exe', [], { useConptyDll });
+          const exited = new Promise<void>(resolve => term.once('exit', () => resolve()));
+          await new Promise<void>(resolve => term.once('data', () => resolve()));
+          term.kill();
+          assert.strictEqual(term.setParentWindow(0), false);
+          await exited;
+          assert.strictEqual(term.setParentWindow(0), false);
+        });
+
+        it('should reject handles that do not fit in 64 bits', function (done: Mocha.Done): void {
+          const term = new WindowsTerminal('cmd.exe', [], { useConptyDll });
+          assert.throws(() => term.setParentWindow(BigInt('18446744073709551616')), /does not fit in 64 bits/);
+          term.on('exit', () => done());
+          term.kill();
+        });
+
+        it('should re-enable the parent window if the process exits while a dialog left it disabled', async function (): Promise<void> {
+          this.timeout(60000);
+          const host = new WindowsTerminal('powershell.exe', rootOwnerArgs(0, 60), { useConptyDll });
+          try {
+            const hostWindows = await readWindows(host);
+            // Disabling the root owner and exiting stands in for a modal dialog whose process dies.
+            const term = new WindowsTerminal('powershell.exe', scriptArgs(
+              `$o = [NodePtyTest.W]::GetAncestor([NodePtyTest.W]::GetConsoleWindow(), 3)`,
+              `[void][NodePtyTest.W]::EnableWindow($o, $false)`,
+              `Write-Host ('enabled=' + [NodePtyTest.W]::IsWindowEnabled($o) + ' end')`
+            ), { useConptyDll, conptyParentWindow: hostWindows.console });
+            const exited = new Promise<void>(resolve => term.once('exit', () => resolve()));
+            assert.strictEqual((await readOutput(term, /enabled=(\w+) end/))[1], 'False');
+            await exited;
+            const checker = new WindowsTerminal('powershell.exe', scriptArgs(
+              `Write-Host ('enabled=' + [NodePtyTest.W]::IsWindowEnabled([IntPtr]${hostWindows.console}) + ' end')`
+            ), { useConptyDll });
+            assert.strictEqual((await readOutput(checker, /enabled=(\w+) end/))[1], 'True');
+          } finally {
+            host.kill();
+          }
+        });
+      });
       describe('Regression for #921', () => {
         it('should not crash with concurrent kills while resizing/clearing/reparenting', function (done) {
           this.timeout(60000);

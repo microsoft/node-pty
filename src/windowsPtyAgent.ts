@@ -43,7 +43,6 @@ export class WindowsPtyAgent {
   private _closeTimeout: NodeJS.Timer | undefined;
   private _connectionTimeout: NodeJS.Timeout | undefined;
   private _exitCode: number | undefined;
-  private _isKilled: boolean = false;
   private _conoutSocketWorker: IConoutConnection;
 
   private _onError = new EventEmitter2<Error>();
@@ -71,6 +70,7 @@ export class WindowsPtyAgent {
     debug: boolean,
     private _useConptyDll: boolean = false,
     conptyInheritCursor: boolean = false,
+    conptyParentWindow?: number | bigint,
     options: IWindowsPtyAgentOptions = defaultWindowsPtyAgentOptions
   ) {
     if (!conptyNative) {
@@ -93,6 +93,16 @@ export class WindowsPtyAgent {
     // Generated incremental number that has no real purpose besides  using it
     // as a terminal id.
     this._pty = term.pty;
+
+    if (conptyParentWindow !== undefined) {
+      // Before connect() starts the shell, so its first GetConsoleWindow() already has its owner.
+      try {
+        this._ptyNative.reparent(this._pty, conptyParentWindow, this._useConptyDll);
+      } catch (e) {
+        this._ptyNative.kill(this._pty, this._useConptyDll);
+        throw e;
+      }
+    }
 
     // Create terminal pipe IPC channel and forward to a local unix socket.
     this._outSocket = new Socket();
@@ -197,18 +207,14 @@ export class WindowsPtyAgent {
   /**
    * Tells ConPTY which top-level window hosts the terminal (ConptyReparentPseudoConsole). The
    * window becomes the owner of the console window returned by GetConsoleWindow(), so dialogs
-   * that console apps parent to it (e.g. WAM sign-in) stack above the host window.
+   * that console apps parent to it (e.g. WAM sign-in) stack above the host window. Returns
+   * whether ConPTY applied the new owner.
    */
-  public setParentWindow(handle: number | bigint): void {
-    // The pseudoconsole is closed (and its HPCON freed) once the pty is killed
-    if (this._isKilled || this._exitCode !== undefined) {
-      return;
-    }
-    this._ptyNative.reparent(this._pty, handle, this._useConptyDll);
+  public setParentWindow(handle: number | bigint): boolean {
+    return this._ptyNative.reparent(this._pty, handle, this._useConptyDll);
   }
 
   public kill(): void {
-    this._isKilled = true;
     // Prevent deferred connection from completing after kill
     this._clearConnectionTimeout();
     this._pendingPtyInfo = undefined;

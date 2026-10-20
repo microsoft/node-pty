@@ -283,8 +283,9 @@ export class UnixTerminal extends Terminal {
 
   }
 
-  public setParentWindow(handle: number | bigint): void {
+  public setParentWindow(handle: number | bigint): boolean {
     // Windows only
+    return false;
   }
 
   private _sanitizeEnv(env: IProcessEnv): void {

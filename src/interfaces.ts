@@ -41,10 +41,10 @@ export interface ITerminal {
   clear(): void;
 
   /**
-   * Sets the top-level window (HWND) that hosts this terminal. This is a no-op unless on Windows
-   * with `useConptyDll`.
+   * Sets the top-level window (HWND) that hosts this terminal. Returns whether ConPTY applied it,
+   * which only happens on Windows with `useConptyDll`.
    */
-  setParentWindow(handle: number | bigint): void;
+  setParentWindow(handle: number | bigint): boolean;
 
   /**
    * Close, kill and destroy the socket.

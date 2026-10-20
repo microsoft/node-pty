@@ -119,6 +119,9 @@ declare module 'node-pty' {
      * sign-in uses) open on top of the host window instead of behind it. The owner is set before
      * the process starts. Use {@link IPty.setParentWindow} when the terminal moves to another
      * window. Only supported when `useConptyDll` is true; ignored otherwise.
+     *
+     * When the process exits, the window is re-enabled if a modal dialog that died with the
+     * process left it disabled.
      */
     conptyParentWindow?: number | bigint;
   }
@@ -190,11 +193,13 @@ declare module 'node-pty' {
      *
      * Sets the handle (HWND) of the top-level window that hosts this terminal, see
      * `IWindowsPtyForkOptions.conptyParentWindow`. Call it again whenever the terminal moves to a
-     * different window. This is a no-op unless on Windows with `useConptyDll`.
-     * @param handle The window handle, e.g. read from Electron's
-     * `BrowserWindow.getNativeWindowHandle()`.
+     * different window. Optional so existing implementations of `IPty` keep compiling.
+     * @param handle The window handle, for example Electron's
+     * `BrowserWindow.getNativeWindowHandle().readBigUInt64LE(0)`.
+     * @returns Whether ConPTY applied the new owner. This is always false unless on Windows with
+     * `useConptyDll`, and false once the pty has been killed or has exited.
      */
-    setParentWindow(handle: number | bigint): void;
+    setParentWindow?(handle: number | bigint): boolean;
 
     /**
      * Writes data to the pty.
