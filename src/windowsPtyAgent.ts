@@ -43,6 +43,7 @@ export class WindowsPtyAgent {
   private _closeTimeout: NodeJS.Timer | undefined;
   private _connectionTimeout: NodeJS.Timeout | undefined;
   private _exitCode: number | undefined;
+  private _isKilled: boolean = false;
   private _conoutSocketWorker: IConoutConnection;
 
   private _onError = new EventEmitter2<Error>();
@@ -193,7 +194,21 @@ export class WindowsPtyAgent {
     this._ptyNative.clear(this._pty, this._useConptyDll);
   }
 
+  /**
+   * Tells ConPTY which top-level window hosts the terminal (ConptyReparentPseudoConsole). The
+   * window becomes the owner of the console window returned by GetConsoleWindow(), so dialogs
+   * that console apps parent to it (e.g. WAM sign-in) stack above the host window.
+   */
+  public setParentWindow(handle: number | bigint): void {
+    // The pseudoconsole is closed (and its HPCON freed) once the pty is killed
+    if (this._isKilled || this._exitCode !== undefined) {
+      return;
+    }
+    this._ptyNative.reparent(this._pty, handle, this._useConptyDll);
+  }
+
   public kill(): void {
+    this._isKilled = true;
     // Prevent deferred connection from completing after kill
     this._clearConnectionTimeout();
     this._pendingPtyInfo = undefined;

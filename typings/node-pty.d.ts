@@ -109,6 +109,18 @@ declare module 'node-pty' {
      * @see https://docs.microsoft.com/en-us/windows/console/createpseudoconsole
      */
     conptyInheritCursor?: boolean;
+
+    /**
+     * (EXPERIMENTAL)
+     *
+     * The handle (HWND) of the top-level window that hosts this terminal. ConPTY makes it the owner
+     * of the console window returned by `GetConsoleWindow()`, so windows that console applications
+     * parent to it (for example `GetAncestor(GetConsoleWindow(), GA_ROOTOWNER)`, which MSAL/WAM
+     * sign-in uses) open on top of the host window instead of behind it. The owner is set before
+     * the process starts. Use {@link IPty.setParentWindow} when the terminal moves to another
+     * window. Only supported when `useConptyDll` is true; ignored otherwise.
+     */
+    conptyParentWindow?: number | bigint;
   }
 
   /**
@@ -172,6 +184,17 @@ declare module 'node-pty' {
      * possibly reprinting the screen.
      */
     clear(): void;
+
+    /**
+     * (EXPERIMENTAL)
+     *
+     * Sets the handle (HWND) of the top-level window that hosts this terminal, see
+     * `IWindowsPtyForkOptions.conptyParentWindow`. Call it again whenever the terminal moves to a
+     * different window. This is a no-op unless on Windows with `useConptyDll`.
+     * @param handle The window handle, e.g. read from Electron's
+     * `BrowserWindow.getNativeWindowHandle()`.
+     */
+    setParentWindow(handle: number | bigint): void;
 
     /**
      * Writes data to the pty.

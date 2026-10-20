@@ -283,6 +283,10 @@ export class UnixTerminal extends Terminal {
 
   }
 
+  public setParentWindow(handle: number | bigint): void {
+    // Windows only
+  }
+
   private _sanitizeEnv(env: IProcessEnv): void {
     // Make sure we didn't start our server from inside tmux.
     delete env['TMUX'];

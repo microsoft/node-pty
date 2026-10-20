@@ -40,6 +40,9 @@ typedef void (__stdcall *PFNRELEASEPSEUDOCONSOLE)(HPCON hpc);
 
 #endif
 
+// Only exported by the bundled conpty.dll; kernel32 has no equivalent.
+typedef HRESULT (__stdcall *PFNREPARENTPSEUDOCONSOLE)(HPCON hpc, HWND newParent);
+
 struct pty_baton {
   int id;
   HANDLE hIn;
@@ -553,6 +556,54 @@ static Napi::Value PtyClear(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
+static Napi::Value PtyReparent(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
+
+  if (info.Length() != 3 ||
+      !info[0].IsNumber() ||
+      !(info[1].IsNumber() || info[1].IsBigInt()) ||
+      !info[2].IsBoolean()) {
+    throw Napi::Error::New(env, "Usage: pty.reparent(id, hwnd, useConptyDll)");
+  }
+
+  int id = info[0].As<Napi::Number>().Int32Value();
+  uint64_t hwndValue;
+  if (info[1].IsBigInt()) {
+    bool lossless = false;
+    hwndValue = info[1].As<Napi::BigInt>().Uint64Value(&lossless);
+  } else {
+    hwndValue = static_cast<uint64_t>(info[1].As<Napi::Number>().Int64Value());
+  }
+  const bool useConptyDll = info[2].As<Napi::Boolean>().Value();
+
+  // ConptyReparentPseudoConsole only exists in the bundled conpty.dll.
+  if (!useConptyDll) {
+    return env.Undefined();
+  }
+
+  std::lock_guard<std::mutex> lock(g_ptyHandlesMutex);
+  const pty_baton* handle = get_pty_baton(lock, id);
+
+  if (handle != nullptr) {
+    HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
+    bool fLoadedDll = hLibrary != nullptr;
+    if (fLoadedDll)
+    {
+      PFNREPARENTPSEUDOCONSOLE const pfnReparentPseudoConsole = (PFNREPARENTPSEUDOCONSOLE)GetProcAddress(
+        (HMODULE)hLibrary, "ConptyReparentPseudoConsole");
+      if (pfnReparentPseudoConsole)
+      {
+        // Makes newParent the owner of the console window returned by
+        // GetConsoleWindow(), so windows parented to it stack above the host.
+        pfnReparentPseudoConsole(handle->hpc, reinterpret_cast<HWND>(static_cast<uintptr_t>(hwndValue)));
+      }
+    }
+  }
+
+  return env.Undefined();
+}
+
 static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
   Napi::Env env(info.Env());
   Napi::HandleScope scope(env);
@@ -609,6 +660,7 @@ Napi::Object init(Napi::Env env, Napi::Object exports) {
   exports.Set("connect", Napi::Function::New(env, PtyConnect));
   exports.Set("resize", Napi::Function::New(env, PtyResize));
   exports.Set("clear", Napi::Function::New(env, PtyClear));
+  exports.Set("reparent", Napi::Function::New(env, PtyReparent));
   exports.Set("kill", Napi::Function::New(env, PtyKill));
   return exports;
 };

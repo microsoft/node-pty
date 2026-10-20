@@ -283,8 +283,67 @@ if (process.platform === 'win32') {
         });
       });
 
+      describe('parent window', () => {
+        // Prints the console window and GetAncestor(GetConsoleWindow(), GA_ROOTOWNER), which is the
+        // parent MSAL/WAM uses for sign-in dialogs.
+        function rootOwnerArgs(delayMs: number, keepAliveSeconds: number = 0): string {
+          const script = [
+            `Start-Sleep -Milliseconds ${delayMs}`,
+            `Add-Type -Namespace NodePtyTest -Name W -MemberDefinition '[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow(); [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint f);'`,
+            `$c = [NodePtyTest.W]::GetConsoleWindow()`,
+            `Write-Host ('console=' + $c.ToInt64() + ' rootOwner=' + [NodePtyTest.W]::GetAncestor($c, 3).ToInt64() + ' end')`,
+            `Start-Sleep -Seconds ${keepAliveSeconds}`
+          ].join('; ');
+          return `-NoProfile -NonInteractive -EncodedCommand ${Buffer.from(script, 'utf16le').toString('base64')}`;
+        }
+
+        function readWindows(term: WindowsTerminal): Promise<{ console: number, rootOwner: number }> {
+          return new Promise(resolve => {
+            let output = '';
+            term.on('data', (data) => {
+              output += data;
+              const match = /console=(\d+) rootOwner=(\d+) end/.exec(output);
+              if (match) {
+                resolve({ console: parseInt(match[1], 10), rootOwner: parseInt(match[2], 10) });
+              }
+            });
+          });
+        }
+
+        it('should make conptyParentWindow the owner of the console window before the shell starts', async function (): Promise<void> {
+          this.timeout(60000);
+          // Another pty's hidden top-level console window stands in for the host app's window.
+          const host = new WindowsTerminal('powershell.exe', rootOwnerArgs(0, 60), { useConptyDll });
+          try {
+            const hostWindows = await readWindows(host);
+            const term = new WindowsTerminal('powershell.exe', rootOwnerArgs(0), { useConptyDll, conptyParentWindow: hostWindows.console });
+            const windows = await readWindows(term);
+            assert.strictEqual(windows.rootOwner, useConptyDll ? hostWindows.console : windows.console);
+            term.kill();
+          } finally {
+            host.kill();
+          }
+        });
+
+        it('should change the owner when setParentWindow is called while the shell runs', async function (): Promise<void> {
+          this.timeout(60000);
+          const host = new WindowsTerminal('powershell.exe', rootOwnerArgs(0, 60), { useConptyDll });
+          try {
+            const hostWindows = await readWindows(host);
+            const term = new WindowsTerminal('powershell.exe', rootOwnerArgs(3000), { useConptyDll });
+            // The first data event means the shell is running and conpty has been released.
+            term.once('data', () => term.setParentWindow(BigInt(hostWindows.console)));
+            const windows = await readWindows(term);
+            assert.strictEqual(windows.rootOwner, useConptyDll ? hostWindows.console : windows.console);
+            term.kill();
+          } finally {
+            host.kill();
+          }
+        });
+      });
+
       describe('Regression for #921', () => {
-        it('should not crash with concurrent kills while resizing/clearing', function (done) {
+        it('should not crash with concurrent kills while resizing/clearing/reparenting', function (done) {
           this.timeout(60000);
           const N = 30;
           const terms: WindowsTerminal[] = [];
@@ -306,6 +365,9 @@ if (process.platform === 'win32') {
                 } catch (e) { /* already exited */ }
                 try {
                   t.clear();
+                } catch (e) { /* already exited */ }
+                try {
+                  t.setParentWindow(0);
                 } catch (e) { /* already exited */ }
               }
             }, 1);

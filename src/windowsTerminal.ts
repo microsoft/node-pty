@@ -49,6 +49,11 @@ export class WindowsTerminal extends Terminal {
 
     // Create new termal.
     this._agent = new WindowsPtyAgent(file, args, parsedEnv, cwd, this._cols, this._rows, false, opt.useConptyDll, opt.conptyInheritCursor);
+    if (opt.conptyParentWindow !== undefined) {
+      // Applied before the shell is created (connect() waits for the conout worker), so the
+      // shell's first GetConsoleWindow() already sees its owner.
+      this._agent.setParentWindow(opt.conptyParentWindow);
+    }
     this._socket = this._agent.outSocket;
     // The socket 'close' handler that drives 'exit' is only attached after
     // ready_datapipe, which never fires when connect() fails.
@@ -161,6 +166,12 @@ export class WindowsTerminal extends Terminal {
     this._deferNoArgs(() => {
       this._agent.clear();
     });
+  }
+
+  public setParentWindow(handle: number | bigint): void {
+    // Not deferred: the pseudoconsole exists as soon as the agent is created, and the owner
+    // should be in place before the shell starts asking for it.
+    this._agent.setParentWindow(handle);
   }
 
   public destroy(): void {

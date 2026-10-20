@@ -41,6 +41,12 @@ export interface ITerminal {
   clear(): void;
 
   /**
+   * Sets the top-level window (HWND) that hosts this terminal. This is a no-op unless on Windows
+   * with `useConptyDll`.
+   */
+  setParentWindow(handle: number | bigint): void;
+
+  /**
    * Close, kill and destroy the socket.
    */
   destroy(): void;
@@ -132,6 +138,7 @@ export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
   useConpty?: boolean;
   useConptyDll?: boolean;
   conptyInheritCursor?: boolean;
+  conptyParentWindow?: number | bigint;
 }
 
 export interface IPtyOpenOptions {
