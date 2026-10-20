@@ -114,14 +114,23 @@ declare module 'node-pty' {
      * The handle (HWND) of the top-level window that hosts this terminal. ConPTY makes it the owner
      * of the console window returned by `GetConsoleWindow()`, so windows that console applications
      * parent to it (for example `GetAncestor(GetConsoleWindow(), GA_ROOTOWNER)`, which MSAL/WAM
-     * sign-in uses) open on top of the host window instead of behind it. The owner is set before
-     * the process starts. Use {@link IPty.setParentWindow} when the terminal moves to another
-     * window. Only supported when `useConptyDll` is true; ignored otherwise.
-     *
-     * When the process exits, the window is re-enabled if a modal dialog that died with the
-     * process left it disabled.
+     * sign-in uses) open on top of the host window instead of behind it. The owner is requested
+     * before the process is launched. Use {@link IPty.setParentWindow} when the terminal moves to
+     * another window. Must be a safe integer, or a bigint that fits in 64 bits. Only supported when
+     * `useConptyDll` is true; ignored otherwise.
      */
     conptyParentWindow?: number | bigint;
+
+    /**
+     * Whether to re-enable the parent window when the process exits, if the window is still
+     * disabled and no visible window is owned by it, directly or through other owned windows. The
+     * parent window is the last one set with `conptyParentWindow` or {@link IPty.setParentWindow}.
+     * This recovers from a modal dialog that died with its process, which otherwise leaves the
+     * parent window disabled for good. It's a heuristic that can't tell why the window is disabled,
+     * so only set it if the host never disables its window without showing a window it owns. Only
+     * supported when `useConptyDll` is true. Defaults to false.
+     */
+    conptyReenableParentWindowOnExit?: boolean;
   }
 
   /**
@@ -192,8 +201,9 @@ declare module 'node-pty' {
      * different window. Optional so existing implementations of `IPty` keep compiling.
      * @param handle The window handle, for example Electron's
      * `BrowserWindow.getNativeWindowHandle().readBigUInt64LE(0)`.
-     * @returns Whether ConPTY applied the new owner. This is always false unless on Windows with
-     * `useConptyDll`, and false once the pty has been killed or has exited.
+     * @returns Whether the request was sent to ConPTY, which applies it asynchronously. This is
+     * always false unless on Windows with `useConptyDll`, and false once the pseudoconsole is
+     * closed.
      */
     setParentWindow?(handle: number | bigint): boolean;
 

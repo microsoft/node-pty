@@ -71,8 +71,14 @@ export class WindowsPtyAgent {
     private _useConptyDll: boolean = false,
     conptyInheritCursor: boolean = false,
     conptyParentWindow?: number | bigint,
+    private _reenableParentWindowOnExit: boolean = false,
     options: IWindowsPtyAgentOptions = defaultWindowsPtyAgentOptions
   ) {
+    // Validate before allocating the pseudoconsole, so bad input leaves nothing behind.
+    if (conptyParentWindow !== undefined) {
+      validateWindowHandle(conptyParentWindow);
+    }
+
     if (!conptyNative) {
       conptyNative = loadNativeModule('conpty').module;
     }
@@ -95,9 +101,9 @@ export class WindowsPtyAgent {
     this._pty = term.pty;
 
     if (conptyParentWindow !== undefined) {
-      // Before connect() starts the shell, so its first GetConsoleWindow() already has its owner.
+      // Requested before connect() launches the shell, like Windows Terminal does.
       try {
-        this._ptyNative.reparent(this._pty, conptyParentWindow, this._useConptyDll);
+        this._ptyNative.reparent(this._pty, conptyParentWindow, this._useConptyDll, this._reenableParentWindowOnExit);
       } catch (e) {
         this._ptyNative.kill(this._pty, this._useConptyDll);
         throw e;
@@ -208,10 +214,11 @@ export class WindowsPtyAgent {
    * Tells ConPTY which top-level window hosts the terminal (ConptyReparentPseudoConsole). The
    * window becomes the owner of the console window returned by GetConsoleWindow(), so dialogs
    * that console apps parent to it (e.g. WAM sign-in) stack above the host window. Returns
-   * whether ConPTY applied the new owner.
+   * whether the request was sent to ConPTY, which applies it asynchronously.
    */
   public setParentWindow(handle: number | bigint): boolean {
-    return this._ptyNative.reparent(this._pty, handle, this._useConptyDll);
+    validateWindowHandle(handle);
+    return this._ptyNative.reparent(this._pty, handle, this._useConptyDll, this._reenableParentWindowOnExit);
   }
 
   public kill(): void {
@@ -370,4 +377,19 @@ function repeatText(text: string, count: number): string {
 
 function xOr(arg1: boolean, arg2: boolean): boolean {
   return ((arg1 && !arg2) || (!arg1 && arg2));
+}
+
+/**
+ * Throws unless the handle is a safe integer or a bigint that fits in 64 bits. Signed and unsigned
+ * bigints are both accepted, since a window handle may be sign-extended.
+ */
+function validateWindowHandle(handle: number | bigint): void {
+  if (typeof handle === 'bigint') {
+    if (handle < BigInt('-9223372036854775808') || handle > BigInt('18446744073709551615')) {
+      throw new Error('Window handle does not fit in 64 bits');
+    }
+  } else if (!Number.isSafeInteger(handle)) {
+    // Larger numbers can't hold an exact handle.
+    throw new Error('Window handle must be a safe integer or a bigint');
+  }
 }

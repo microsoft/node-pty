@@ -41,8 +41,8 @@ export interface ITerminal {
   clear(): void;
 
   /**
-   * Sets the top-level window (HWND) that hosts this terminal. Returns whether ConPTY applied it,
-   * which only happens on Windows with `useConptyDll`.
+   * Sets the top-level window (HWND) that hosts this terminal. Returns whether the request was sent
+   * to ConPTY, which only happens on Windows with `useConptyDll`.
    */
   setParentWindow(handle: number | bigint): boolean;
 
@@ -139,6 +139,7 @@ export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
   useConptyDll?: boolean;
   conptyInheritCursor?: boolean;
   conptyParentWindow?: number | bigint;
+  conptyReenableParentWindowOnExit?: boolean;
 }
 
 export interface IPtyOpenOptions {

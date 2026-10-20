@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as assert from 'assert';
 import { WindowsTerminal } from './windowsTerminal';
+import { IWindowsPtyForkOptions } from './interfaces';
 import * as path from 'path';
 import * as psList from 'ps-list';
 
@@ -284,7 +285,7 @@ if (process.platform === 'win32') {
       });
 
       describe('parent window', () => {
-        const user32 = `Add-Type -Namespace NodePtyTest -Name W -MemberDefinition '[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow(); [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint f); [DllImport("user32.dll")] public static extern bool EnableWindow(IntPtr h, bool e); [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr h);'`;
+        const user32 = `Add-Type -Namespace NodePtyTest -Name W -MemberDefinition '[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow(); [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint f); [DllImport("user32.dll")] public static extern bool EnableWindow(IntPtr h, bool e); [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr h); [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr CreateWindowExW(int ex, string cls, string title, int style, int x, int y, int w, int h, IntPtr owner, IntPtr menu, IntPtr inst, IntPtr param);'`;
 
         function scriptArgs(...lines: string[]): string {
           return `-NoProfile -NonInteractive -EncodedCommand ${Buffer.from([user32, ...lines].join('; '), 'utf16le').toString('base64')}`;
@@ -301,6 +302,44 @@ if (process.platform === 'win32') {
           );
         }
 
+        // Disabling the root owner and exiting stands in for a modal dialog whose process dies.
+        function disableRootOwnerArgs(): string {
+          return scriptArgs(
+            `$o = [NodePtyTest.W]::GetAncestor([NodePtyTest.W]::GetConsoleWindow(), 3)`,
+            `[void][NodePtyTest.W]::EnableWindow($o, $false)`,
+            `Write-Host ('enabled=' + [NodePtyTest.W]::IsWindowEnabled($o) + ' end')`
+          );
+        }
+
+        const started: Array<{ exited: Promise<void>, kill: () => void }> = [];
+
+        function startPty(file: string, args: string | string[], options: IWindowsPtyForkOptions = {}): WindowsTerminal {
+          const term = new WindowsTerminal(file, args, { useConptyDll, ...options });
+          let hasExited = false;
+          const exited = new Promise<void>(resolve => term.once('exit', () => {
+            hasExited = true;
+            resolve();
+          }));
+          started.push({
+            exited,
+            kill: () => {
+              if (!hasExited) {
+                term.kill();
+              }
+            }
+          });
+          return term;
+        }
+
+        // Wait for every pty to exit, even after a failed test: exiting while a conout worker still
+        // flushes its pipe can hang mocha.
+        afterEach(async function (): Promise<void> {
+          this.timeout(30000);
+          const ptys = started.splice(0);
+          ptys.forEach(pty => pty.kill());
+          await Promise.all(ptys.map(pty => pty.exited));
+        });
+
         function readOutput(term: WindowsTerminal, pattern: RegExp): Promise<RegExpExecArray> {
           return new Promise(resolve => {
             let output = '';
@@ -315,46 +354,54 @@ if (process.platform === 'win32') {
         }
 
         async function readWindows(term: WindowsTerminal): Promise<{ console: number, rootOwner: number }> {
-          const match = await readOutput(term, /console=(\d+) rootOwner=(\d+) end/);
+          const match = await readOutput(term, /console=(-?\d+) rootOwner=(-?\d+) end/);
           return { console: parseInt(match[1], 10), rootOwner: parseInt(match[2], 10) };
+        }
+
+        // Another pty's hidden top-level console window stands in for the host app's window.
+        async function startHostWindow(): Promise<number> {
+          return (await readWindows(startPty('powershell.exe', rootOwnerArgs(0, 60)))).console;
+        }
+
+        // Re-enabling happens off the exit path, so wait up to waitMs for the window to be enabled.
+        async function readEnabled(hwnd: number, waitMs: number): Promise<string> {
+          const checker = startPty('powershell.exe', scriptArgs(
+            `$h = [IntPtr]${hwnd}`,
+            `for ($i = 0; $i -lt ${waitMs / 100} -and -not [NodePtyTest.W]::IsWindowEnabled($h); $i++) { Start-Sleep -Milliseconds 100 }`,
+            `Write-Host ('enabled=' + [NodePtyTest.W]::IsWindowEnabled($h) + ' end')`
+          ));
+          return (await readOutput(checker, /enabled=(\w+) end/))[1];
+        }
+
+        async function disableParentAndExit(parent: number, options: IWindowsPtyForkOptions): Promise<void> {
+          const term = startPty('powershell.exe', disableRootOwnerArgs(), { conptyParentWindow: parent, ...options });
+          const exited = new Promise<void>(resolve => term.once('exit', () => resolve()));
+          assert.strictEqual((await readOutput(term, /enabled=(\w+) end/))[1], 'False');
+          await exited;
         }
 
         it('should make conptyParentWindow the owner of the console window before the shell starts', async function (): Promise<void> {
           this.timeout(60000);
-          // Another pty's hidden top-level console window stands in for the host app's window.
-          const host = new WindowsTerminal('powershell.exe', rootOwnerArgs(0, 60), { useConptyDll });
-          try {
-            const hostWindows = await readWindows(host);
-            const term = new WindowsTerminal('powershell.exe', rootOwnerArgs(0), { useConptyDll, conptyParentWindow: hostWindows.console });
-            const windows = await readWindows(term);
-            assert.strictEqual(windows.rootOwner, useConptyDll ? hostWindows.console : windows.console);
-            term.kill();
-          } finally {
-            host.kill();
-          }
+          const hostWindow = await startHostWindow();
+          const windows = await readWindows(startPty('powershell.exe', rootOwnerArgs(0), { conptyParentWindow: hostWindow }));
+          assert.strictEqual(windows.rootOwner, useConptyDll ? hostWindow : windows.console);
         });
 
         it('should change the owner when setParentWindow is called while the shell runs', async function (): Promise<void> {
           this.timeout(60000);
-          const host = new WindowsTerminal('powershell.exe', rootOwnerArgs(0, 60), { useConptyDll });
-          try {
-            const hostWindows = await readWindows(host);
-            const term = new WindowsTerminal('powershell.exe', rootOwnerArgs(3000), { useConptyDll });
-            let applied: boolean | undefined;
-            // The first data event means the shell is running and conpty has been released.
-            term.once('data', () => applied = term.setParentWindow(BigInt(hostWindows.console)));
-            const windows = await readWindows(term);
-            assert.strictEqual(applied, useConptyDll);
-            assert.strictEqual(windows.rootOwner, useConptyDll ? hostWindows.console : windows.console);
-            term.kill();
-          } finally {
-            host.kill();
-          }
+          const hostWindow = await startHostWindow();
+          const term = startPty('powershell.exe', rootOwnerArgs(3000));
+          let sent: boolean | undefined;
+          // The first data event means the shell is running and conpty has been released.
+          term.once('data', () => sent = term.setParentWindow(BigInt(hostWindow)));
+          const windows = await readWindows(term);
+          assert.strictEqual(sent, useConptyDll);
+          assert.strictEqual(windows.rootOwner, useConptyDll ? hostWindow : windows.console);
         });
 
-        it('should not apply setParentWindow once the pty is killed', async function (): Promise<void> {
+        it('should not send setParentWindow once the pseudoconsole is closed', async function (): Promise<void> {
           this.timeout(20000);
-          const term = new WindowsTerminal('cmd.exe', [], { useConptyDll });
+          const term = startPty('cmd.exe', []);
           const exited = new Promise<void>(resolve => term.once('exit', () => resolve()));
           await new Promise<void>(resolve => term.once('data', () => resolve()));
           term.kill();
@@ -363,34 +410,60 @@ if (process.platform === 'win32') {
           assert.strictEqual(term.setParentWindow(0), false);
         });
 
-        it('should reject handles that do not fit in 64 bits', function (done: Mocha.Done): void {
-          const term = new WindowsTerminal('cmd.exe', [], { useConptyDll });
-          assert.throws(() => term.setParentWindow(BigInt('18446744073709551616')), /does not fit in 64 bits/);
-          term.on('exit', () => done());
-          term.kill();
+        it('should reject handles that are not safe integers or bigints that fit in 64 bits', () => {
+          const invalid: Array<[number | bigint, RegExp]> = [
+            [BigInt('18446744073709551616'), /does not fit in 64 bits/],
+            [BigInt('-9223372036854775809'), /does not fit in 64 bits/],
+            [1.5, /must be a safe integer/],
+            [Number.MAX_SAFE_INTEGER + 1, /must be a safe integer/]
+          ];
+          // Validated before the pseudoconsole is created, so nothing is left behind
+          for (const [handle, error] of invalid) {
+            assert.throws(() => startPty('cmd.exe', [], { conptyParentWindow: handle }), error);
+          }
+          const term = startPty('cmd.exe', []);
+          for (const [handle, error] of invalid) {
+            assert.throws(() => term.setParentWindow(handle), error);
+          }
         });
 
-        it('should re-enable the parent window if the process exits while a dialog left it disabled', async function (): Promise<void> {
-          this.timeout(60000);
-          const host = new WindowsTerminal('powershell.exe', rootOwnerArgs(0, 60), { useConptyDll });
-          try {
-            const hostWindows = await readWindows(host);
-            // Disabling the root owner and exiting stands in for a modal dialog whose process dies.
-            const term = new WindowsTerminal('powershell.exe', scriptArgs(
-              `$o = [NodePtyTest.W]::GetAncestor([NodePtyTest.W]::GetConsoleWindow(), 3)`,
-              `[void][NodePtyTest.W]::EnableWindow($o, $false)`,
-              `Write-Host ('enabled=' + [NodePtyTest.W]::IsWindowEnabled($o) + ' end')`
-            ), { useConptyDll, conptyParentWindow: hostWindows.console });
-            const exited = new Promise<void>(resolve => term.once('exit', () => resolve()));
-            assert.strictEqual((await readOutput(term, /enabled=(\w+) end/))[1], 'False');
-            await exited;
-            const checker = new WindowsTerminal('powershell.exe', scriptArgs(
-              `Write-Host ('enabled=' + [NodePtyTest.W]::IsWindowEnabled([IntPtr]${hostWindows.console}) + ' end')`
-            ), { useConptyDll });
-            assert.strictEqual((await readOutput(checker, /enabled=(\w+) end/))[1], 'True');
-          } finally {
-            host.kill();
+        it('should re-enable the parent window on exit when asked, if a dialog left it disabled', async function (): Promise<void> {
+          if (!useConptyDll) {
+            this.skip();
           }
+          this.timeout(60000);
+          const hostWindow = await startHostWindow();
+          await disableParentAndExit(hostWindow, { conptyReenableParentWindowOnExit: true });
+          assert.strictEqual(await readEnabled(hostWindow, 5000), 'True');
+        });
+
+        it('should leave the parent window disabled on exit unless asked to re-enable it', async function (): Promise<void> {
+          if (!useConptyDll) {
+            this.skip();
+          }
+          this.timeout(60000);
+          const hostWindow = await startHostWindow();
+          await disableParentAndExit(hostWindow, {});
+          assert.strictEqual(await readEnabled(hostWindow, 3000), 'False');
+        });
+
+        it('should not re-enable the parent window while it still owns a visible window', async function (): Promise<void> {
+          if (!useConptyDll) {
+            this.skip();
+          }
+          this.timeout(60000);
+          const hostWindow = await startHostWindow();
+          // A visible off-screen window owned through a hidden proxy window, like a modal dialog
+          // shown by another process.
+          const dialog = startPty('powershell.exe', scriptArgs(
+            `$proxy = [NodePtyTest.W]::CreateWindowExW(0x80, 'STATIC', 'proxy', 0x80000000, 0, 0, 1, 1, [IntPtr]${hostWindow}, [IntPtr]::Zero, [IntPtr]::Zero, [IntPtr]::Zero)`,
+            `$dialog = [NodePtyTest.W]::CreateWindowExW(0x08000080, 'STATIC', 'dialog', 0x90000000, -32000, -32000, 1, 1, $proxy, [IntPtr]::Zero, [IntPtr]::Zero, [IntPtr]::Zero)`,
+            `Write-Host ('dialog=' + $dialog.ToInt64() + ' end')`,
+            `Start-Sleep -Seconds 60`
+          ));
+          assert.notStrictEqual((await readOutput(dialog, /dialog=(-?\d+) end/))[1], '0');
+          await disableParentAndExit(hostWindow, { conptyReenableParentWindowOnExit: true });
+          assert.strictEqual(await readEnabled(hostWindow, 3000), 'False');
         });
       });
       describe('Regression for #921', () => {
