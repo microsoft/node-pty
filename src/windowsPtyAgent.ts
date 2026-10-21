@@ -43,6 +43,7 @@ export class WindowsPtyAgent {
   private _closeTimeout: NodeJS.Timer | undefined;
   private _connectionTimeout: NodeJS.Timeout | undefined;
   private _exitCode: number | undefined;
+  private _killStarted = false;
   private _conoutSocketWorker: IConoutConnection;
 
   private _onError = new EventEmitter2<Error>();
@@ -205,6 +206,11 @@ export class WindowsPtyAgent {
   }
 
   public kill(): void {
+    if (this._killStarted) {
+      return;
+    }
+    this._killStarted = true;
+
     // Prevent deferred connection from completing after kill
     this._clearConnectionTimeout();
     this._pendingPtyInfo = undefined;
@@ -213,7 +219,7 @@ export class WindowsPtyAgent {
     if (!this._useConptyDll) {
       this._inSocket.readable = false;
       this._outSocket.readable = false;
-      this._getConsoleProcessList().then(consoleProcessList => {
+      const kill = (consoleProcessList: number[]): void => {
         consoleProcessList.forEach((pid: number) => {
           try {
             process.kill(pid);
@@ -221,9 +227,16 @@ export class WindowsPtyAgent {
             // Ignore if process cannot be found (kill ESRCH error)
           }
         });
-      });
-      this._ptyNative.kill(this._pty, this._useConptyDll);
-      this._conoutSocketWorker.dispose();
+        this._ptyNative.kill(this._pty, this._useConptyDll);
+        this._conoutSocketWorker.dispose();
+      };
+      if (this._innerPid <= 0) {
+        kill([]);
+      } else {
+        // Get the process list before closing the pseudoconsole. Closing it lets process IDs be
+        // reused, so the asynchronous helper could otherwise return unrelated processes.
+        this._getConsoleProcessList().then(kill, () => kill([]));
+      }
     } else {
       // Close the input write handle to signal the end of session.
       this._inSocket.destroy();
