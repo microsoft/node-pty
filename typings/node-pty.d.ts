@@ -181,8 +181,9 @@ declare module 'node-pty' {
      * after spawning sends the request before the process is launched. Call it again whenever the
      * terminal moves to a different window. Optional so existing implementations of `IPty` keep
      * compiling.
-     * @param handle The window handle, as a safe integer or a bigint that fits in 64 bits, for
-     * example Electron's `BrowserWindow.getNativeWindowHandle().readBigUInt64LE(0)`.
+     * @param handle The window handle. HWNDs are pointers, so this must be a non-negative safe
+     * integer or a bigint that fits in a pointer, for example Electron's
+     * `BrowserWindow.getNativeWindowHandle().readBigUInt64LE(0)`. Anything else throws.
      * @returns Whether the request was sent to ConPTY, which applies it asynchronously. This is
      * always false unless on Windows with `useConptyDll`, and false once the pseudoconsole is
      * closed.

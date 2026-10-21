@@ -200,7 +200,6 @@ export class WindowsPtyAgent {
    * whether the request was sent to ConPTY, which applies it asynchronously.
    */
   public setParentWindow(handle: number | bigint): boolean {
-    validateWindowHandle(handle);
     return this._ptyNative.reparent(this._pty, handle, this._useConptyDll);
   }
 
@@ -360,19 +359,4 @@ function repeatText(text: string, count: number): string {
 
 function xOr(arg1: boolean, arg2: boolean): boolean {
   return ((arg1 && !arg2) || (!arg1 && arg2));
-}
-
-/**
- * Throws unless the handle is a safe integer or a bigint that fits in 64 bits. Signed and unsigned
- * bigints are both accepted, since a window handle may be sign-extended.
- */
-function validateWindowHandle(handle: number | bigint): void {
-  if (typeof handle === 'bigint') {
-    if (handle < BigInt('-9223372036854775808') || handle > BigInt('18446744073709551615')) {
-      throw new Error('Window handle does not fit in 64 bits');
-    }
-  } else if (!Number.isSafeInteger(handle)) {
-    // Larger numbers can't hold an exact handle.
-    throw new Error('Window handle must be a safe integer or a bigint');
-  }
 }

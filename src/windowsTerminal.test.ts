@@ -285,19 +285,19 @@ if (process.platform === 'win32') {
       });
 
       describe('parent window', () => {
-        const user32 = `Add-Type -Namespace NodePtyTest -Name W -MemberDefinition '[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow(); [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint f);'`;
+        const user32 = `Add-Type -Namespace NodePtyTest -Name W -MemberDefinition '[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow(); [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint f); public static ulong U(IntPtr h) { return unchecked((ulong)h.ToInt64()); }'`;
 
         function scriptArgs(...lines: string[]): string {
           return `-NoProfile -NonInteractive -EncodedCommand ${Buffer.from([user32, ...lines].join('; '), 'utf16le').toString('base64')}`;
         }
 
         // Prints the console window and GetAncestor(GetConsoleWindow(), GA_ROOTOWNER), which is the
-        // parent MSAL/WAM uses for sign-in dialogs.
+        // parent MSAL/WAM uses for sign-in dialogs. Handles are pointers, so print them unsigned.
         function rootOwnerArgs(delayMs: number, keepAliveSeconds: number = 0): string {
           return scriptArgs(
             `Start-Sleep -Milliseconds ${delayMs}`,
             `$c = [NodePtyTest.W]::GetConsoleWindow()`,
-            `Write-Host ('console=' + $c.ToInt64() + ' rootOwner=' + [NodePtyTest.W]::GetAncestor($c, 3).ToInt64() + ' end')`,
+            `Write-Host ('console=' + [NodePtyTest.W]::U($c) + ' rootOwner=' + [NodePtyTest.W]::U([NodePtyTest.W]::GetAncestor($c, 3)) + ' end')`,
             `Start-Sleep -Seconds ${keepAliveSeconds}`
           );
         }
@@ -344,22 +344,24 @@ if (process.platform === 'win32') {
           });
         }
 
-        async function readWindows(term: WindowsTerminal): Promise<{ console: number, rootOwner: number }> {
-          const match = await readOutput(term, /console=(-?\d+) rootOwner=(-?\d+) end/);
-          return { console: parseInt(match[1], 10), rootOwner: parseInt(match[2], 10) };
+        async function readWindows(term: WindowsTerminal): Promise<{ console: bigint, rootOwner: bigint }> {
+          const match = await readOutput(term, /console=(\d+) rootOwner=(\d+) end/);
+          return { console: BigInt(match[1]), rootOwner: BigInt(match[2]) };
         }
 
         // Another pty's hidden top-level console window stands in for the host app's window.
-        async function startHostWindow(): Promise<number> {
+        async function startHostWindow(): Promise<bigint> {
           return (await readWindows(startPty('powershell.exe', rootOwnerArgs(0, 60)))).console;
         }
 
         it('should make the window the owner of the console window when set right after spawn', async function (): Promise<void> {
           this.timeout(60000);
           const hostWindow = await startHostWindow();
+          // Pass a number when it's exact, so both the number and the bigint path are covered.
+          const handle = hostWindow <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(hostWindow) : hostWindow;
           const term = startPty('powershell.exe', rootOwnerArgs(0));
           // Not deferred, and the shell is only launched later, so this is sent before the shell starts.
-          assert.strictEqual(term.setParentWindow(hostWindow), useConptyDll);
+          assert.strictEqual(term.setParentWindow(handle), useConptyDll);
           const windows = await readWindows(term);
           assert.strictEqual(windows.rootOwner, useConptyDll ? hostWindow : windows.console);
         });
@@ -370,7 +372,7 @@ if (process.platform === 'win32') {
           const term = startPty('powershell.exe', rootOwnerArgs(3000));
           let sent: boolean | undefined;
           // The first data event means the shell is running and conpty has been released.
-          term.once('data', () => sent = term.setParentWindow(BigInt(hostWindow)));
+          term.once('data', () => sent = term.setParentWindow(hostWindow));
           const windows = await readWindows(term);
           assert.strictEqual(sent, useConptyDll);
           assert.strictEqual(windows.rootOwner, useConptyDll ? hostWindow : windows.console);
@@ -387,16 +389,18 @@ if (process.platform === 'win32') {
           assert.strictEqual(term.setParentWindow(0), false);
         });
 
-        it('should reject handles that are not safe integers or bigints that fit in 64 bits', () => {
-          const invalid: Array<[number | bigint, RegExp]> = [
-            [BigInt('18446744073709551616'), /does not fit in 64 bits/],
-            [BigInt('-9223372036854775809'), /does not fit in 64 bits/],
-            [1.5, /must be a safe integer/],
-            [Number.MAX_SAFE_INTEGER + 1, /must be a safe integer/]
+        it('should reject handles that are not non-negative integers that fit in a pointer', () => {
+          const invalid: Array<number | bigint> = [
+            -1,
+            BigInt('-1'),
+            1.5,
+            NaN,
+            Number.MAX_SAFE_INTEGER + 1,
+            BigInt('18446744073709551616')
           ];
           const term = startPty('cmd.exe', []);
-          for (const [handle, error] of invalid) {
-            assert.throws(() => term.setParentWindow(handle), error);
+          for (const handle of invalid) {
+            assert.throws(() => term.setParentWindow(handle), /hwnd must be a non-negative safe integer or a bigint that fits in a pointer/);
           }
         });
       });

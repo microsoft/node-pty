@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <Shlwapi.h> // PathCombine, PathIsRelative
 #include <atomic>
+#include <cmath>
 #include <mutex>
 #include <sstream>
 #include <iostream>
@@ -556,32 +557,51 @@ static Napi::Value PtyClear(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
+// A window handle is a pointer, so it's only valid as a non-negative integer that fits in one.
+static bool TryGetWindowHandle(const Napi::Value& value, HWND* hwnd) {
+  uint64_t handle;
+  if (value.IsBigInt()) {
+    // Not lossless when negative or above 2^64 - 1.
+    bool lossless = false;
+    handle = value.As<Napi::BigInt>().Uint64Value(&lossless);
+    if (!lossless) {
+      return false;
+    }
+  } else if (value.IsNumber()) {
+    // Node-API's integer getters silently truncate fractions, map NaN and Infinity to 0 and lose
+    // precision above 2^53, so validate the double itself.
+    constexpr double maxSafeInteger = 9007199254740991.0;  // Number.MAX_SAFE_INTEGER
+    const double number = value.As<Napi::Number>().DoubleValue();
+    if (!(number >= 0 && number <= maxSafeInteger) || std::trunc(number) != number) {
+      return false;
+    }
+    handle = static_cast<uint64_t>(number);
+  } else {
+    return false;
+  }
+  // Rejects handles that don't round-trip through a pointer, i.e. above 2^32 - 1 in 32-bit builds.
+  const uintptr_t pointer = static_cast<uintptr_t>(handle);
+  if (pointer != handle) {
+    return false;
+  }
+  *hwnd = reinterpret_cast<HWND>(pointer);
+  return true;
+}
+
 static Napi::Value PtyReparent(const Napi::CallbackInfo& info) {
   Napi::Env env(info.Env());
   Napi::HandleScope scope(env);
 
   if (info.Length() != 3 ||
       !info[0].IsNumber() ||
-      !(info[1].IsNumber() || info[1].IsBigInt()) ||
       !info[2].IsBoolean()) {
     throw Napi::Error::New(env, "Usage: pty.reparent(id, hwnd, useConptyDll)");
   }
 
   int id = info[0].As<Napi::Number>().Int32Value();
-  uint64_t hwndValue;
-  if (info[1].IsBigInt()) {
-    // Accept signed and unsigned 64-bit values, but never truncate.
-    const Napi::BigInt hwndBigInt = info[1].As<Napi::BigInt>();
-    bool lossless = false;
-    hwndValue = hwndBigInt.Uint64Value(&lossless);
-    if (!lossless) {
-      hwndValue = static_cast<uint64_t>(hwndBigInt.Int64Value(&lossless));
-    }
-    if (!lossless) {
-      throw Napi::Error::New(env, "pty.reparent: hwnd does not fit in 64 bits");
-    }
-  } else {
-    hwndValue = static_cast<uint64_t>(info[1].As<Napi::Number>().Int64Value());
+  HWND newParent;
+  if (!TryGetWindowHandle(info[1], &newParent)) {
+    throw Napi::Error::New(env, "pty.reparent: hwnd must be a non-negative safe integer or a bigint that fits in a pointer");
   }
   const bool useConptyDll = info[2].As<Napi::Boolean>().Value();
 
@@ -605,7 +625,6 @@ static Napi::Value PtyReparent(const Napi::CallbackInfo& info) {
       {
         // Asks ConPTY to make newParent the owner of the console window returned by
         // GetConsoleWindow(); ConPTY applies it asynchronously.
-        const HWND newParent = reinterpret_cast<HWND>(static_cast<uintptr_t>(hwndValue));
         sent = SUCCEEDED(pfnReparentPseudoConsole(handle->hpc, newParent));
       }
     }
