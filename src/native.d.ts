@@ -7,6 +7,7 @@ interface IConptyNative {
   connect(ptyId: number, commandLine: string, cwd: string, env: string[], useConptyDll: boolean, onExitCallback: (exitCode: number) => void): { pid: number };
   resize(ptyId: number, cols: number, rows: number, useConptyDll: boolean): void;
   clear(ptyId: number, useConptyDll: boolean): void;
+  reparent(ptyId: number, hwnd: Buffer, useConptyDll: boolean): boolean;
   kill(ptyId: number, useConptyDll: boolean): void;
 }
 

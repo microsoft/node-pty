@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <Shlwapi.h> // PathCombine, PathIsRelative
 #include <atomic>
+#include <cstring>
 #include <mutex>
 #include <sstream>
 #include <iostream>
@@ -39,6 +40,9 @@ typedef void (__stdcall *PFNCLOSEPSEUDOCONSOLE)(HPCON hpc);
 typedef void (__stdcall *PFNRELEASEPSEUDOCONSOLE)(HPCON hpc);
 
 #endif
+
+// Only exported by the bundled conpty.dll; kernel32 has no equivalent.
+typedef HRESULT (__stdcall *PFNREPARENTPSEUDOCONSOLE)(HPCON hpc, HWND newParent);
 
 struct pty_baton {
   int id;
@@ -495,7 +499,7 @@ static Napi::Value PtyResize(const Napi::CallbackInfo& info) {
   std::lock_guard<std::mutex> lock(g_ptyHandlesMutex);
   const pty_baton* handle = get_pty_baton(lock, id);
 
-  if (handle != nullptr) {
+  if (handle != nullptr && handle->hpc != nullptr) {
     HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
@@ -537,7 +541,7 @@ static Napi::Value PtyClear(const Napi::CallbackInfo& info) {
   std::lock_guard<std::mutex> lock(g_ptyHandlesMutex);
   const pty_baton* handle = get_pty_baton(lock, id);
 
-  if (handle != nullptr) {
+  if (handle != nullptr && handle->hpc != nullptr) {
     HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
@@ -551,6 +555,65 @@ static Napi::Value PtyClear(const Napi::CallbackInfo& info) {
   }
 
   return env.Undefined();
+}
+
+// The handle is the bytes of an HWND in native byte order, which is how Electron's
+// BrowserWindow.getNativeWindowHandle() returns it.
+static bool TryGetWindowHandle(const Napi::Value& value, HWND* hwnd) {
+  if (!value.IsBuffer()) {
+    return false;
+  }
+  const auto buffer = value.As<Napi::Buffer<uint8_t>>();
+  if (buffer.Length() != sizeof(HWND)) {
+    return false;
+  }
+  std::memcpy(hwnd, buffer.Data(), sizeof(*hwnd));
+  return true;
+}
+
+static Napi::Value PtyReparent(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
+
+  if (info.Length() != 3 ||
+      !info[0].IsNumber() ||
+      !info[2].IsBoolean()) {
+    throw Napi::Error::New(env, "Usage: pty.reparent(id, hwnd, useConptyDll)");
+  }
+
+  int id = info[0].As<Napi::Number>().Int32Value();
+  HWND newParent;
+  if (!TryGetWindowHandle(info[1], &newParent)) {
+    throw Napi::Error::New(env, "pty.reparent: hwnd must be a Buffer the size of an HWND");
+  }
+  const bool useConptyDll = info[2].As<Napi::Boolean>().Value();
+
+  // ConptyReparentPseudoConsole only exists in the bundled conpty.dll.
+  if (!useConptyDll) {
+    return Napi::Boolean::New(env, false);
+  }
+
+  std::lock_guard<std::mutex> lock(g_ptyHandlesMutex);
+  const pty_baton* handle = get_pty_baton(lock, id);
+
+  bool sent = false;
+  if (handle != nullptr && handle->hpc != nullptr) {
+    HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
+    bool fLoadedDll = hLibrary != nullptr;
+    if (fLoadedDll)
+    {
+      PFNREPARENTPSEUDOCONSOLE const pfnReparentPseudoConsole = (PFNREPARENTPSEUDOCONSOLE)GetProcAddress(
+        (HMODULE)hLibrary, "ConptyReparentPseudoConsole");
+      if (pfnReparentPseudoConsole)
+      {
+        // Asks ConPTY to make newParent the owner of the console window returned by
+        // GetConsoleWindow(); ConPTY applies it asynchronously.
+        sent = SUCCEEDED(pfnReparentPseudoConsole(handle->hpc, newParent));
+      }
+    }
+  }
+
+  return Napi::Boolean::New(env, sent);
 }
 
 static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
@@ -577,9 +640,11 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
       PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress(
         (HMODULE)hLibrary,
         useConptyDll ? "ConptyClosePseudoConsole" : "ClosePseudoConsole");
-      if (pfnClosePseudoConsole)
+      if (pfnClosePseudoConsole && handle->hpc != nullptr)
       {
         pfnClosePseudoConsole(handle->hpc);
+        // Closing frees the pseudoconsole, but the baton lives until the exit thread erases it.
+        handle->hpc = nullptr;
       }
     }
     // Defensive: if PtyConnect was never called (or failed before closing the
@@ -609,6 +674,7 @@ Napi::Object init(Napi::Env env, Napi::Object exports) {
   exports.Set("connect", Napi::Function::New(env, PtyConnect));
   exports.Set("resize", Napi::Function::New(env, PtyResize));
   exports.Set("clear", Napi::Function::New(env, PtyClear));
+  exports.Set("reparent", Napi::Function::New(env, PtyReparent));
   exports.Set("kill", Napi::Function::New(env, PtyKill));
   return exports;
 };

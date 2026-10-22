@@ -180,6 +180,7 @@ export abstract class Terminal implements ITerminal {
 
   public abstract resize(cols: number, rows: number, pixelSize?: { width: number, height: number }): void;
   public abstract clear(): void;
+  public abstract setParentWindow(handle: Buffer): boolean;
   public abstract destroy(): void;
   public abstract kill(signal?: string): void;
 

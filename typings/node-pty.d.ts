@@ -174,6 +174,23 @@ declare module 'node-pty' {
     clear(): void;
 
     /**
+     * Sets the handle (HWND) of the top-level window that hosts this terminal. ConPTY makes it the
+     * owner of the console window returned by `GetConsoleWindow()`, so windows that console
+     * applications parent to it (for example `GetAncestor(GetConsoleWindow(), GA_ROOTOWNER)`, which
+     * MSAL/WAM sign-in uses) open on top of the host window instead of behind it. Calling it right
+     * after spawning sends the request before the process is launched. Call it again whenever the
+     * terminal moves to a different window. Optional so existing implementations of `IPty` keep
+     * compiling.
+     * @param handle The window handle (HWND) as its bytes in native byte order, the way Electron's
+     * `BrowserWindow.getNativeWindowHandle()` returns it. Throws unless it's a Buffer the size of
+     * an HWND (8 bytes in a 64-bit process).
+     * @returns Whether the request was sent to ConPTY, which applies it asynchronously. This is
+     * always false unless on Windows with `useConptyDll`, and false once the pseudoconsole is
+     * closed.
+     */
+    setParentWindow?(handle: Buffer): boolean;
+
+    /**
      * Writes data to the pty.
      * @param data The data to write.
      */

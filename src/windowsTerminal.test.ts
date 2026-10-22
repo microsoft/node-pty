@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as assert from 'assert';
 import { WindowsTerminal } from './windowsTerminal';
+import { IWindowsPtyForkOptions } from './interfaces';
 import * as path from 'path';
 import * as psList from 'ps-list';
 
@@ -283,14 +284,134 @@ if (process.platform === 'win32') {
         });
       });
 
+      describe('parent window', () => {
+        const user32 = `Add-Type -Namespace NodePtyTest -Name W -MemberDefinition '[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow(); [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint f); public static ulong U(IntPtr h) { return unchecked((ulong)h.ToInt64()); }'`;
+
+        function scriptArgs(...lines: string[]): string {
+          return `-NoProfile -NonInteractive -EncodedCommand ${Buffer.from([user32, ...lines].join('; '), 'utf16le').toString('base64')}`;
+        }
+
+        // Prints the console window and GetAncestor(GetConsoleWindow(), GA_ROOTOWNER), which is the
+        // parent MSAL/WAM uses for sign-in dialogs. Handles are pointers, so print them unsigned.
+        function rootOwnerArgs(delayMs: number, keepAliveSeconds: number = 0): string {
+          return scriptArgs(
+            `Start-Sleep -Milliseconds ${delayMs}`,
+            `$c = [NodePtyTest.W]::GetConsoleWindow()`,
+            `Write-Host ('console=' + [NodePtyTest.W]::U($c) + ' rootOwner=' + [NodePtyTest.W]::U([NodePtyTest.W]::GetAncestor($c, 3)) + ' end')`,
+            `Start-Sleep -Seconds ${keepAliveSeconds}`
+          );
+        }
+
+        const started: Array<{ exited: Promise<void>, kill: () => void }> = [];
+
+        function startPty(file: string, args: string | string[], options: IWindowsPtyForkOptions = {}): WindowsTerminal {
+          const term = new WindowsTerminal(file, args, { useConptyDll, ...options });
+          let hasExited = false;
+          const exited = new Promise<void>(resolve => term.once('exit', () => {
+            hasExited = true;
+            resolve();
+          }));
+          started.push({
+            exited,
+            kill: () => {
+              if (!hasExited) {
+                term.kill();
+              }
+            }
+          });
+          return term;
+        }
+
+        // Kill and wait for every pty, even after a failed test: ptys left running can keep mocha
+        // from exiting.
+        afterEach(async function (): Promise<void> {
+          this.timeout(30000);
+          const ptys = started.splice(0);
+          ptys.forEach(pty => pty.kill());
+          await Promise.all(ptys.map(pty => pty.exited));
+        });
+
+        function readOutput(term: WindowsTerminal, pattern: RegExp): Promise<RegExpExecArray> {
+          return new Promise(resolve => {
+            let output = '';
+            term.on('data', (data) => {
+              output += data;
+              const match = pattern.exec(output);
+              if (match) {
+                resolve(match);
+              }
+            });
+          });
+        }
+
+        async function readWindows(term: WindowsTerminal): Promise<{ console: bigint, rootOwner: bigint }> {
+          const match = await readOutput(term, /console=(\d+) rootOwner=(\d+) end/);
+          return { console: BigInt(match[1]), rootOwner: BigInt(match[2]) };
+        }
+
+        // Another pty's hidden top-level console window stands in for the host app's window.
+        async function startHostWindow(): Promise<bigint> {
+          return (await readWindows(startPty('powershell.exe', rootOwnerArgs(0, 60)))).console;
+        }
+
+        // An HWND the way setParentWindow takes it, like Electron's getNativeWindowHandle(): its bytes
+        // in native byte order. The tests run in 64-bit processes.
+        function toHandle(hwnd: bigint): Buffer {
+          const handle = Buffer.alloc(8);
+          handle.writeBigUInt64LE(hwnd);
+          return handle;
+        }
+
+        it('should make the window the owner of the console window when set right after spawn', async function (): Promise<void> {
+          this.timeout(60000);
+          const hostWindow = await startHostWindow();
+          const term = startPty('powershell.exe', rootOwnerArgs(0));
+          // Not deferred, and the shell is only launched later, so this is sent before the shell starts.
+          assert.strictEqual(term.setParentWindow(toHandle(hostWindow)), useConptyDll);
+          const windows = await readWindows(term);
+          assert.strictEqual(windows.rootOwner, useConptyDll ? hostWindow : windows.console);
+        });
+
+        it('should change the owner when setParentWindow is called while the shell runs', async function (): Promise<void> {
+          this.timeout(60000);
+          const hostWindow = await startHostWindow();
+          const term = startPty('powershell.exe', rootOwnerArgs(3000));
+          let sent: boolean | undefined;
+          // The first data event means the shell is running and conpty has been released.
+          term.once('data', () => sent = term.setParentWindow(toHandle(hostWindow)));
+          const windows = await readWindows(term);
+          assert.strictEqual(sent, useConptyDll);
+          assert.strictEqual(windows.rootOwner, useConptyDll ? hostWindow : windows.console);
+        });
+
+        it('should not send setParentWindow once the pseudoconsole is closed', async function (): Promise<void> {
+          this.timeout(20000);
+          const term = startPty('cmd.exe', []);
+          const exited = new Promise<void>(resolve => term.once('exit', () => resolve()));
+          await new Promise<void>(resolve => term.once('data', () => resolve()));
+          term.kill();
+          assert.strictEqual(term.setParentWindow(Buffer.alloc(8)), false);
+          await exited;
+          assert.strictEqual(term.setParentWindow(Buffer.alloc(8)), false);
+        });
+
+        it('should reject handles that are not buffers the size of an HWND', () => {
+          const invalid: unknown[] = [Buffer.alloc(4), Buffer.alloc(9), Buffer.alloc(0), 1, BigInt(1), '0x1234', undefined];
+          const term = startPty('cmd.exe', []);
+          for (const handle of invalid) {
+            assert.throws(() => term.setParentWindow(handle as Buffer), /hwnd must be a Buffer the size of an HWND/);
+          }
+        });
+      });
       describe('Regression for #921', () => {
-        it('should not crash with concurrent kills while resizing/clearing', function (done) {
+        it('should not crash with concurrent kills while resizing/clearing/reparenting', function (done) {
           this.timeout(60000);
           const N = 30;
           const terms: WindowsTerminal[] = [];
           let ready = 0;
           let exited = 0;
           let spamInterval: NodeJS.Timeout | undefined;
+          const noWindow = Buffer.alloc(8);
           const cleanup = (err?: Error): void => {
             if (spamInterval) {
               clearInterval(spamInterval);
@@ -306,6 +427,9 @@ if (process.platform === 'win32') {
                 } catch (e) { /* already exited */ }
                 try {
                   t.clear();
+                } catch (e) { /* already exited */ }
+                try {
+                  t.setParentWindow(noWindow);
                 } catch (e) { /* already exited */ }
               }
             }, 1);

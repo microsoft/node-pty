@@ -163,6 +163,12 @@ export class WindowsTerminal extends Terminal {
     });
   }
 
+  public setParentWindow(handle: Buffer): boolean {
+    // Not deferred: the pseudoconsole exists as soon as the agent is created, and the owner
+    // should be requested before the shell starts asking for it.
+    return this._agent.setParentWindow(handle);
+  }
+
   public destroy(): void {
     this._deferNoArgs(() => {
       this.kill();

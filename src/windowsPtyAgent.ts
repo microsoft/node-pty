@@ -193,6 +193,16 @@ export class WindowsPtyAgent {
     this._ptyNative.clear(this._pty, this._useConptyDll);
   }
 
+  /**
+   * Tells ConPTY which top-level window hosts the terminal (ConptyReparentPseudoConsole). The
+   * window becomes the owner of the console window returned by GetConsoleWindow(), so dialogs
+   * that console apps parent to it (e.g. WAM sign-in) stack above the host window. Returns
+   * whether the request was sent to ConPTY, which applies it asynchronously.
+   */
+  public setParentWindow(handle: Buffer): boolean {
+    return this._ptyNative.reparent(this._pty, handle, this._useConptyDll);
+  }
+
   public kill(): void {
     // Prevent deferred connection from completing after kill
     this._clearConnectionTimeout();
