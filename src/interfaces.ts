@@ -44,7 +44,7 @@ export interface ITerminal {
    * Sets the top-level window (HWND) that hosts this terminal. Returns whether the request was sent
    * to ConPTY, which only happens on Windows with `useConptyDll`.
    */
-  setParentWindow(handle: number | bigint): boolean;
+  setParentWindow(handle: Buffer): boolean;
 
   /**
    * Close, kill and destroy the socket.

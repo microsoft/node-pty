@@ -199,7 +199,7 @@ export class WindowsPtyAgent {
    * that console apps parent to it (e.g. WAM sign-in) stack above the host window. Returns
    * whether the request was sent to ConPTY, which applies it asynchronously.
    */
-  public setParentWindow(handle: number | bigint): boolean {
+  public setParentWindow(handle: Buffer): boolean {
     return this._ptyNative.reparent(this._pty, handle, this._useConptyDll);
   }
 

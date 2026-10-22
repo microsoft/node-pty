@@ -354,14 +354,20 @@ if (process.platform === 'win32') {
           return (await readWindows(startPty('powershell.exe', rootOwnerArgs(0, 60)))).console;
         }
 
+        // An HWND the way setParentWindow takes it, like Electron's getNativeWindowHandle(): its bytes
+        // in native byte order. The tests run in 64-bit processes.
+        function toHandle(hwnd: bigint): Buffer {
+          const handle = Buffer.alloc(8);
+          handle.writeBigUInt64LE(hwnd);
+          return handle;
+        }
+
         it('should make the window the owner of the console window when set right after spawn', async function (): Promise<void> {
           this.timeout(60000);
           const hostWindow = await startHostWindow();
-          // Pass a number when it's exact, so both the number and the bigint path are covered.
-          const handle = hostWindow <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(hostWindow) : hostWindow;
           const term = startPty('powershell.exe', rootOwnerArgs(0));
           // Not deferred, and the shell is only launched later, so this is sent before the shell starts.
-          assert.strictEqual(term.setParentWindow(handle), useConptyDll);
+          assert.strictEqual(term.setParentWindow(toHandle(hostWindow)), useConptyDll);
           const windows = await readWindows(term);
           assert.strictEqual(windows.rootOwner, useConptyDll ? hostWindow : windows.console);
         });
@@ -372,7 +378,7 @@ if (process.platform === 'win32') {
           const term = startPty('powershell.exe', rootOwnerArgs(3000));
           let sent: boolean | undefined;
           // The first data event means the shell is running and conpty has been released.
-          term.once('data', () => sent = term.setParentWindow(hostWindow));
+          term.once('data', () => sent = term.setParentWindow(toHandle(hostWindow)));
           const windows = await readWindows(term);
           assert.strictEqual(sent, useConptyDll);
           assert.strictEqual(windows.rootOwner, useConptyDll ? hostWindow : windows.console);
@@ -384,23 +390,16 @@ if (process.platform === 'win32') {
           const exited = new Promise<void>(resolve => term.once('exit', () => resolve()));
           await new Promise<void>(resolve => term.once('data', () => resolve()));
           term.kill();
-          assert.strictEqual(term.setParentWindow(0), false);
+          assert.strictEqual(term.setParentWindow(Buffer.alloc(8)), false);
           await exited;
-          assert.strictEqual(term.setParentWindow(0), false);
+          assert.strictEqual(term.setParentWindow(Buffer.alloc(8)), false);
         });
 
-        it('should reject handles that are not non-negative safe integers or bigints that fit in a pointer', () => {
-          const invalid: Array<number | bigint> = [
-            -1,
-            BigInt('-1'),
-            1.5,
-            NaN,
-            Number.MAX_SAFE_INTEGER + 1,
-            BigInt('18446744073709551616')
-          ];
+        it('should reject handles that are not buffers the size of an HWND', () => {
+          const invalid: unknown[] = [Buffer.alloc(4), Buffer.alloc(9), Buffer.alloc(0), 1, BigInt(1), '0x1234', undefined];
           const term = startPty('cmd.exe', []);
           for (const handle of invalid) {
-            assert.throws(() => term.setParentWindow(handle), /hwnd must be a non-negative safe integer or a bigint that fits in a pointer/);
+            assert.throws(() => term.setParentWindow(handle as Buffer), /hwnd must be a Buffer the size of an HWND/);
           }
         });
       });
@@ -412,6 +411,7 @@ if (process.platform === 'win32') {
           let ready = 0;
           let exited = 0;
           let spamInterval: NodeJS.Timeout | undefined;
+          const noWindow = Buffer.alloc(8);
           const cleanup = (err?: Error): void => {
             if (spamInterval) {
               clearInterval(spamInterval);
@@ -429,7 +429,7 @@ if (process.platform === 'win32') {
                   t.clear();
                 } catch (e) { /* already exited */ }
                 try {
-                  t.setParentWindow(0);
+                  t.setParentWindow(noWindow);
                 } catch (e) { /* already exited */ }
               }
             }, 1);

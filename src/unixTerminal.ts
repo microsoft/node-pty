@@ -283,7 +283,7 @@ export class UnixTerminal extends Terminal {
 
   }
 
-  public setParentWindow(handle: number | bigint): boolean {
+  public setParentWindow(handle: Buffer): boolean {
     // Windows only
     return false;
   }

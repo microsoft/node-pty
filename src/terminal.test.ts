@@ -32,7 +32,7 @@ class TestTerminal extends Terminal {
   public clear(): void {
     throw new Error('Method not implemented.');
   }
-  public setParentWindow(handle: number | bigint): boolean {
+  public setParentWindow(handle: Buffer): boolean {
     throw new Error('Method not implemented.');
   }
   public destroy(): void {
