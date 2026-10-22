@@ -257,6 +257,7 @@ Napi::Value PtyFork(const Napi::CallbackInfo& info);
 Napi::Value PtyOpen(const Napi::CallbackInfo& info);
 Napi::Value PtyResize(const Napi::CallbackInfo& info);
 Napi::Value PtyGetProc(const Napi::CallbackInfo& info);
+Napi::Value PtyGetForegroundPid(const Napi::CallbackInfo& info);
 
 /**
  * Functions
@@ -621,6 +622,30 @@ Napi::Value PtyGetProc(const Napi::CallbackInfo& info) {
 }
 
 /**
+ * Foreground Process Group PID
+ *
+ * Returns the pid of the foreground process group attached to the pty
+ * referenced by `fd`, or undefined if the lookup fails. Cross-platform
+ * (Linux + macOS) — wraps tcgetpgrp(3), which is what `process` already
+ * calls internally to resolve the foreground process name.
+ */
+Napi::Value PtyGetForegroundPid(const Napi::CallbackInfo& info) {
+  Napi::Env env(info.Env());
+  Napi::HandleScope scope(env);
+
+  if (info.Length() != 1 || !info[0].IsNumber()) {
+    throw Napi::Error::New(env, "Usage: pty.foregroundPid(fd)");
+  }
+
+  int fd = info[0].As<Napi::Number>().Int32Value();
+  pid_t pgrp = tcgetpgrp(fd);
+  if (pgrp == -1) {
+    return env.Undefined();
+  }
+  return Napi::Number::New(env, static_cast<double>(pgrp));
+}
+
+/**
  * Nonblocking FD
  */
 
@@ -870,6 +895,7 @@ Napi::Object init(Napi::Env env, Napi::Object exports) {
   exports.Set("open",    Napi::Function::New(env, PtyOpen));
   exports.Set("resize",  Napi::Function::New(env, PtyResize));
   exports.Set("process", Napi::Function::New(env, PtyGetProc));
+  exports.Set("foregroundPid", Napi::Function::New(env, PtyGetForegroundPid));
   return exports;
 }
 

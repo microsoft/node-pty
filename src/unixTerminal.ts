@@ -173,6 +173,11 @@ export class UnixTerminal extends Terminal {
   /* Accessors */
   get fd(): number { return this._fd; }
   get ptsName(): string { return this._pty; }
+  /**
+   * Pid of the foreground process group attached to the pty, or undefined
+   * if the lookup fails (e.g. the pty has exited). Wraps tcgetpgrp(3).
+   */
+  get foregroundPid(): number | undefined { return pty.foregroundPid(this._fd); }
 
   /**
    * openpty
