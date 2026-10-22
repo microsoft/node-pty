@@ -568,8 +568,8 @@ static bool TryGetWindowHandle(const Napi::Value& value, HWND* hwnd) {
       return false;
     }
   } else if (value.IsNumber()) {
-    // Node-API's integer getters silently truncate fractions, map NaN and Infinity to 0 and lose
-    // precision above 2^53, so validate the double itself.
+    // Napi::Number::Int64Value() silently truncates fractions, maps NaN and Infinity to 0 and
+    // loses precision past Number.MAX_SAFE_INTEGER, so validate the double itself.
     constexpr double maxSafeInteger = 9007199254740991.0;  // Number.MAX_SAFE_INTEGER
     const double number = value.As<Napi::Number>().DoubleValue();
     if (!(number >= 0 && number <= maxSafeInteger) || std::trunc(number) != number) {

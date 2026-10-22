@@ -389,7 +389,7 @@ if (process.platform === 'win32') {
           assert.strictEqual(term.setParentWindow(0), false);
         });
 
-        it('should reject handles that are not non-negative integers that fit in a pointer', () => {
+        it('should reject handles that are not non-negative safe integers or bigints that fit in a pointer', () => {
           const invalid: Array<number | bigint> = [
             -1,
             BigInt('-1'),
