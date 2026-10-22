@@ -118,6 +118,7 @@ interface IBasePtyForkOptions {
 export interface IPtyForkOptions extends IBasePtyForkOptions {
   uid?: number;
   gid?: number;
+  argv0?: string;
 }
 
 export interface IWindowsPtyForkOptions extends IBasePtyForkOptions {
