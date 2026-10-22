@@ -495,7 +495,7 @@ static Napi::Value PtyResize(const Napi::CallbackInfo& info) {
   std::lock_guard<std::mutex> lock(g_ptyHandlesMutex);
   const pty_baton* handle = get_pty_baton(lock, id);
 
-  if (handle != nullptr) {
+  if (handle != nullptr && handle->hpc != nullptr) {
     HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
@@ -537,7 +537,7 @@ static Napi::Value PtyClear(const Napi::CallbackInfo& info) {
   std::lock_guard<std::mutex> lock(g_ptyHandlesMutex);
   const pty_baton* handle = get_pty_baton(lock, id);
 
-  if (handle != nullptr) {
+  if (handle != nullptr && handle->hpc != nullptr) {
     HANDLE hLibrary = LoadConptyDll(info, useConptyDll);
     bool fLoadedDll = hLibrary != nullptr;
     if (fLoadedDll)
@@ -577,9 +577,12 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
       PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress(
         (HMODULE)hLibrary,
         useConptyDll ? "ConptyClosePseudoConsole" : "ClosePseudoConsole");
-      if (pfnClosePseudoConsole)
+      if (pfnClosePseudoConsole && handle->hpc != nullptr)
       {
         pfnClosePseudoConsole(handle->hpc);
+        // The handle stays in ptyHandles until the exit watcher erases it, so
+        // null hpc to keep a later call from using the closed pseudoconsole.
+        handle->hpc = nullptr;
       }
     }
     // Defensive: if PtyConnect was never called (or failed before closing the
