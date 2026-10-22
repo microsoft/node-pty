@@ -37,12 +37,12 @@ extends:
   parameters:
     npmPackages:
       - name: node-pty
-        nodeVersion: '24.18.0'
+        nodeVersion: '24.22.1'
 
         testPlatforms:
           - name: Linux
             nodeVersions:
-              - '24.18.0'
+              - '24.22.1'
             useSysroot: true
 
         buildSteps:
