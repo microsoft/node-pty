@@ -47,6 +47,8 @@ struct pty_baton {
   HPCON hpc;
 
   HANDLE hShell = nullptr;
+  // How to close hpc, for the exit watcher, which has no useConptyDll of its own
+  PFNCLOSEPSEUDOCONSOLE pfnClosePseudoConsole = nullptr;
 
   pty_baton(int _id, HANDLE _hIn, HANDLE _hOut, HPCON _hpc) : id(_id), hIn(_hIn), hOut(_hOut), hpc(_hpc) {};
 };
@@ -69,6 +71,10 @@ static pty_baton* get_pty_baton(const std::lock_guard<std::mutex>&, int id) {
 
 struct ExitEvent {
   int exit_code = 0;
+  // The pseudoconsole a shell that exited on its own leaves open, null if
+  // kill() closed it first
+  HPCON hpc = nullptr;
+  PFNCLOSEPSEUDOCONSOLE pfnClosePseudoConsole = nullptr;
 };
 
 void SetupExitCallback(Napi::Env env, Napi::Function cb, pty_baton* baton) {
@@ -87,6 +93,23 @@ void SetupExitCallback(Napi::Env env, Napi::Function cb, pty_baton* baton) {
   *th = std::thread([tsfn = std::move(tsfn), baton] {
     auto callback = [](Napi::Env env, Napi::Function cb, ExitEvent *exit_event) {
       cb.Call({Napi::Number::New(env, exit_event->exit_code)});
+      // Closed only once JS has the exit code, so it has it before the output
+      // pipe closes, and on a thread of its own: before Windows 11 24H2,
+      // ClosePseudoConsole waits until the output pipe is drained, and a paused
+      // pty's output drains only as the main thread reads it.
+      if (exit_event->hpc != nullptr && exit_event->pfnClosePseudoConsole != nullptr) {
+        // The thread runs this module's code, so pin the module: a Worker that
+        // loaded node-pty unloads it when it ends, maybe mid-close.
+        static std::once_flag pinned;
+        std::call_once(pinned, [] {
+          HMODULE module;
+          GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_PIN | GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+                             reinterpret_cast<LPCWSTR>(&SetupExitCallback), &module);
+        });
+        std::thread([hpc = exit_event->hpc, pfnClose = exit_event->pfnClosePseudoConsole] {
+          pfnClose(hpc);
+        }).detach();
+      }
       delete exit_event;
     };
 
@@ -97,6 +120,11 @@ void SetupExitCallback(Napi::Env env, Napi::Function cb, pty_baton* baton) {
       std::lock_guard<std::mutex> lock(g_ptyHandlesMutex);
       GetExitCodeProcess(baton->hShell, (LPDWORD)(&exit_event->exit_code));
       CloseHandle(baton->hShell);
+      // kill() can't find the baton once it's erased, so the exit callback
+      // closes the pseudoconsole unless kill() already has.
+      exit_event->hpc = baton->hpc;
+      exit_event->pfnClosePseudoConsole = baton->pfnClosePseudoConsole;
+      baton->hpc = nullptr;
       const int id = baton->id;
       std::erase_if(ptyHandles, [id](const auto& ptyHandle) {
         return ptyHandle->id == id;
@@ -459,6 +487,13 @@ static Napi::Value PtyConnect(const Napi::CallbackInfo& info) {
     }
   }
 
+  if (fLoadedDll)
+  {
+    handle->pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress(
+      (HMODULE)hLibrary,
+      useConptyDll ? "ConptyClosePseudoConsole" : "ClosePseudoConsole");
+  }
+
   // Update handle
   handle->hShell = piClient.hProcess;
 
@@ -577,9 +612,12 @@ static Napi::Value PtyKill(const Napi::CallbackInfo& info) {
       PFNCLOSEPSEUDOCONSOLE const pfnClosePseudoConsole = (PFNCLOSEPSEUDOCONSOLE)GetProcAddress(
         (HMODULE)hLibrary,
         useConptyDll ? "ConptyClosePseudoConsole" : "ClosePseudoConsole");
-      if (pfnClosePseudoConsole)
+      if (pfnClosePseudoConsole && handle->hpc != nullptr)
       {
         pfnClosePseudoConsole(handle->hpc);
+        // The handle stays in ptyHandles until the exit watcher erases it, so
+        // null hpc to keep a later call from using the closed pseudoconsole.
+        handle->hpc = nullptr;
       }
     }
     // Defensive: if PtyConnect was never called (or failed before closing the
