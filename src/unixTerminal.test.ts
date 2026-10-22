@@ -124,6 +124,67 @@ if (process.platform !== 'win32') {
         term.destroy();
       });
     });
+    describe('EAGAIN backpressure', () => {
+      let realWrite: typeof fs.write;
+
+      beforeEach(() => {
+        realWrite = fs.write;
+      });
+
+      afterEach(() => {
+        (fs as any).write = realWrite;
+      });
+
+      it('should pace retries when the fd keeps returning EAGAIN', (done) => {
+        const term = new UnixTerminal('node', [ '-e', 'setInterval(() => {}, 1000)' ]);
+        let attempts = 0;
+        (fs as any).write = (fd: number, buf: Buffer, offset: number, cb: Function): void => {
+          attempts++;
+          const err: any = new Error('EAGAIN');
+          err.code = 'EAGAIN';
+          process.nextTick(() => cb(err));
+        };
+
+        term.write('trigger');
+        setTimeout(() => {
+          (fs as any).write = realWrite;
+          term.destroy();
+          // At 5ms pacing this is ~20 attempts in 100ms. An immediate re-attempt
+          // produces tens of thousands, which is the busy-loop being fixed.
+          assert.ok(attempts > 0, 'expected the EAGAIN path to be exercised');
+          assert.ok(attempts < 100, `expected paced retries, got ${attempts} attempts in 100ms`);
+          done();
+        }, 100);
+      });
+
+      it('should not write after dispose while a write is in flight', (done) => {
+        const term = new UnixTerminal('node', [ '-e', 'setInterval(() => {}, 1000)' ]);
+        let attempts = 0;
+        let release: (() => void) | undefined;
+        (fs as any).write = (fd: number, buf: Buffer, offset: number, cb: Function): void => {
+          attempts++;
+          const err: any = new Error('EAGAIN');
+          err.code = 'EAGAIN';
+          // Hold the completion so it lands *after* dispose, as a real in-flight
+          // write on the libuv threadpool would.
+          release = () => cb(err);
+        };
+
+        term.write('trigger');
+        setTimeout(() => {
+          const before = attempts;
+          term.destroy();
+          release!();
+          setTimeout(() => {
+            (fs as any).write = realWrite;
+            assert.strictEqual(attempts, before,
+              'a write was issued after dispose; the in-flight completion re-armed the retry');
+            done();
+          }, 50);
+        }, 20);
+      });
+    });
+
     describe('signals in parent and child', () => {
       it('SIGINT - custom in parent and child', done => {
         // this test is cumbersome - we have to run it in a sub process to
