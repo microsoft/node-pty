@@ -22,6 +22,7 @@ class TestConoutConnection implements IConoutConnection {
 
   public connectSocketCallCount = 0;
   public isDisposed = false;
+  public disposeCallCount = 0;
 
   public connectSocket(socket: Socket): void {
     void socket;
@@ -30,6 +31,7 @@ class TestConoutConnection implements IConoutConnection {
 
   public dispose(): void {
     this.isDisposed = true;
+    this.disposeCallCount++;
   }
 
   public fireReady(): void {
@@ -186,6 +188,26 @@ if (process.platform === 'win32') {
         assert.strictEqual(connection.connectSocketCallCount, 0);
         assert.strictEqual(connection.isDisposed, true);
         assert.strictEqual(term.innerPid, 0);
+      });
+
+      it('should start draining the bundled ConPTY worker even when kill produces no output', () => {
+        const connection = new TestConoutConnection();
+        const term = new WindowsPtyAgent(
+          'cmd.exe', [], Object.keys(process.env).map(k => `${k}=${process.env[k]}`),
+          process.cwd(), 80, 30, false, true, false,
+          createTestAgentOptions(connection, 1000)
+        );
+        try {
+          term.kill();
+          assert.strictEqual(connection.disposeCallCount, 1, 'kill must not wait for another data event to start cleanup');
+          connection.fireReady();
+          assert.strictEqual(connection.connectSocketCallCount, 0, 'late readiness must not start the killed terminal');
+          term.outSocket.emit('data', 'trailing output');
+          assert.strictEqual(connection.disposeCallCount, 2, 'trailing output must restart the drain timeout');
+        } finally {
+          term.inSocket.destroy();
+          term.outSocket.destroy();
+        }
       });
 
       it('should ignore worker events after kill before readiness', () => {

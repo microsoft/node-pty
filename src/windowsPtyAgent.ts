@@ -220,6 +220,8 @@ export class WindowsPtyAgent {
       this._outSocket.on('data', () => {
         this._conoutSocketWorker.dispose();
       });
+      // Start the drain timeout even when the terminal produces no more output.
+      this._conoutSocketWorker.dispose();
     }
   }
 
