@@ -65,8 +65,8 @@ extends:
             displayName: 'Ensure spawn-helper is executable'
           - script: npm ci
             displayName: 'Install dependencies and build'
-          # Version selection queries the configured Monaco feed, so a failed mirror retry reuses
-          # the missing beta version instead of skipping it. Stable releases remain unchanged.
+          # The following script leaves the version unchanged for
+          # stable releases, but increments the version for beta releases.
           - script: node scripts/increment-version.js
             displayName: 'Increment version'
 
