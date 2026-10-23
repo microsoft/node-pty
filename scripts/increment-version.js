@@ -42,6 +42,7 @@ function getNextBetaVersion() {
 }
 
 function getPublishedVersions(version, tag) {
+  // npm uses the registry configured by the publishing pipeline, so beta numbering follows that feed.
   const isWin32 = process.platform === 'win32';
   const versionsProcess = isWin32 ?
     cp.spawnSync('npm.cmd', ['view', packageJson.name, 'versions', '--json'], { shell: true }) :
