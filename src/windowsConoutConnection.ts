@@ -54,7 +54,11 @@ export class ConoutConnection implements IConoutConnection {
       conoutPipeName: _conoutPipeName
     };
     const scriptPath = __dirname.replace('node_modules.asar', 'node_modules.asar.unpacked');
-    this._worker = new Worker(join(scriptPath, 'worker/conoutSocketWorker.js'), { workerData });
+    // Pass an empty execArgv. Node defaults a worker's execArgv to
+    // process.execArgv, so without this the host's --require/--loader flags are
+    // replayed in this helper, where the host's globals do not exist. It needs
+    // no flags of its own: it only pumps the conout pipe.
+    this._worker = new Worker(join(scriptPath, 'worker/conoutSocketWorker.js'), { workerData, execArgv: [] });
     this._worker.on('message', (message: ConoutWorkerMessage) => {
       switch (message) {
         case ConoutWorkerMessage.READY:
