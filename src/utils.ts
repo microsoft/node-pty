@@ -4,7 +4,13 @@
  */
 
 export function assign(target: any, ...sources: any[]): any {
-  sources.forEach(source => Object.keys(source).forEach(key => target[key] = source[key]));
+  // defineProperty, not assignment: assigning to an own `__proto__` key would run the prototype setter.
+  sources.forEach(source => Object.keys(source).forEach(key => Object.defineProperty(target, key, {
+    value: source[key],
+    enumerable: true,
+    writable: true,
+    configurable: true
+  })));
   return target;
 }
 
