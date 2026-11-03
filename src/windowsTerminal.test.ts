@@ -239,6 +239,28 @@ if (process.platform === 'win32') {
         });
       });
 
+      describe('relative file', () => {
+        it('should resolve a file that also exists in the process cwd', function (done) {
+          this.timeout(10000);
+          const originalCwd = process.cwd();
+          process.chdir(path.join(process.env.windir!, 'System32'));
+          let term: WindowsTerminal;
+          try {
+            term = new WindowsTerminal('cmd.exe', '/C echo hello', { useConptyDll });
+          } finally {
+            process.chdir(originalCwd);
+          }
+          let result = '';
+          term.on('data', (data) => {
+            result += data;
+          });
+          term.on('exit', () => {
+            assert.ok(result.indexOf('hello') >= 0);
+            done();
+          });
+        });
+      });
+
       describe('connect failure', () => {
         it('should emit exit instead of an uncaught exception when CreateProcessW fails', function (done) {
           this.timeout(10000);
