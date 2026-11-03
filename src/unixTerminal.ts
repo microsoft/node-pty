@@ -16,8 +16,18 @@ const native = loadNativeModule('pty');
 const pty: IUnixNative = native.module;
 let helperPath = native.dir + '/spawn-helper';
 helperPath = path.resolve(__dirname, helperPath);
-helperPath = helperPath.replace('app.asar', 'app.asar.unpacked');
-helperPath = helperPath.replace('node_modules.asar', 'node_modules.asar.unpacked');
+// String.prototype.replace matches the first occurrence, so when helperPath
+// already contains 'app.asar.unpacked' (e.g. a caller of node-pty that
+// itself lives in app.asar.unpacked) the substring 'app.asar' matches the
+// prefix of 'app.asar.unpacked' and we'd produce 'app.asar.unpacked.unpacked'
+// — a path that doesn't exist on disk. Skip each rewrite if the unpacked
+// variant is already present.
+if (helperPath.indexOf('app.asar.unpacked') === -1) {
+  helperPath = helperPath.replace('app.asar', 'app.asar.unpacked');
+}
+if (helperPath.indexOf('node_modules.asar.unpacked') === -1) {
+  helperPath = helperPath.replace('node_modules.asar', 'node_modules.asar.unpacked');
+}
 
 const DEFAULT_FILE = 'sh';
 const DEFAULT_NAME = 'xterm';
