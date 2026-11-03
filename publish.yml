@@ -69,6 +69,17 @@ extends:
           # stable releases, but increments the version for beta releases.
           - script: node scripts/increment-version.js
             displayName: 'Increment version'
+          - bash: |
+              set -euo pipefail
+              package_dir="$(mktemp -d)"
+              npm pack --ignore-scripts --pack-destination "$package_dir" >/dev/null
+              package_file=("$package_dir"/*.tgz)
+              if ! tar -tvf "${package_file[0]}" | grep -Eq '^-rwxr-xr-x .*package/prebuilds/darwin-(arm64|x64)/spawn-helper$'; then
+                echo 'The published package must contain executable macOS spawn-helper binaries.' >&2
+                tar -tvf "${package_file[0]}" | grep 'spawn-helper' >&2 || true
+                exit 1
+              fi
+            displayName: 'Verify packaged spawn-helper permissions'
 
         testSteps:
           - task: DownloadPipelineArtifact@2
@@ -90,6 +101,17 @@ extends:
             displayName: 'Test'
           - script: npm run lint
             displayName: 'Lint'
+          - bash: |
+              set -euo pipefail
+              package_dir="$(mktemp -d)"
+              npm pack --ignore-scripts --pack-destination "$package_dir" >/dev/null
+              package_file=("$package_dir"/*.tgz)
+              if ! tar -tvf "${package_file[0]}" | grep -Eq '^-rwxr-xr-x .*package/prebuilds/darwin-(arm64|x64)/spawn-helper$'; then
+                echo 'The published package must contain executable macOS spawn-helper binaries.' >&2
+                tar -tvf "${package_file[0]}" | grep 'spawn-helper' >&2 || true
+                exit 1
+              fi
+            displayName: 'Verify packaged spawn-helper permissions'
 
         publishPackage: ${{ parameters.publishPackage }}
         ${{ if eq(variables['releaseQuality'], 'stable') }}:
