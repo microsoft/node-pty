@@ -69,6 +69,9 @@ std::wstring get_shell_path(std::wstring filename) {
       paths.push_back(buffer.substr(0, pos));
       buffer.erase(0, pos + delimiter.length());
     }
+    if (!buffer.empty()) {
+      paths.push_back(buffer);
+    }
 
     const wchar_t *filename_ = filename.c_str();
 

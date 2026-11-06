@@ -239,6 +239,28 @@ if (process.platform === 'win32') {
         });
       });
 
+      describe('Path lookup', () => {
+        it('should search the last Path entry when Path has no trailing delimiter', function (done) {
+          this.timeout(10000);
+          const originalPath = process.env.Path;
+          process.env.Path = `C:\\NonExistent;${path.join(process.env.windir!, 'System32')}`;
+          let term: WindowsTerminal;
+          try {
+            term = new WindowsTerminal('cmd.exe', '/C echo hello', { useConptyDll });
+          } finally {
+            process.env.Path = originalPath;
+          }
+          let result = '';
+          term.on('data', (data) => {
+            result += data;
+          });
+          term.on('exit', () => {
+            assert.ok(result.indexOf('hello') >= 0);
+            done();
+          });
+        });
+      });
+
       describe('connect failure', () => {
         it('should emit exit instead of an uncaught exception when CreateProcessW fails', function (done) {
           this.timeout(10000);
