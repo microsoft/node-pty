@@ -75,7 +75,10 @@ export class UnixTerminal extends Terminal {
 
     const encoding = (opt.encoding === undefined ? 'utf8' : opt.encoding);
 
-    const onexit = (code: number, signal: number): void => {
+    const onexit = (rawCode: number, signal: number): void => {
+      // Align with child_process: a process terminated by a signal has no
+      // exit code, so report null instead of a misleading 0.
+      const code = signal ? null : rawCode;
       // XXX Sometimes a data event is emitted after exit. Wait til socket is
       // destroyed.
       if (!this._emittedClose) {

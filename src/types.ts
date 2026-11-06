@@ -6,7 +6,7 @@
 export type ArgvOrCommandLine = string[] | string;
 
 export interface IExitEvent {
-  exitCode: number;
+  exitCode: number | null;
   signal: number | undefined;
 }
 

@@ -151,9 +151,11 @@ declare module 'node-pty' {
 
     /**
      * Adds an event listener for when an exit event fires. This happens when the pty exits.
+     * On Unix, `exitCode` is `null` when the process was terminated by a signal, in which case
+     * `signal` holds the signal number.
      * @returns an `IDisposable` to stop listening.
      */
-    readonly onExit: IEvent<{ exitCode: number, signal?: number }>;
+    readonly onExit: IEvent<{ exitCode: number | null, signal?: number }>;
 
     /**
      * Resizes the dimensions of the pty.

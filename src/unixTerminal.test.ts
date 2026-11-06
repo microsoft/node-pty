@@ -117,11 +117,20 @@ if (process.platform !== 'win32') {
       const term = new UnixTerminal('node');
       it('should exit when terminal is destroyed programmatically', (done) => {
         term.on('exit', (code, signal) => {
-          assert.strictEqual(code, 0);
+          assert.strictEqual(code, null);
           assert.strictEqual(signal, constants.signals.SIGHUP);
           done();
         });
         term.destroy();
+      });
+      it('should report a null exit code when killed by a signal', (done) => {
+        const killed = new UnixTerminal('node');
+        killed.onExit(({ exitCode, signal }) => {
+          assert.strictEqual(exitCode, null);
+          assert.strictEqual(signal, constants.signals.SIGKILL);
+          done();
+        });
+        killed.kill('SIGKILL');
       });
     });
     describe('signals in parent and child', () => {
