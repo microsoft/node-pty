@@ -112,6 +112,14 @@ if (process.platform !== 'win32') {
         term.slave!.write('slave\n');
         term.master!.write('master\n');
       });
+      if (process.platform === 'linux') {
+        it('should not leak the master or slave fd to processes the host spawns', () => {
+          term = UnixTerminal.open({});
+          const fds = cp.execFileSync('/bin/sh', ['-c', 'ls -l /proc/$$/fd'], { stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+          assert.ok(!fds.includes('ptmx'), `child holds a pty master:\n${fds}`);
+          assert.ok(!fds.includes(term.ptsName), `child holds the pty slave ${term.ptsName}:\n${fds}`);
+        });
+      }
     });
     describe('close', () => {
       const term = new UnixTerminal('node');
@@ -286,6 +294,20 @@ if (process.platform !== 'win32') {
             assert.strictEqual(match![1], '0', `Expected 0 ptmx FDs but got ${match![1]}`);
             done();
           }, 1000);
+        });
+        it('should not leak pty master fds to processes the host spawns', () => {
+          const ptys: UnixTerminalType[] = [];
+          for (let i = 0; i < 2; i++) {
+            ptys.push(new UnixTerminal('/bin/bash', [], {}));
+          }
+          try {
+            const fds = cp.execFileSync('/bin/sh', ['-c', 'ls -l /proc/$$/fd'], { stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+            assert.ok(!fds.includes('ptmx'), `child holds a pty master:\n${fds}`);
+          } finally {
+            for (const pty of ptys) {
+              pty.kill();
+            }
+          }
         });
       }
       if (process.platform === 'darwin') {
