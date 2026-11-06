@@ -103,6 +103,9 @@ export class UnixTerminal extends Terminal {
     };
 
     // fork
+    if (!fs.existsSync(helperPath)) {
+      throw new Error(`node-pty spawn-helper not found at '${helperPath}'. This can happen if the application binary has moved since the process started.`);
+    }
     const term = pty.fork(file, args, parsedEnv, cwd, this._cols, this._rows, uid, gid, (encoding === 'utf8'), helperPath, onexit);
 
     this._socket = new tty.ReadStream(term.fd);
