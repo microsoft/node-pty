@@ -1,0 +1,161 @@
+name: Platform package release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Exact release version (for example 1.2.0-beta.19)'
+        required: true
+        type: string
+      tag:
+        description: npm distribution tag
+        type: choice
+        options: [beta, latest]
+        default: beta
+      publish:
+        description: Publish verified tarballs to npm
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: node-pty-npm-release
+  cancel-in-progress: false
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, target: linux-x64, arch: x64 }
+          - { os: ubuntu-22.04-arm, target: linux-arm64, arch: arm64 }
+          - { os: macos-14, target: darwin-arm64, arch: arm64 }
+          - { os: macos-15-intel, target: darwin-x64, arch: x64 }
+          - { os: windows-2022, target: win32-x64, arch: x64 }
+          - { os: windows-11-arm, target: win32-arm64, arch: arm64 }
+    runs-on: ${{ matrix.os }}
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      ARCH: ${{ matrix.arch }}
+      npm_config_arch: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.22.1'
+      - name: Validate release version
+        run: node -e "require('./scripts/platform-packages').validateVersion(process.env.RELEASE_VERSION)"
+      - name: Install Linux sysroot
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y gcc-10 g++-10
+          echo 'CC=gcc-10' >> "$GITHUB_ENV"
+          echo 'CXX=g++-10' >> "$GITHUB_ENV"
+          SYSROOT_PATH=$(node scripts/linux/install-sysroot.js "$ARCH" | grep 'SYSROOT_PATH=' | cut -d= -f2)
+          echo "SYSROOT_PATH=$SYSROOT_PATH" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:platforms
+      - name: Verify glibc compatibility
+        if: runner.os == 'Linux'
+        shell: bash
+        run: EXPECTED_GLIBC_VERSION=2.28 EXPECTED_GLIBCXX_VERSION=3.4.25 SEARCH_PATH=build ./scripts/linux/verify-glibc-requirements.sh
+      - name: Stage native package
+        shell: bash
+        run: npm run package:platforms -- platform release "$RELEASE_VERSION" '${{ matrix.target }}'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-${{ matrix.target }}
+          path: release/${{ matrix.target }}/
+          if-no-files-found: error
+  pack:
+    needs: build
+    runs-on: ubuntu-22.04
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.22.1'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: native-*
+          path: artifacts
+      - name: Assemble all platforms
+        shell: bash
+        run: |
+          mkdir release
+          for source in artifacts/native-*; do
+            target=${source#artifacts/native-}
+            mv "$source" "release/$target"
+          done
+          chmod +x release/darwin-*/spawn-helper
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - name: Pack and verify complete release
+        run: |
+          npm run package:platforms -- release release "$RELEASE_VERSION"
+          npm run publish:platforms -- release/tarballs "$RELEASE_TAG"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: npm-release
+          path: release/tarballs/
+          if-no-files-found: error
+  verify-install:
+    needs: pack
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-22.04-arm, macos-14, macos-15-intel, windows-2022, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.22.1'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: npm-release
+          path: tarballs
+      - name: Install tarballs without scripts and spawn a real PTY
+        shell: bash
+        run: npm run test:release -- tarballs "$RELEASE_TAG"
+  publish:
+    needs: verify-install
+    if: inputs.publish && github.repository == 'microsoft/node-pty' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.22.1'
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: npm-release
+          path: tarballs
+      - name: Publish native packages, then node-pty
+        run: npm run publish:platforms -- tarballs "$RELEASE_TAG" --publish

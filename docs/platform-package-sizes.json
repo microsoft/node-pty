@@ -1,0 +1,47 @@
+{
+  "input": "node-pty@1.2.0-beta.18 native prebuilds; current branch JS wrapper; package-file sizes excluding dependencies and filesystem allocation",
+  "packages": [
+    {
+      "name": "node-pty",
+      "version": "1.2.0-beta.19",
+      "tarballBytes": 1227892,
+      "unpackedBytes": 2533645
+    },
+    {
+      "name": "@node-pty/darwin-arm64",
+      "version": "1.2.0-beta.19",
+      "tarballBytes": 23758,
+      "unpackedBytes": 141207
+    },
+    {
+      "name": "@node-pty/darwin-x64",
+      "version": "1.2.0-beta.19",
+      "tarballBytes": 23666,
+      "unpackedBytes": 71719
+    },
+    {
+      "name": "@node-pty/linux-arm64",
+      "version": "1.2.0-beta.19",
+      "tarballBytes": 27050,
+      "unpackedBytes": 72924
+    },
+    {
+      "name": "@node-pty/linux-x64",
+      "version": "1.2.0-beta.19",
+      "tarballBytes": 28980,
+      "unpackedBytes": 75604
+    },
+    {
+      "name": "@node-pty/win32-arm64",
+      "version": "1.2.0-beta.19",
+      "tarballBytes": 755734,
+      "unpackedBytes": 1625457
+    },
+    {
+      "name": "@node-pty/win32-x64",
+      "version": "1.2.0-beta.19",
+      "tarballBytes": 831075,
+      "unpackedBytes": 1604537
+    }
+  ]
+}

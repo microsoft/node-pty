@@ -3,6 +3,8 @@
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
  */
 
+import * as path from 'path';
+
 export function assign(target: any, ...sources: any[]): any {
   sources.forEach(source => Object.keys(source).forEach(key => target[key] = source[key]));
   return target;
@@ -25,5 +27,15 @@ export function loadNativeModule(name: string): {dir: string, module: any} {
       }
     }
   }
-  throw new Error(`Failed to load native module: ${name}.node, checked: ${dirs.join(', ')}: ${lastError}`);
+  const packageName = `@node-pty/${process.platform}-${process.arch}`;
+  try {
+    if (process.platform === 'linux' && !(process.report?.getReport() as any)?.header?.glibcVersionRuntime) {
+      throw new Error('Linux prebuilds require glibc; install node-pty with source builds enabled');
+    }
+    const dir = path.dirname(require.resolve(`${packageName}/package.json`));
+    return { dir, module: require(path.join(dir, `${name}.node`)) };
+  } catch (e) {
+    lastError = e;
+  }
+  throw new Error(`Failed to load native module: ${name}.node, checked: ${dirs.join(', ')}, ${packageName}: ${lastError}`);
 }

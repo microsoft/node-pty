@@ -16,10 +16,6 @@ resources:
       endpoint: Monaco
 
 parameters:
-  - name: publishPackage
-    displayName: 🚀 Publish node-pty
-    type: boolean
-    default: false
   - name: releaseQuality
     displayName: Quality
     type: string
@@ -91,7 +87,9 @@ extends:
           - script: npm run lint
             displayName: 'Lint'
 
-        publishPackage: ${{ parameters.publishPackage }}
+        # Publishing moved to .github/workflows/platform-release.yml so all
+        # native packages are published before the wrapper. Keep Azure checks.
+        publishPackage: false
         ${{ if eq(variables['releaseQuality'], 'stable') }}:
           tag: latest
           publishRequiresApproval: true

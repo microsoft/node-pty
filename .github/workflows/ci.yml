@@ -83,3 +83,6 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Test platform packages and real PTY loading
+        run: npm run test:platforms

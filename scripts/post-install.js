@@ -44,8 +44,8 @@ try {
 }
 
 console.log(`\x1b[32m> Moving conpty.dll...\x1b[0m`);
-if (os.platform() !== 'win32') {
-  console.log('  SKIPPED (not Windows)');
+if (os.platform() !== 'win32' || !fs.existsSync(path.join(RELEASE_DIR, 'conpty.node'))) {
+  console.log('  SKIPPED (no local Windows build)');
 } else {
   let windowsArch;
   if (process.env.npm_config_arch) {

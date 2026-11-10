@@ -14,3 +14,5 @@ fixtures/space folder/
 yarn.lock
 prebuilds/
 _codeql_detected_source_root
+
+release/

@@ -24,6 +24,25 @@ if (process.env.npm_config_build_from_source === 'true') {
   process.exit(1);
 }
 
+// Optional packages are installed before the parent's install lifecycle. Keep
+// source builds and legacy prebuild directories working as before.
+try {
+  if (process.platform === 'linux' && !process.report?.getReport().header.glibcVersionRuntime) {
+    console.log('> Linux prebuilds require glibc; building from source');
+    process.exit(1);
+  }
+  const packageDir = path.dirname(require.resolve(`@node-pty/${process.platform}-${process.arch}/package.json`));
+  const files = process.platform === 'win32'
+    ? ['conpty.node', 'conpty_console_list.node', 'conpty/conpty.dll', 'conpty/OpenConsole.exe']
+    : process.platform === 'darwin' ? ['pty.node', 'spawn-helper'] : ['pty.node'];
+  if (files.every(file => fs.existsSync(path.join(packageDir, file)))) {
+    console.log('> Using platform package');
+    process.exit(0);
+  }
+} catch (error) {
+  if (error.code !== 'MODULE_NOT_FOUND') { throw error; }
+}
+
 // Check whether the correct prebuilt files exist
 console.log('\x1b[32m> Checking prebuilds...\x1b[0m');
 if (!fs.existsSync(PREBUILD_DIR)) {

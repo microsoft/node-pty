@@ -57,7 +57,11 @@
     "test": "cross-env NODE_ENV=test mocha -R spec --exit lib/*.test.js",
     "posttest": "npm run lint",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "package:platforms": "node scripts/platform-packages.js",
+    "test:platforms": "mocha --exit test/platform-packages.js",
+    "publish:platforms": "node scripts/publish-platform-packages.js",
+    "test:release": "node scripts/test-platform-release.js"
   },
   "dependencies": {
     "node-addon-api": "^7.1.0"
