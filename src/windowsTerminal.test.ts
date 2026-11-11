@@ -282,6 +282,27 @@ if (process.platform === 'win32') {
             done();
           });
         });
+
+        it('should not throw when writes reach a shell that exited on its own', function (done) {
+          this.timeout(10000);
+          const term = new WindowsTerminal('cmd.exe', '/C exit', { useConptyDll });
+          // Keep writing until the exit is reported, so some writes land after the
+          // console host closed the input pipe.
+          const writer = setInterval(() => term.write('x'.repeat(4096)), 1);
+          term.on('exit', () => {
+            clearInterval(writer);
+            done();
+          });
+        });
+
+        it('should not throw when the input pipe reports an error', function (done) {
+          this.timeout(10000);
+          const term = new WindowsTerminal('cmd.exe', '', { useConptyDll });
+          term.on('exit', () => done());
+          const inSocket = (term as any)._agent.inSocket;
+          inSocket.emit('error', Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }));
+          term.kill();
+        });
       });
 
       describe('parent window', () => {

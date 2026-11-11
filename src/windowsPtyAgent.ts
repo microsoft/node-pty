@@ -134,6 +134,13 @@ export class WindowsPtyAgent {
       writable: true
     });
     this._inSocket.setEncoding('utf8');
+    // Writes fail once the console host has closed its end of the input pipe,
+    // e.g. with EAGAIN when the shell exits on its own or a write races kill().
+    // Without a listener that error is an uncaught exception, and embedders
+    // can't subscribe to it because only the output socket's errors are
+    // forwarded. The end of the session is already reported through the output
+    // socket and the exit event, so drop the error here.
+    this._inSocket.on('error', () => {});
   }
 
   private _completePtyConnection(): void {
