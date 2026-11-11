@@ -69,6 +69,8 @@ extends:
           # stable releases, but increments the version for beta releases.
           - script: node scripts/increment-version.js
             displayName: 'Increment version'
+          - script: npm run compress:prebuilds
+            displayName: 'Compress and verify native prebuilds'
 
         testSteps:
           - task: DownloadPipelineArtifact@2

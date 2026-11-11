@@ -83,3 +83,6 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Test compressed prebuilds and real PTY loading
+        run: npm run test:compressed

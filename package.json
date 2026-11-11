@@ -57,7 +57,10 @@
     "test": "cross-env NODE_ENV=test mocha -R spec --exit lib/*.test.js",
     "posttest": "npm run lint",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "test:compressed": "mocha --exit test/compressed-prebuilds.js",
+    "compress:prebuilds": "node scripts/compress-prebuilds.js",
+    "benchmark:compressed": "node scripts/benchmark-compressed-prebuilds.js"
   },
   "dependencies": {
     "node-addon-api": "^7.1.0"

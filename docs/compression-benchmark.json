@@ -1,0 +1,1099 @@
+{
+  "measuredAt": "2026-11-11T01:32:08.639Z",
+  "node": "v26.12.0",
+  "npm": "12.2.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "packageVersion": "1.2.0-beta.18",
+  "method": "Twenty-one fresh processes per mode; alternating raw ordering, unique first-load cache each round; no page-cache eviction. Each process spawns and verifies a real PTY.",
+  "provenance": {
+    "version": "1.2.0-beta.18",
+    "url": "https://registry.npmjs.org/node-pty/-/node-pty-1.2.0-beta.18.tgz",
+    "integrity": "sha512-3Rej3788OnasAwoSmTZhlCeUraJ9CQldtL5b571b9+3Nv47+PaxA5VPIGOOs+16OYQePTrC1Lrs8a9/df5WPRg==",
+    "downloadBytes": 7152900,
+    "unpackedBytes": 26907504
+  },
+  "inputs": [
+    {
+      "target": "darwin-arm64",
+      "codec": "brotli",
+      "file": "pty.node",
+      "rawBytes": 86904,
+      "compressedBytes": 16011,
+      "sha512": "dfd581efe87c8c30d13d5c1823e725ff5be7ad6a31114a7fcf61d4306eabce9b2af575e25575f25c8b88606b8328d730390c424de1037328cb3812991240b33d"
+    },
+    {
+      "target": "darwin-x64",
+      "codec": "brotli",
+      "file": "pty.node",
+      "rawBytes": 58656,
+      "compressedBytes": 17189,
+      "sha512": "b4cac612e0a6eb244df53811578311c370822fcbcdacb020fb9b0d209db31179aba234a1f82df5b8d16fec02f1187bc3d3051c1644e5be4a88d318a273b56520"
+    },
+    {
+      "target": "linux-arm64",
+      "codec": "zstd",
+      "file": "pty.node",
+      "rawBytes": 69096,
+      "compressedBytes": 21258,
+      "sha512": "eb2a7069c05730c2b9db887b51dc0d81d55ff2f65de1b7bf674f7919c9fd47e69c3b0913f8eed37e3917c7b5afc7b4022da02aa137a76951815b9615299cd2bb"
+    },
+    {
+      "target": "linux-x64",
+      "codec": "zstd",
+      "file": "pty.node",
+      "rawBytes": 71784,
+      "compressedBytes": 23070,
+      "sha512": "1cd8e6c3167d227f95b8031afd4efac96d2038c22dc5586542804e3e98735429e6676c13b366a52ad24dc623544cac9d92d092551d756e84b501298c5ba9ef0b"
+    },
+    {
+      "target": "win32-arm64",
+      "codec": "zstd",
+      "file": "conpty.node",
+      "rawBytes": 282112,
+      "compressedBytes": 111111,
+      "sha512": "4982ca2d28c3a094171bc77edf347888366b36fced39416d7f0f9a0cd64d80b74e6334bae1f67d1c106bdfc5745ce75d3c2fbbc5a39ae2a38db78203babd25cd"
+    },
+    {
+      "target": "win32-arm64",
+      "codec": "zstd",
+      "file": "conpty_console_list.node",
+      "rawBytes": 122368,
+      "compressedBytes": 48280,
+      "sha512": "014187bb1ebdd2ecabf723b91cc4b6e85e203b171804208482b004f715e14e261aa6c89780b97e9032c2826a2d5f65b82fa908fe06543e73ba5faaacad95243d"
+    },
+    {
+      "target": "win32-x64",
+      "codec": "zstd",
+      "file": "conpty.node",
+      "rawBytes": 293376,
+      "compressedBytes": 129790,
+      "sha512": "82f108cc7849f856e49f9d28539db1010514d629aaeead2e0b196709b0e680ef596e9fa6860092a05a417d3cd2c8bbd22f8d21b780dfd12ca409fbad17479a9c"
+    },
+    {
+      "target": "win32-x64",
+      "codec": "zstd",
+      "file": "conpty_console_list.node",
+      "rawBytes": 134656,
+      "compressedBytes": 60774,
+      "sha512": "e52577a1a779988c267084c1c1193b9bb19794ea314bbbc6a308bd3dd7f39c8c146062fa66016f1364a7bf32a2caa6b3d7962c09b2ad173752a6c9d1b777878e"
+    }
+  ],
+  "sizes": {
+    "baseline": {
+      "tarballBytes": 7152900,
+      "unpackedBytes": 26907504,
+      "integrity": "sha512-3Rej3788OnasAwoSmTZhlCeUraJ9CQldtL5b571b9+3Nv47+PaxA5VPIGOOs+16OYQePTrC1Lrs8a9/df5WPRg==",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 3326,
+          "sha512": "a202772b8e040488993bf8f9000b4e032a6f8173ce84e1d1a100fabe4377f0465da3b581276f1c8990349d31364234acd07b0fd21949a9890e28ceb42777b1db"
+        },
+        {
+          "path": "README.md",
+          "bytes": 8104,
+          "sha512": "14b242a700bc18ddaa5b335cc94c0e0770b57954cc9c34817241ffe15e7affe4cb4f9edff8e22257c87838820398943e7b31794b652edf68573fac5c09fa2e2b"
+        },
+        {
+          "path": "binding.gyp",
+          "bytes": 4657,
+          "sha512": "b903a90a9a6729905cad06eadebc83e9610578b60c2333848e00cf785bd7b2a4cf7be06e6eba8cc3742d8194c88fab1355ebb2d74b517b31db8882cf21068332"
+        },
+        {
+          "path": "lib/conpty_console_list_agent.js",
+          "bytes": 932,
+          "sha512": "a289bd4bf3fad76382bd947888b560a3d92e76c5b0b04b4875c547e15336cd99d72a480f6fe9e1dda3125406514b4b3308e9ddd898b458b58ab55d45dd965af4"
+        },
+        {
+          "path": "lib/eventEmitter2.js",
+          "bytes": 1600,
+          "sha512": "93529d7d25bffddd1cffbe8060b310470b8dba533aeb3c6edb5ed56eaabe9ed749f29e444f935a1255c4becfb892f49aa0433067d16c6352195ef31b305be904"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 1942,
+          "sha512": "253a06102583d11ebd9984175dee78ae508d19ee103fc356e5864a531c133499f5b43eb1206bba8067c4d79edeb2debd6bbf85833492c0ab502b007831c2bdd7"
+        },
+        {
+          "path": "lib/interfaces.js",
+          "bytes": 233,
+          "sha512": "013fba949e8a748cb2ece477c0365fab50dca324e29c433ec3d0e828474d1ad9bc434a6b8286a56e20e6dcdbbc2bd5a3b6fe3631773942db792adb66c8c0f192"
+        },
+        {
+          "path": "lib/shared/conout.js",
+          "bytes": 322,
+          "sha512": "fb37161105a8a12ac19d91f1cb3bdfaf6b17bfd6396ea4bbfba31a9e2d792aba2e5fd35c40403ea9589f99e79e286d870779337a209a1926b4a23ca0bdd47e4b"
+        },
+        {
+          "path": "lib/terminal.js",
+          "bytes": 7499,
+          "sha512": "2ff010886f813af1e0a0ba692ffa1cd5103c5a9db614791526714759ae5d206240e1f6d10a74d88bec1c562133e77e09c540ca28588ed0ccfad8da1c9df95310"
+        },
+        {
+          "path": "lib/types.js",
+          "bytes": 228,
+          "sha512": "bf04a06ce72a5a9462543b43e1265fb37f15fb489a6fafc85e90897f123b40b85bbfbfb739c8af2d2464a6b2dea88bcfcc7eb1b559cef7b3b0a5a80aa6c881fb"
+        },
+        {
+          "path": "lib/unixTerminal.js",
+          "bytes": 14039,
+          "sha512": "197220eb4cc81ad27939b50169ea2fd80fcf91cba485d65390f13fcfaa2d65f9fc8a2ab564026098b60726b58282e162aefb51b6c6093ac9b1796d701331111a"
+        },
+        {
+          "path": "lib/utils.js",
+          "bytes": 1548,
+          "sha512": "391b8f80bbba03266cb152b35b9731bcaed8851b14a62f26cb6dc88c249dde8207b35e3dd0e4526dd98445dbfe1e0ab9b1f473126cc18455f37fad0fb14efe04"
+        },
+        {
+          "path": "lib/windowsConoutConnection.js",
+          "bytes": 6443,
+          "sha512": "e6f594d35db18b6c93c2736a4a747b9822ca7a7b510c3404582618d5929674667f04bfe437ae2dcb5e71c570b0b613469a1fb0b6faa58fa8428d04cd68813b5f"
+        },
+        {
+          "path": "lib/windowsPtyAgent.js",
+          "bytes": 14480,
+          "sha512": "8dd1a77f0f5a00411d829f955152d3d760fb4a201eb5c0eddd5328c9693903debcba74aa4530dc1a49edb45972ccf69be8c814998e868b2d94ee85bc4b3e0027"
+        },
+        {
+          "path": "lib/windowsTerminal.js",
+          "bytes": 8716,
+          "sha512": "bed18fb8ce843b41df6b91a8c985c0fd65e0a845d9f050ce0d07f83400d27b0070f84c4d36fd4a6e210ed5100e3d15f498f2bf06ebca8737a2d267598d043338"
+        },
+        {
+          "path": "lib/worker/conoutSocketWorker.js",
+          "bytes": 878,
+          "sha512": "c9a75fdaff3092c82f1b422a1c3423cc6625b6f4e735db61390b0ca518a033a55f4bd1cdba6ccf0ec3dd763d8d149305a37e9cce654052920225d48e01f96935"
+        },
+        {
+          "path": "package.json",
+          "bytes": 1895,
+          "sha512": "8b2e3ca823481d6eb5e9b62696d9d56fd7bd02b88742cb82c66f2d3f8650f2eb1576ecdff62777c321e1edc84758340581149fa5cb32b15e7c8b686a90b35827"
+        },
+        {
+          "path": "prebuilds/darwin-arm64/pty.node",
+          "bytes": 86904,
+          "sha512": "dfd581efe87c8c30d13d5c1823e725ff5be7ad6a31114a7fcf61d4306eabce9b2af575e25575f25c8b88606b8328d730390c424de1037328cb3812991240b33d"
+        },
+        {
+          "path": "prebuilds/darwin-arm64/spawn-helper",
+          "bytes": 50480,
+          "sha512": "7e716b9fae1a793e9be5ab831040c29f8f43277849ad0399beab98ebeab91c6ff413730d2ba4b743e2ab459cfbb611c2e6bbe5f101242c6955b95bd217bec1df"
+        },
+        {
+          "path": "prebuilds/darwin-x64/pty.node",
+          "bytes": 58656,
+          "sha512": "b4cac612e0a6eb244df53811578311c370822fcbcdacb020fb9b0d209db31179aba234a1f82df5b8d16fec02f1187bc3d3051c1644e5be4a88d318a273b56520"
+        },
+        {
+          "path": "prebuilds/darwin-x64/spawn-helper",
+          "bytes": 9248,
+          "sha512": "12f15bf72dd685c4acc04f3748925011a7b41b9440da779f712a4b05bf2523d3da36656a3c999c32ea9247df16d8401c5385f44e61b09fbe09aec80eb511dabf"
+        },
+        {
+          "path": "prebuilds/linux-arm64/pty.node",
+          "bytes": 69096,
+          "sha512": "eb2a7069c05730c2b9db887b51dc0d81d55ff2f65de1b7bf674f7919c9fd47e69c3b0913f8eed37e3917c7b5afc7b4022da02aa137a76951815b9615299cd2bb"
+        },
+        {
+          "path": "prebuilds/linux-x64/pty.node",
+          "bytes": 71784,
+          "sha512": "1cd8e6c3167d227f95b8031afd4efac96d2038c22dc5586542804e3e98735429e6676c13b366a52ad24dc623544cac9d92d092551d756e84b501298c5ba9ef0b"
+        },
+        {
+          "path": "prebuilds/win32-arm64/conpty_console_list.node",
+          "bytes": 122368,
+          "sha512": "014187bb1ebdd2ecabf723b91cc4b6e85e203b171804208482b004f715e14e261aa6c89780b97e9032c2826a2d5f65b82fa908fe06543e73ba5faaacad95243d"
+        },
+        {
+          "path": "prebuilds/win32-arm64/conpty_console_list.pdb",
+          "bytes": 4239360,
+          "sha512": "f9922548b373f517a70102a44b70e690eb6d972e06d096b830b1d9eee020e72c41ac51335c20a536563973ed2087821781e3a27b5f7ec8ac4154e55244f214e7"
+        },
+        {
+          "path": "prebuilds/win32-arm64/conpty.node",
+          "bytes": 282112,
+          "sha512": "4982ca2d28c3a094171bc77edf347888366b36fced39416d7f0f9a0cd64d80b74e6334bae1f67d1c106bdfc5745ce75d3c2fbbc5a39ae2a38db78203babd25cd"
+        },
+        {
+          "path": "prebuilds/win32-arm64/conpty.pdb",
+          "bytes": 5935104,
+          "sha512": "84c402069897bed97b7755b0e12b7ce169c155274a7d1e7b464bc83578c42102e65fd6763de56df17699fa42ec07b90b0739ae97ca4feee132a98641d83f9be0"
+        },
+        {
+          "path": "prebuilds/win32-arm64/conpty/conpty.dll",
+          "bytes": 106528,
+          "sha512": "14b9b6f55cdb9f968b818fffd1c3700e2b300846c8998468784d0be58f085802b02f8074972e39a712fa5605bbe7c99fd2913cd8800eab19791fbb825daae1b5"
+        },
+        {
+          "path": "prebuilds/win32-arm64/conpty/OpenConsole.exe",
+          "bytes": 1110560,
+          "sha512": "78e3569756b9029b45bd870b0558ecd1e5b184d5d41de00b748e45928961ba29859a0dc5db468a138c68dd3960e3c008291159bf0fedc556edca9efd6d6d14fa"
+        },
+        {
+          "path": "prebuilds/win32-x64/conpty_console_list.node",
+          "bytes": 134656,
+          "sha512": "e52577a1a779988c267084c1c1193b9bb19794ea314bbbc6a308bd3dd7f39c8c146062fa66016f1364a7bf32a2caa6b3d7962c09b2ad173752a6c9d1b777878e"
+        },
+        {
+          "path": "prebuilds/win32-x64/conpty_console_list.pdb",
+          "bytes": 4321280,
+          "sha512": "a8c384826bb45acb5bb1f0a8d5c8d6f15598a4d198d5a6158ceb291fd8299c704aff9158a63636b57ffe240862a5fb55517c01c5d41166edd5bd83f608acfe23"
+        },
+        {
+          "path": "prebuilds/win32-x64/conpty.node",
+          "bytes": 293376,
+          "sha512": "82f108cc7849f856e49f9d28539db1010514d629aaeead2e0b196709b0e680ef596e9fa6860092a05a417d3cd2c8bbd22f8d21b780dfd12ca409fbad17479a9c"
+        },
+        {
+          "path": "prebuilds/win32-x64/conpty.pdb",
+          "bytes": 6311936,
+          "sha512": "01cc0a417a7c0f8882b3cc100edfa6ac705b0dd37a702d71feaf94273a69942c4d5f39187a3aa57e63f2aa08cc2c915d7a31ea4d22c739c42d95ac2ce614a46b"
+        },
+        {
+          "path": "prebuilds/win32-x64/conpty/conpty.dll",
+          "bytes": 110152,
+          "sha512": "f5c36909dca9140ad2135fcf9a7455ad83c3831ef2a428bc3a9545da565891fcc9ff4b9c0660e6f4b15fec122b5b85126868c8739084e54fc27204a754eecaaa"
+        },
+        {
+          "path": "prebuilds/win32-x64/conpty/OpenConsole.exe",
+          "bytes": 1062472,
+          "sha512": "b49451640ed205ce50a5af49628ceaa9815e05f4a635e8404bd5cadb4f70f87a88d4be863731f8533aef979b9bcbac783748bc87c0ea0fb523f28cb020584226"
+        },
+        {
+          "path": "scripts/post-install.js",
+          "bytes": 2401,
+          "sha512": "68a113f65379e402c5987a2570135eaa953c7e5250abf756ae10fba39322f5502195f81c55b16cebd4112db3530fded359d91f1f89225075ca7e443738430da0"
+        },
+        {
+          "path": "scripts/prebuild.js",
+          "bytes": 1172,
+          "sha512": "e4a9cd2c44b5db12846b7829d69a1bebc45ea8b3621b6eb0086a6af9f58d5397898c6f1ba9e0493f0f9cf7092bb76eaccf41d8e7ff60c756b0f696418a8649e7"
+        },
+        {
+          "path": "src/unix/pty.cc",
+          "bytes": 23090,
+          "sha512": "65b6cd4acba63beb31b9254df57e60b78ce60aedd5a85e4a27bf2907bf89d1614128eb1418c56bfe2cf30d5fc87363633395de216dd517ac468d7f2a649976fa"
+        },
+        {
+          "path": "src/unix/spawn-helper.cc",
+          "bytes": 494,
+          "sha512": "293d7ef1ee5e666280a659460bb63e5b08f83cfbbad3acb422ec09b8472b1fd788ca7f0d5153e35caf97d7caf71850dc295cd3672e143b2227d28c956f5d2f65"
+        },
+        {
+          "path": "src/win/conpty_console_list.cc",
+          "bytes": 1368,
+          "sha512": "b748dcf44179e22f1d62f4b04085188bc770f3a680c7195df52c19b3df1566d5097d9de6e454fe52ce4668e66305022a9f2442d595aba2b894c046a69f90ac5c"
+        },
+        {
+          "path": "src/win/conpty.cc",
+          "bytes": 23389,
+          "sha512": "c53738037c6245ed97201c74d4d3937d33d6b79b5dd6fe29cddc23e03aa82c08255c13fdd1c7119fd4d11fb5de18122dd02b3690fdeac6fa202de771d6de364c"
+        },
+        {
+          "path": "src/win/conpty.h",
+          "bytes": 1727,
+          "sha512": "2a1c64ad06ee4c644eeeb21df9bbdd046a8720146058a6f886586c2496675c0424160210c5666da6d6784897e00e09be8eee99620415733236b706258d2abda8"
+        },
+        {
+          "path": "src/win/path_util.cc",
+          "bytes": 2607,
+          "sha512": "896e99c3d5790da1b1d7e42845cb62d3330edb05f166bd313a207df88d10f7d746e94cef49d0772b2f05426f5c1cb071b1fcf8ea90c6c09861acda748abfc84c"
+        },
+        {
+          "path": "src/win/path_util.h",
+          "bytes": 695,
+          "sha512": "7492bc305cf5716454c4d7186aa91447e576c4f171b2cf1d3895dce4e9cc8f8bc4b791a03fa8424c14d726a1e8b9ea1f625eacf6a16f63795278865dd46f7b85"
+        },
+        {
+          "path": "third_party/conpty/1.25.260303002/win10-arm64/conpty.dll",
+          "bytes": 106528,
+          "sha512": "14b9b6f55cdb9f968b818fffd1c3700e2b300846c8998468784d0be58f085802b02f8074972e39a712fa5605bbe7c99fd2913cd8800eab19791fbb825daae1b5"
+        },
+        {
+          "path": "third_party/conpty/1.25.260303002/win10-arm64/OpenConsole.exe",
+          "bytes": 1110560,
+          "sha512": "78e3569756b9029b45bd870b0558ecd1e5b184d5d41de00b748e45928961ba29859a0dc5db468a138c68dd3960e3c008291159bf0fedc556edca9efd6d6d14fa"
+        },
+        {
+          "path": "third_party/conpty/1.25.260303002/win10-x64/conpty.dll",
+          "bytes": 110152,
+          "sha512": "f5c36909dca9140ad2135fcf9a7455ad83c3831ef2a428bc3a9545da565891fcc9ff4b9c0660e6f4b15fec122b5b85126868c8739084e54fc27204a754eecaaa"
+        },
+        {
+          "path": "third_party/conpty/1.25.260303002/win10-x64/OpenConsole.exe",
+          "bytes": 1062472,
+          "sha512": "b49451640ed205ce50a5af49628ceaa9815e05f4a635e8404bd5cadb4f70f87a88d4be863731f8533aef979b9bcbac783748bc87c0ea0fb523f28cb020584226"
+        },
+        {
+          "path": "typings/node-pty.d.ts",
+          "bytes": 7935,
+          "sha512": "b5a0c935ed6b276bfcf97242d5b06d2a27cb3fb04764ddcc77ed61216dad6ced12edda173ba4d5945e21e6ae8ebfd6f0f4746a1f5975636d126dc16473a68a1d"
+        }
+      ]
+    },
+    "compressed": {
+      "tarballBytes": 7097383,
+      "unpackedBytes": 26232181,
+      "integrity": "sha512-b+/KO/Vt6RpDcsrX5xDzOxEnuHh/J+Ie/5tQbLWZDQL2Rcc1Hm1uwbpWzt15Lt3nrnKmhTmeGiFX011j/iVkHw==",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 3326,
+          "sha512": "a202772b8e040488993bf8f9000b4e032a6f8173ce84e1d1a100fabe4377f0465da3b581276f1c8990349d31364234acd07b0fd21949a9890e28ceb42777b1db"
+        },
+        {
+          "path": "README.md",
+          "bytes": 8104,
+          "sha512": "14b242a700bc18ddaa5b335cc94c0e0770b57954cc9c34817241ffe15e7affe4cb4f9edff8e22257c87838820398943e7b31794b652edf68573fac5c09fa2e2b"
+        },
+        {
+          "path": "binding.gyp",
+          "bytes": 4657,
+          "sha512": "b903a90a9a6729905cad06eadebc83e9610578b60c2333848e00cf785bd7b2a4cf7be06e6eba8cc3742d8194c88fab1355ebb2d74b517b31db8882cf21068332"
+        },
+        {
+          "path": "lib/compressedNative.js",
+          "bytes": 9767,
+          "sha512": "a11ef72be372ecdb572f0e21fc5670b638c9a84300792f67fb36300c37c55e71ea3980b12fb035763ceb0551e769fdf163c45cf51cf32c271fc425c1cc38e8bf"
+        },
+        {
+          "path": "lib/compression/brotli.js",
+          "bytes": 278,
+          "sha512": "cd523a0b1eb762e740f692720ccda4423c0154b4714ccd6ab6f5e81671a6bb3766c010441139152c16bf0fdecf6d112d04d6586bdbccdd7608e8586f2a2d8ce0"
+        },
+        {
+          "path": "lib/compression/zstd.js",
+          "bytes": 774,
+          "sha512": "d361cab4f34c8c5e156f6e7dbdc4ee1b2245e3e1559be54357f2e2a59855d4e83e9aa40ea895131a55950143aa932b1566302f94d6fef0e61d8a3e8c2d30d185"
+        },
+        {
+          "path": "lib/conpty_console_list_agent.js",
+          "bytes": 932,
+          "sha512": "a289bd4bf3fad76382bd947888b560a3d92e76c5b0b04b4875c547e15336cd99d72a480f6fe9e1dda3125406514b4b3308e9ddd898b458b58ab55d45dd965af4"
+        },
+        {
+          "path": "lib/eventEmitter2.js",
+          "bytes": 1600,
+          "sha512": "93529d7d25bffddd1cffbe8060b310470b8dba533aeb3c6edb5ed56eaabe9ed749f29e444f935a1255c4becfb892f49aa0433067d16c6352195ef31b305be904"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 1942,
+          "sha512": "253a06102583d11ebd9984175dee78ae508d19ee103fc356e5864a531c133499f5b43eb1206bba8067c4d79edeb2debd6bbf85833492c0ab502b007831c2bdd7"
+        },
+        {
+          "path": "lib/interfaces.js",
+          "bytes": 233,
+          "sha512": "013fba949e8a748cb2ece477c0365fab50dca324e29c433ec3d0e828474d1ad9bc434a6b8286a56e20e6dcdbbc2bd5a3b6fe3631773942db792adb66c8c0f192"
+        },
+        {
+          "path": "lib/shared/conout.js",
+          "bytes": 322,
+          "sha512": "fb37161105a8a12ac19d91f1cb3bdfaf6b17bfd6396ea4bbfba31a9e2d792aba2e5fd35c40403ea9589f99e79e286d870779337a209a1926b4a23ca0bdd47e4b"
+        },
+        {
+          "path": "lib/terminal.js",
+          "bytes": 7499,
+          "sha512": "2ff010886f813af1e0a0ba692ffa1cd5103c5a9db614791526714759ae5d206240e1f6d10a74d88bec1c562133e77e09c540ca28588ed0ccfad8da1c9df95310"
+        },
+        {
+          "path": "lib/types.js",
+          "bytes": 228,
+          "sha512": "bf04a06ce72a5a9462543b43e1265fb37f15fb489a6fafc85e90897f123b40b85bbfbfb739c8af2d2464a6b2dea88bcfcc7eb1b559cef7b3b0a5a80aa6c881fb"
+        },
+        {
+          "path": "lib/unixTerminal.js",
+          "bytes": 14039,
+          "sha512": "197220eb4cc81ad27939b50169ea2fd80fcf91cba485d65390f13fcfaa2d65f9fc8a2ab564026098b60726b58282e162aefb51b6c6093ac9b1796d701331111a"
+        },
+        {
+          "path": "lib/utils.js",
+          "bytes": 2384,
+          "sha512": "8ae552a76077365ca534cc7d2305d5d6b800619349996865f6cd1d84705857d94e3c99608c246baa09352eea078e209b2eab098102157fc73d87e30031dc9495"
+        },
+        {
+          "path": "lib/windowsConoutConnection.js",
+          "bytes": 6443,
+          "sha512": "e6f594d35db18b6c93c2736a4a747b9822ca7a7b510c3404582618d5929674667f04bfe437ae2dcb5e71c570b0b613469a1fb0b6faa58fa8428d04cd68813b5f"
+        },
+        {
+          "path": "lib/windowsPtyAgent.js",
+          "bytes": 14480,
+          "sha512": "8dd1a77f0f5a00411d829f955152d3d760fb4a201eb5c0eddd5328c9693903debcba74aa4530dc1a49edb45972ccf69be8c814998e868b2d94ee85bc4b3e0027"
+        },
+        {
+          "path": "lib/windowsTerminal.js",
+          "bytes": 8716,
+          "sha512": "bed18fb8ce843b41df6b91a8c985c0fd65e0a845d9f050ce0d07f83400d27b0070f84c4d36fd4a6e210ed5100e3d15f498f2bf06ebca8737a2d267598d043338"
+        },
+        {
+          "path": "lib/worker/conoutSocketWorker.js",
+          "bytes": 878,
+          "sha512": "c9a75fdaff3092c82f1b422a1c3423cc6625b6f4e735db61390b0ca518a033a55f4bd1cdba6ccf0ec3dd763d8d149305a37e9cce654052920225d48e01f96935"
+        },
+        {
+          "path": "package.json",
+          "bytes": 1895,
+          "sha512": "8b2e3ca823481d6eb5e9b62696d9d56fd7bd02b88742cb82c66f2d3f8650f2eb1576ecdff62777c321e1edc84758340581149fa5cb32b15e7c8b686a90b35827"
+        },
+        {
+          "path": "prebuilds/darwin-arm64/native-manifest.json",
+          "bytes": 619,
+          "sha512": "7c985cc280e0dcebf25073a033b37c81a1685a3b96266160a1bdc7504f5e37156ab9c23f01d30130732411ccf43fd628ed485757749c2dbd7def3fc9c76f5528"
+        },
+        {
+          "path": "prebuilds/darwin-arm64/pty.node.br",
+          "bytes": 16011,
+          "sha512": "08b0bf33ae6a50fffbbffd62c60d29eefb11192439390e283fc9e41aae46e1ad334735047e2df8415922f8a532848f1a2f05e8d6fca4dad83f6a5efabcbfadf3"
+        },
+        {
+          "path": "prebuilds/darwin-arm64/spawn-helper",
+          "bytes": 50480,
+          "sha512": "7e716b9fae1a793e9be5ab831040c29f8f43277849ad0399beab98ebeab91c6ff413730d2ba4b743e2ab459cfbb611c2e6bbe5f101242c6955b95bd217bec1df"
+        },
+        {
+          "path": "prebuilds/darwin-x64/native-manifest.json",
+          "bytes": 616,
+          "sha512": "f5cf59550c53d1b0cd3237e0ddb1df87220b821d3801c2594b97ca04f1d35ffeb5719cf26e0c397974398d22d285f213c1482f9c915638b94ebde2fd92dfbef8"
+        },
+        {
+          "path": "prebuilds/darwin-x64/pty.node.br",
+          "bytes": 17189,
+          "sha512": "ec2a56b689848f751329a7c1257310c8d7c67a2a58fb192f2c1961c4dfaef6e5faaa148aa7ff87310e7673fe25a8e8e5323887e88aa63e85723be604b2770769"
+        },
+        {
+          "path": "prebuilds/darwin-x64/spawn-helper",
+          "bytes": 9248,
+          "sha512": "12f15bf72dd685c4acc04f3748925011a7b41b9440da779f712a4b05bf2523d3da36656a3c999c32ea9247df16d8401c5385f44e61b09fbe09aec80eb511dabf"
+        },
+        {
+          "path": "prebuilds/linux-arm64/native-manifest.json",
+          "bytes": 420,
+          "sha512": "0d2de46b8ba77d43a0b9de4218ade15e61bd4e9c25c468b4bad7e617983adc79da34e8b8a1dc3269b1ff219ab5c2201075de86c716ffb9c4a4c424d1f789b531"
+        },
+        {
+          "path": "prebuilds/linux-arm64/pty.node.zst",
+          "bytes": 21258,
+          "sha512": "242735b75493af0e5886df5bc995251604d6d5a963c50816aa1e23b02379371d60677ff748d1fe5d11f33eecc91c56db0630bc0136bd3c75a4abfc14d5a005ce"
+        },
+        {
+          "path": "prebuilds/linux-x64/native-manifest.json",
+          "bytes": 418,
+          "sha512": "8ca2234853d09a402c9f257f54bc2de8206ea8a1050ffa1cd21c014e30054049f2ac13c58fdd99f9df34575a3268271a2a0acd8cdb0b648559c478ccab8041b9"
+        },
+        {
+          "path": "prebuilds/linux-x64/pty.node.zst",
+          "bytes": 23070,
+          "sha512": "59cd2f02f9feb1926311da7e2a4fe0333fb98b8300b01a061492413eac5dc9829631129b9a3f72c941cef0207fdb3cd330493d6cd08bee06f60f0c16ba137714"
+        },
+        {
+          "path": "prebuilds/win32-arm64/conpty_console_list.node.zst",
+          "bytes": 48280,
+          "sha512": "58ffb3383618d5d032f0384f29c0133ad47e5319991bf0dbb9a9da4d6ac5f828374e73298c592aa7e4995e2af3e4f08ea7e93301f95b130d01be60bb04f6eed4"
+        },
+        {
+          "path": "prebuilds/win32-arm64/conpty_console_list.pdb",
+          "bytes": 4239360,
+          "sha512": "f9922548b373f517a70102a44b70e690eb6d972e06d096b830b1d9eee020e72c41ac51335c20a536563973ed2087821781e3a27b5f7ec8ac4154e55244f214e7"
+        },
+        {
+          "path": "prebuilds/win32-arm64/conpty.node.zst",
+          "bytes": 111111,
+          "sha512": "d929a5ed3bd4a83e7d5014ffb59033bf4454ce8debe75106a10b25be100290124eb2fed22e14e9334742b369203ab761cb961a37c2081d7f1648bbf21828e630"
+        },
+        {
+          "path": "prebuilds/win32-arm64/conpty.pdb",
+          "bytes": 5935104,
+          "sha512": "84c402069897bed97b7755b0e12b7ce169c155274a7d1e7b464bc83578c42102e65fd6763de56df17699fa42ec07b90b0739ae97ca4feee132a98641d83f9be0"
+        },
+        {
+          "path": "prebuilds/win32-arm64/conpty/conpty.dll",
+          "bytes": 106528,
+          "sha512": "14b9b6f55cdb9f968b818fffd1c3700e2b300846c8998468784d0be58f085802b02f8074972e39a712fa5605bbe7c99fd2913cd8800eab19791fbb825daae1b5"
+        },
+        {
+          "path": "prebuilds/win32-arm64/conpty/OpenConsole.exe",
+          "bytes": 1110560,
+          "sha512": "78e3569756b9029b45bd870b0558ecd1e5b184d5d41de00b748e45928961ba29859a0dc5db468a138c68dd3960e3c008291159bf0fedc556edca9efd6d6d14fa"
+        },
+        {
+          "path": "prebuilds/win32-arm64/native-manifest.json",
+          "bytes": 1210,
+          "sha512": "30513a5e7a15505a9dafa3f7af2896efddefa6283a49fdb067f8182dc2f0faf0b6682af51a9ae443d1b0a9e977797a1fc5335926ff004a49b826771efbacd0e9"
+        },
+        {
+          "path": "prebuilds/win32-x64/conpty_console_list.node.zst",
+          "bytes": 60774,
+          "sha512": "b26bab5194ccea10d340c38e2fea8f5ccc46b22e534e139d2e3780c9fbda0350ee6cf2ed3bc8b802ed6f3db77b105bc3d0c58c38b4ed224849d07bb12742e835"
+        },
+        {
+          "path": "prebuilds/win32-x64/conpty_console_list.pdb",
+          "bytes": 4321280,
+          "sha512": "a8c384826bb45acb5bb1f0a8d5c8d6f15598a4d198d5a6158ceb291fd8299c704aff9158a63636b57ffe240862a5fb55517c01c5d41166edd5bd83f608acfe23"
+        },
+        {
+          "path": "prebuilds/win32-x64/conpty.node.zst",
+          "bytes": 129790,
+          "sha512": "8bbbcabba622caec99327c2ea7fa147946cf481a754ac9108e0799c7a25e9d33ce9a42571d4756100a9ab715e2084642bfd503ea96fcafc51d537941fb059047"
+        },
+        {
+          "path": "prebuilds/win32-x64/conpty.pdb",
+          "bytes": 6311936,
+          "sha512": "01cc0a417a7c0f8882b3cc100edfa6ac705b0dd37a702d71feaf94273a69942c4d5f39187a3aa57e63f2aa08cc2c915d7a31ea4d22c739c42d95ac2ce614a46b"
+        },
+        {
+          "path": "prebuilds/win32-x64/conpty/conpty.dll",
+          "bytes": 110152,
+          "sha512": "f5c36909dca9140ad2135fcf9a7455ad83c3831ef2a428bc3a9545da565891fcc9ff4b9c0660e6f4b15fec122b5b85126868c8739084e54fc27204a754eecaaa"
+        },
+        {
+          "path": "prebuilds/win32-x64/conpty/OpenConsole.exe",
+          "bytes": 1062472,
+          "sha512": "b49451640ed205ce50a5af49628ceaa9815e05f4a635e8404bd5cadb4f70f87a88d4be863731f8533aef979b9bcbac783748bc87c0ea0fb523f28cb020584226"
+        },
+        {
+          "path": "prebuilds/win32-x64/native-manifest.json",
+          "bytes": 1208,
+          "sha512": "f4a6974c42b576f5731c2537e7f4860c47d150245bb4da145aae9e26bf443d106fca7aeece2b64bd72a7597b44c8d0f36da17485ddd2d5051e85170aa52f60d1"
+        },
+        {
+          "path": "scripts/post-install.js",
+          "bytes": 2401,
+          "sha512": "68a113f65379e402c5987a2570135eaa953c7e5250abf756ae10fba39322f5502195f81c55b16cebd4112db3530fded359d91f1f89225075ca7e443738430da0"
+        },
+        {
+          "path": "scripts/prebuild.js",
+          "bytes": 1172,
+          "sha512": "e4a9cd2c44b5db12846b7829d69a1bebc45ea8b3621b6eb0086a6af9f58d5397898c6f1ba9e0493f0f9cf7092bb76eaccf41d8e7ff60c756b0f696418a8649e7"
+        },
+        {
+          "path": "src/unix/pty.cc",
+          "bytes": 23090,
+          "sha512": "65b6cd4acba63beb31b9254df57e60b78ce60aedd5a85e4a27bf2907bf89d1614128eb1418c56bfe2cf30d5fc87363633395de216dd517ac468d7f2a649976fa"
+        },
+        {
+          "path": "src/unix/spawn-helper.cc",
+          "bytes": 494,
+          "sha512": "293d7ef1ee5e666280a659460bb63e5b08f83cfbbad3acb422ec09b8472b1fd788ca7f0d5153e35caf97d7caf71850dc295cd3672e143b2227d28c956f5d2f65"
+        },
+        {
+          "path": "src/win/conpty_console_list.cc",
+          "bytes": 1368,
+          "sha512": "b748dcf44179e22f1d62f4b04085188bc770f3a680c7195df52c19b3df1566d5097d9de6e454fe52ce4668e66305022a9f2442d595aba2b894c046a69f90ac5c"
+        },
+        {
+          "path": "src/win/conpty.cc",
+          "bytes": 23389,
+          "sha512": "c53738037c6245ed97201c74d4d3937d33d6b79b5dd6fe29cddc23e03aa82c08255c13fdd1c7119fd4d11fb5de18122dd02b3690fdeac6fa202de771d6de364c"
+        },
+        {
+          "path": "src/win/conpty.h",
+          "bytes": 1727,
+          "sha512": "2a1c64ad06ee4c644eeeb21df9bbdd046a8720146058a6f886586c2496675c0424160210c5666da6d6784897e00e09be8eee99620415733236b706258d2abda8"
+        },
+        {
+          "path": "src/win/path_util.cc",
+          "bytes": 2607,
+          "sha512": "896e99c3d5790da1b1d7e42845cb62d3330edb05f166bd313a207df88d10f7d746e94cef49d0772b2f05426f5c1cb071b1fcf8ea90c6c09861acda748abfc84c"
+        },
+        {
+          "path": "src/win/path_util.h",
+          "bytes": 695,
+          "sha512": "7492bc305cf5716454c4d7186aa91447e576c4f171b2cf1d3895dce4e9cc8f8bc4b791a03fa8424c14d726a1e8b9ea1f625eacf6a16f63795278865dd46f7b85"
+        },
+        {
+          "path": "third_party/conpty/1.25.260303002/win10-arm64/conpty.dll",
+          "bytes": 106528,
+          "sha512": "14b9b6f55cdb9f968b818fffd1c3700e2b300846c8998468784d0be58f085802b02f8074972e39a712fa5605bbe7c99fd2913cd8800eab19791fbb825daae1b5"
+        },
+        {
+          "path": "third_party/conpty/1.25.260303002/win10-arm64/OpenConsole.exe",
+          "bytes": 1110560,
+          "sha512": "78e3569756b9029b45bd870b0558ecd1e5b184d5d41de00b748e45928961ba29859a0dc5db468a138c68dd3960e3c008291159bf0fedc556edca9efd6d6d14fa"
+        },
+        {
+          "path": "third_party/conpty/1.25.260303002/win10-x64/conpty.dll",
+          "bytes": 110152,
+          "sha512": "f5c36909dca9140ad2135fcf9a7455ad83c3831ef2a428bc3a9545da565891fcc9ff4b9c0660e6f4b15fec122b5b85126868c8739084e54fc27204a754eecaaa"
+        },
+        {
+          "path": "third_party/conpty/1.25.260303002/win10-x64/OpenConsole.exe",
+          "bytes": 1062472,
+          "sha512": "b49451640ed205ce50a5af49628ceaa9815e05f4a635e8404bd5cadb4f70f87a88d4be863731f8533aef979b9bcbac783748bc87c0ea0fb523f28cb020584226"
+        },
+        {
+          "path": "typings/node-pty.d.ts",
+          "bytes": 7935,
+          "sha512": "b5a0c935ed6b276bfcf97242d5b06d2a27cb3fb04764ddcc77ed61216dad6ced12edda173ba4d5945e21e6ae8ebfd6f0f4746a1f5975636d126dc16473a68a1d"
+        }
+      ]
+    }
+  },
+  "baselineBreakdown": {
+    "otherFiles": 201448,
+    "nativeAddons": 1118952,
+    "windowsCompanionsAndSymbols": 25587104
+  },
+  "currentPlatformCache": {
+    "files": [
+      {
+        "path": "v1-7c985cc280e0dcebf25073a033b37c81a1685a3b96266160a1bdc7504f5e37156ab9c23f01d30130732411ccf43fd628ed485757749c2dbd7def3fc9c76f5528/pty.node",
+        "bytes": 86904
+      },
+      {
+        "path": "v1-7c985cc280e0dcebf25073a033b37c81a1685a3b96266160a1bdc7504f5e37156ab9c23f01d30130732411ccf43fd628ed485757749c2dbd7def3fc9c76f5528/spawn-helper",
+        "bytes": 50480
+      }
+    ],
+    "bytes": 137384
+  },
+  "medianRequireMs": {
+    "raw": 2.557417,
+    "first": 46.546,
+    "cached": 5.674667
+  },
+  "timings": [
+    {
+      "round": 0,
+      "kind": "raw",
+      "requireMs": 29.687375,
+      "sameProcessRequireMs": 0.005041,
+      "smoke": "passed"
+    },
+    {
+      "round": 0,
+      "kind": "first",
+      "requireMs": 50.32475,
+      "sameProcessRequireMs": 0.008958,
+      "smoke": "passed"
+    },
+    {
+      "round": 0,
+      "kind": "cached",
+      "requireMs": 5.732375,
+      "sameProcessRequireMs": 0.022875,
+      "smoke": "passed"
+    },
+    {
+      "round": 1,
+      "kind": "first",
+      "requireMs": 37.205583,
+      "sameProcessRequireMs": 0.00825,
+      "smoke": "passed"
+    },
+    {
+      "round": 1,
+      "kind": "cached",
+      "requireMs": 5.4755,
+      "sameProcessRequireMs": 0.0035,
+      "smoke": "passed"
+    },
+    {
+      "round": 1,
+      "kind": "raw",
+      "requireMs": 2.355708,
+      "sameProcessRequireMs": 0.003666,
+      "smoke": "passed"
+    },
+    {
+      "round": 2,
+      "kind": "raw",
+      "requireMs": 2.192583,
+      "sameProcessRequireMs": 0.004083,
+      "smoke": "passed"
+    },
+    {
+      "round": 2,
+      "kind": "first",
+      "requireMs": 46.546,
+      "sameProcessRequireMs": 0.007625,
+      "smoke": "passed"
+    },
+    {
+      "round": 2,
+      "kind": "cached",
+      "requireMs": 5.333916,
+      "sameProcessRequireMs": 0.004208,
+      "smoke": "passed"
+    },
+    {
+      "round": 3,
+      "kind": "first",
+      "requireMs": 43.751958,
+      "sameProcessRequireMs": 0.0075,
+      "smoke": "passed"
+    },
+    {
+      "round": 3,
+      "kind": "cached",
+      "requireMs": 6.081625,
+      "sameProcessRequireMs": 0.004375,
+      "smoke": "passed"
+    },
+    {
+      "round": 3,
+      "kind": "raw",
+      "requireMs": 2.718125,
+      "sameProcessRequireMs": 0.00375,
+      "smoke": "passed"
+    },
+    {
+      "round": 4,
+      "kind": "raw",
+      "requireMs": 2.557417,
+      "sameProcessRequireMs": 0.00375,
+      "smoke": "passed"
+    },
+    {
+      "round": 4,
+      "kind": "first",
+      "requireMs": 105.083416,
+      "sameProcessRequireMs": 0.011333,
+      "smoke": "passed"
+    },
+    {
+      "round": 4,
+      "kind": "cached",
+      "requireMs": 5.056833,
+      "sameProcessRequireMs": 0.003458,
+      "smoke": "passed"
+    },
+    {
+      "round": 5,
+      "kind": "first",
+      "requireMs": 44.213375,
+      "sameProcessRequireMs": 0.006417,
+      "smoke": "passed"
+    },
+    {
+      "round": 5,
+      "kind": "cached",
+      "requireMs": 5.703292,
+      "sameProcessRequireMs": 0.003916,
+      "smoke": "passed"
+    },
+    {
+      "round": 5,
+      "kind": "raw",
+      "requireMs": 2.677417,
+      "sameProcessRequireMs": 0.003834,
+      "smoke": "passed"
+    },
+    {
+      "round": 6,
+      "kind": "raw",
+      "requireMs": 2.255042,
+      "sameProcessRequireMs": 0.0035,
+      "smoke": "passed"
+    },
+    {
+      "round": 6,
+      "kind": "first",
+      "requireMs": 92.709083,
+      "sameProcessRequireMs": 0.009125,
+      "smoke": "passed"
+    },
+    {
+      "round": 6,
+      "kind": "cached",
+      "requireMs": 6.048084,
+      "sameProcessRequireMs": 0.003583,
+      "smoke": "passed"
+    },
+    {
+      "round": 7,
+      "kind": "first",
+      "requireMs": 37.44325,
+      "sameProcessRequireMs": 0.008167,
+      "smoke": "passed"
+    },
+    {
+      "round": 7,
+      "kind": "cached",
+      "requireMs": 5.191625,
+      "sameProcessRequireMs": 0.004292,
+      "smoke": "passed"
+    },
+    {
+      "round": 7,
+      "kind": "raw",
+      "requireMs": 2.300625,
+      "sameProcessRequireMs": 0.003708,
+      "smoke": "passed"
+    },
+    {
+      "round": 8,
+      "kind": "raw",
+      "requireMs": 2.374084,
+      "sameProcessRequireMs": 0.0035,
+      "smoke": "passed"
+    },
+    {
+      "round": 8,
+      "kind": "first",
+      "requireMs": 115.746,
+      "sameProcessRequireMs": 0.00925,
+      "smoke": "passed"
+    },
+    {
+      "round": 8,
+      "kind": "cached",
+      "requireMs": 5.691167,
+      "sameProcessRequireMs": 0.005125,
+      "smoke": "passed"
+    },
+    {
+      "round": 9,
+      "kind": "first",
+      "requireMs": 35.123541,
+      "sameProcessRequireMs": 0.009417,
+      "smoke": "passed"
+    },
+    {
+      "round": 9,
+      "kind": "cached",
+      "requireMs": 5.50575,
+      "sameProcessRequireMs": 0.003416,
+      "smoke": "passed"
+    },
+    {
+      "round": 9,
+      "kind": "raw",
+      "requireMs": 2.721292,
+      "sameProcessRequireMs": 0.003708,
+      "smoke": "passed"
+    },
+    {
+      "round": 10,
+      "kind": "raw",
+      "requireMs": 2.631291,
+      "sameProcessRequireMs": 0.004042,
+      "smoke": "passed"
+    },
+    {
+      "round": 10,
+      "kind": "first",
+      "requireMs": 107.662084,
+      "sameProcessRequireMs": 0.0195,
+      "smoke": "passed"
+    },
+    {
+      "round": 10,
+      "kind": "cached",
+      "requireMs": 5.674667,
+      "sameProcessRequireMs": 0.0055,
+      "smoke": "passed"
+    },
+    {
+      "round": 11,
+      "kind": "first",
+      "requireMs": 41.060458,
+      "sameProcessRequireMs": 0.008541,
+      "smoke": "passed"
+    },
+    {
+      "round": 11,
+      "kind": "cached",
+      "requireMs": 5.76475,
+      "sameProcessRequireMs": 0.005542,
+      "smoke": "passed"
+    },
+    {
+      "round": 11,
+      "kind": "raw",
+      "requireMs": 2.5095,
+      "sameProcessRequireMs": 0.003875,
+      "smoke": "passed"
+    },
+    {
+      "round": 12,
+      "kind": "raw",
+      "requireMs": 2.61425,
+      "sameProcessRequireMs": 0.004125,
+      "smoke": "passed"
+    },
+    {
+      "round": 12,
+      "kind": "first",
+      "requireMs": 81.503958,
+      "sameProcessRequireMs": 0.008583,
+      "smoke": "passed"
+    },
+    {
+      "round": 12,
+      "kind": "cached",
+      "requireMs": 5.851208,
+      "sameProcessRequireMs": 0.006042,
+      "smoke": "passed"
+    },
+    {
+      "round": 13,
+      "kind": "first",
+      "requireMs": 37.023625,
+      "sameProcessRequireMs": 0.008625,
+      "smoke": "passed"
+    },
+    {
+      "round": 13,
+      "kind": "cached",
+      "requireMs": 5.809292,
+      "sameProcessRequireMs": 0.006875,
+      "smoke": "passed"
+    },
+    {
+      "round": 13,
+      "kind": "raw",
+      "requireMs": 2.756208,
+      "sameProcessRequireMs": 0.003917,
+      "smoke": "passed"
+    },
+    {
+      "round": 14,
+      "kind": "raw",
+      "requireMs": 2.787,
+      "sameProcessRequireMs": 0.003625,
+      "smoke": "passed"
+    },
+    {
+      "round": 14,
+      "kind": "first",
+      "requireMs": 84.950833,
+      "sameProcessRequireMs": 0.009375,
+      "smoke": "passed"
+    },
+    {
+      "round": 14,
+      "kind": "cached",
+      "requireMs": 5.231333,
+      "sameProcessRequireMs": 0.00525,
+      "smoke": "passed"
+    },
+    {
+      "round": 15,
+      "kind": "first",
+      "requireMs": 42.587042,
+      "sameProcessRequireMs": 0.012291,
+      "smoke": "passed"
+    },
+    {
+      "round": 15,
+      "kind": "cached",
+      "requireMs": 5.8495,
+      "sameProcessRequireMs": 0.005458,
+      "smoke": "passed"
+    },
+    {
+      "round": 15,
+      "kind": "raw",
+      "requireMs": 2.506917,
+      "sameProcessRequireMs": 0.003875,
+      "smoke": "passed"
+    },
+    {
+      "round": 16,
+      "kind": "raw",
+      "requireMs": 2.159583,
+      "sameProcessRequireMs": 0.003833,
+      "smoke": "passed"
+    },
+    {
+      "round": 16,
+      "kind": "first",
+      "requireMs": 119.486792,
+      "sameProcessRequireMs": 0.009084,
+      "smoke": "passed"
+    },
+    {
+      "round": 16,
+      "kind": "cached",
+      "requireMs": 5.270375,
+      "sameProcessRequireMs": 0.005292,
+      "smoke": "passed"
+    },
+    {
+      "round": 17,
+      "kind": "first",
+      "requireMs": 41.109959,
+      "sameProcessRequireMs": 0.005875,
+      "smoke": "passed"
+    },
+    {
+      "round": 17,
+      "kind": "cached",
+      "requireMs": 5.147458,
+      "sameProcessRequireMs": 0.005334,
+      "smoke": "passed"
+    },
+    {
+      "round": 17,
+      "kind": "raw",
+      "requireMs": 2.555334,
+      "sameProcessRequireMs": 0.004583,
+      "smoke": "passed"
+    },
+    {
+      "round": 18,
+      "kind": "raw",
+      "requireMs": 2.930625,
+      "sameProcessRequireMs": 0.004,
+      "smoke": "passed"
+    },
+    {
+      "round": 18,
+      "kind": "first",
+      "requireMs": 84.54625,
+      "sameProcessRequireMs": 0.00875,
+      "smoke": "passed"
+    },
+    {
+      "round": 18,
+      "kind": "cached",
+      "requireMs": 6.232375,
+      "sameProcessRequireMs": 0.005542,
+      "smoke": "passed"
+    },
+    {
+      "round": 19,
+      "kind": "first",
+      "requireMs": 42.11925,
+      "sameProcessRequireMs": 0.007125,
+      "smoke": "passed"
+    },
+    {
+      "round": 19,
+      "kind": "cached",
+      "requireMs": 5.122583,
+      "sameProcessRequireMs": 0.006459,
+      "smoke": "passed"
+    },
+    {
+      "round": 19,
+      "kind": "raw",
+      "requireMs": 2.684125,
+      "sameProcessRequireMs": 0.004042,
+      "smoke": "passed"
+    },
+    {
+      "round": 20,
+      "kind": "raw",
+      "requireMs": 2.213875,
+      "sameProcessRequireMs": 0.003917,
+      "smoke": "passed"
+    },
+    {
+      "round": 20,
+      "kind": "first",
+      "requireMs": 107.075542,
+      "sameProcessRequireMs": 0.008875,
+      "smoke": "passed"
+    },
+    {
+      "round": 20,
+      "kind": "cached",
+      "requireMs": 5.048125,
+      "sameProcessRequireMs": 0.005791,
+      "smoke": "passed"
+    }
+  ]
+}
