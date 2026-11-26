@@ -114,6 +114,14 @@ struct ExitEvent {
 
 #if defined(__linux__)
 
+struct linux_dirent64 {
+  uint64_t d_ino;
+  int64_t d_off;
+  unsigned short d_reclen;
+  unsigned char d_type;
+  char d_name[256];
+};
+
 static int
 SetCloseOnExec(int fd) {
   int flags = fcntl(fd, F_GETFD, 0);
@@ -136,6 +144,24 @@ pty_close_inherited_fds() {
     return;
   }
   #endif
+
+  int dir = open("/proc/self/fd", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  if (dir != -1) {
+    alignas(linux_dirent64) char buf[4096];
+    long n;
+    while ((n = syscall(SYS_getdents64, dir, buf, sizeof(buf))) > 0) {
+      for (long offset = 0; offset < n;) {
+        const linux_dirent64 *entry = reinterpret_cast<const linux_dirent64 *>(buf + offset);
+        offset += entry->d_reclen;
+        int fd = atoi(entry->d_name);
+        if (fd > 2)
+          SetCloseOnExec(fd);
+      }
+    }
+    close(dir);
+    if (n == 0)
+      return;
+  }
 
   int fd;
   // Set the CLOEXEC flag on all open descriptors. Unconditionally try the first

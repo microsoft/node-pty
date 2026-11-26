@@ -263,8 +263,15 @@ if (process.platform !== 'win32') {
       if (process.platform === 'linux') {
         it('should not leak pty file descriptors to child processes', (done) => {
           // Spawn 3 ptys - the 3rd should not see FDs from the first two
+          const gap: number[] = [];
+          for (let i = 0; i < 32; i++) {
+            gap.push(fs.openSync('/dev/null', 'r'));
+          }
           const ptys: UnixTerminalType[] = [];
           for (let i = 0; i < 3; i++) {
+            if (i === 2) {
+              gap.forEach(fd => fs.closeSync(fd));
+            }
             ptys.push(new UnixTerminal('/bin/bash', [], {}));
           }
 
