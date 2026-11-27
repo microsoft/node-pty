@@ -99,6 +99,7 @@ extends:
           tag: beta
           publishRequiresApproval: false
 
+        skipAPIScan: ${{ not(or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), startsWith(variables['Build.SourceBranch'], 'refs/heads/release/'))) }}
         apiScanExcludes: |
           package/third_party/conpty/**/win10-arm64/*.*
           package/prebuilds/win32-arm64/conpty/*.*
